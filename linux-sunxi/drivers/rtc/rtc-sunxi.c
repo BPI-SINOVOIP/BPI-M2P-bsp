@@ -49,6 +49,9 @@
 #define SUNXI_LOSC_OUT_GATING		(0x60)
 #define SUNXI_GPDATA_REG(x)		(0x100 + ((x) << 2)) /* x: 0 ~ 7 */
 
+#define SUNXI_INTOSC_CLK_PRESCAL_REG	(0x08)
+#define INTOSC_PERSCAL					(15)
+
 /*rtc count interrupt control*/
 #define RTC_ALARM_COUNT_INT_EN		0x00000001
 
@@ -509,7 +512,12 @@ static int __init sunxi_rtc_probe(struct platform_device *pdev)
 	tmp_data = sunxi_rtc_read(SUNXI_LOSC_CTRL_REG);
 	if(!(tmp_data & RTC_SOURCE_EXTERNAL)){
 		printk(KERN_ERR "[RTC] WARNING: Rtc time will be wrong!!\n");
-		losc_err_flag = 1;
+		printk(KERN_ERR "[RTC] WARNING: use *internal OSC* as clock source\n");
+		tmp_data = sunxi_rtc_read(SUNXI_LOSC_CTRL_REG);
+		tmp_data &= (~RTC_SOURCE_EXTERNAL);
+		tmp_data |= (REG_CLK32K_AUTO_SWT_EN | REG_LOSCCTRL_MAGIC);
+		sunxi_rtc_write(tmp_data, SUNXI_LOSC_CTRL_REG);
+		sunxi_rtc_write(INTOSC_PERSCAL, SUNXI_INTOSC_CLK_PRESCAL_REG);
 	}
 
 	device_init_wakeup(&pdev->dev, 1);

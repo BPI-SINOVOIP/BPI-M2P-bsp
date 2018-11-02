@@ -46,33 +46,53 @@ include ../config/preconfig.mk
 ifeq ($(TARGET_DEVICE),)
 override TARGET_DEVICE := \
  $(patsubst mini_%,%,$(patsubst full_%,%,$(TARGET_PRODUCT)))
+ifeq ($(TARGET_DEVICE),arm64_img)
+override TARGET_DEVICE := arm64
+endif
+ifeq ($(TARGET_DEVICE),armv7a_neon_img)
+override TARGET_DEVICE := armv7-a-neon
+endif
 endif
 
 ifeq ($(TARGET_DEVICE),)
-override TARGET_DEVICE := armv7-a-neon
+# Prefer arm64 now for MULTIARCH=1 builds.
+# Use TARGET_DEVICE=armv7-a-neon for 32-bit only builds.
+override TARGET_DEVICE := arm64
+endif
+
+ifeq ($(TARGET_DEVICE),armv7-a-neon)
+# The 32-bit only Android build is still using separate toolchains for
+# kernel and userspace, force this on the DDK side when it's detected.
+#KERNEL_CROSS_COMPILE ?= arm-eabi-
 endif
 
 HAL_VARIANT ?= sunxi
 PVR_SYSTEM := rgx_sunxi
 NO_HARDWARE := 0
 LDM_PLATFORM := 1
-KERNEL_CROSS_COMPILE ?= arm-linux-gnueabi-
+
+RGX_BVNC ?= 1.75.2.30
+
 PVRSRV_NEED_PVR_DPF := 1
 BUILD := release
+SUPPORT_DISPLAY_CLASS = 0
 
 include ../common/android/paths.mk
-include ../common/android/armv7-a.mk
+include ../common/android/arch.mk
 include ../common/android/features.mk
 
-ifneq ($(strip $(KERNELDIR)),)
- include ../config/kernel_version.mk
- ifeq ($(call kernel-version-at-least,2,6,39),true)
-   PVR_LDM_PLATFORM_PRE_REGISTERED := 1
-   PVR_LDM_PLATFORM_PRE_REGISTERED_DEV := "\"pvrsrvkm\""
- endif
+ifeq ($(SUPPORT_ADF),1)
+ifneq ($(is_future_version),1)
+SYS_INCLUDES += \
+ -isystem $(ANDROID_ROOT)/device/img/generic/adf/libadf/include \
+ -isystem $(ANDROID_ROOT)/device/img/generic/adf/libadfhwc/include
 endif
+endif
+
+PVR_LDM_PLATFORM_PRE_REGISTERED := 0
 
 CACHEFLUSH_TYPE ?= CACHEFLUSH_GENERIC
 
 include ../config/core.mk
+include ../common/3rdparty.mk
 include ../common/android/extra_config.mk

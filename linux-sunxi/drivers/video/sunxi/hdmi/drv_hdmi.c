@@ -554,6 +554,7 @@ __s32 Hdmi_init(void)
 			audio_func.hdmi_is_playback = Hdmi_Is_Playback;
 			audio_set_hdmi_func(&audio_func);
 #endif
+			memset(&disp_func, 0, sizeof(disp_hdmi_func));
 			disp_func.hdmi_open = Hdmi_open;
 			disp_func.hdmi_close = Hdmi_close;
 			disp_func.hdmi_set_mode = Hdmi_set_display_mode;

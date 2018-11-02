@@ -54,34 +54,66 @@ endif
 
 HAL_VARIANT := pc
 
-ifeq ($(NO_HARDWARE),1)
-LDM_PLATFORM := 1
-PVR_SYSTEM := rgx_nohw
-DISPLAY_CONTROLLER ?= dc_example
-else
-LDM_PCI := 1
-PVR_SYSTEM := rgx_tc
-DISPLAY_CONTROLLER ?= dc_pdp
-TC_MEMORY_CONFIG := TC_MEMORY_LOCAL
-
-SUPPORT_SYSTEM_INTERRUPT_HANDLING := 1
-endif
-
-RGX_BVNC ?= 1.7.4.5
-#RGX_BVNC ?= 1.82.4.5
+#RGX_BVNC ?= 1.7.4.5
+RGX_BVNC ?= 1.82.4.5
 
 include ../common/android/paths.mk
-include ../common/android/x86.mk
+include ../common/android/arch.mk
 include ../common/android/features.mk
+
+ifeq ($(SUPPORT_ADF),1)
+ifneq ($(is_future_version),1)
+SYS_INCLUDES += \
+ -isystem $(ANDROID_ROOT)/device/img/pc/adf/libadf/include \
+ -isystem $(ANDROID_ROOT)/device/img/pc/adf/libadfhwc/include
+endif
+endif
+
+ifeq ($(NO_HARDWARE),1)
+ LDM_PLATFORM := 1
+ PVR_SYSTEM := rgx_nohw
+ # If we end up using dc_fbdev, Android always wants to be
+ # triple buffered in when running in pure-software mode.
+ DC_FBDEV_NUM_PREFERRED_BUFFERS := 3
+else
+ ifeq ($(SUPPORT_ADF),1)
+  PVR_LDM_PLATFORM_PRE_REGISTERED := 1
+  LMA := 1
+  LDM_PLATFORM := 1
+  PVR_SYSTEM := rgx_linux_apollo
+  SUPPORT_SYSTEM_INTERRUPT_HANDLING := 1
+  ION_DEFAULT_HEAP_ID_MASK := (1 << (ION_HEAP_TYPE_CUSTOM + 2))
+ else
+  LDM_PCI := 1
+  PVR_SYSTEM := rgx_tc
+  TC_MEMORY_CONFIG := TC_MEMORY_LOCAL
+  SUPPORT_SYSTEM_INTERRUPT_HANDLING := 1
+ endif
+endif
+
+ifeq ($(SUPPORT_ADF),1)
+ ifneq ($(NO_HARDWARE),1)
+  DISPLAY_CONTROLLER ?= adf_pdp
+ endif
+else
+ ifeq ($(NO_HARDWARE),1)
+  DISPLAY_CONTROLLER ?= dc_example
+ else
+  DISPLAY_CONTROLLER ?= dc_pdp
+ endif
+endif
+
+ifeq ($(DISPLAY_CONTROLLER),adf_pdp)
+ADF_PDP_WIDTH ?= 1280
+ADF_PDP_HEIGHT ?= 720
+KERNEL_COMPONENTS += apollo
+endif
 
 KERNEL_COMPONENTS += $(DISPLAY_CONTROLLER)
 
-# We can't use Android's x86 GCC because it doesn't support
-# building kernel images.
-#
-KERNEL_CROSS_COMPILE := undef
-
 CACHEFLUSH_TYPE ?= CACHEFLUSH_X86
+
+PVR_ANDROID_DEFER_CLEAR ?= 1
 
 ifeq ($(PVR_SYSTEM),rgx_tc)
 ifeq ($(TC_MEMORY_CONFIG),TC_MEMORY_LOCAL)
@@ -90,13 +122,9 @@ LMA := 1
 # heap. The choice of ION_HEAP_TYPE_CUSTOM+1 as the ID is
 # arbitrary, but it has to match the one specified in the
 # TC-specific ion support code.
-ION_DEFAULT_HEAP_MASK := 1 << (ION_HEAP_TYPE_CUSTOM + 1)
+ION_DEFAULT_HEAP_ID_MASK := 1 << (ION_HEAP_TYPE_CUSTOM + 1)
 endif
 endif
-
-include ../config/core.mk
-include ../common/android/extra_config.mk
-include ../common/pvrgdb.mk
 
 ifeq ($(DISPLAY_CONTROLLER),dc_pdp)
 DCPDP_WIDTH ?= 1280
@@ -104,5 +132,8 @@ DCPDP_HEIGHT ?= 720
 DCPDP_NO_INTERRUPTS ?= 1
 endif
 
+include ../config/core.mk
+include ../common/android/extra_config.mk
+include ../common/pvrgdb.mk
+include ../common/3rdparty.mk
 include ../common/testchip.mk
-

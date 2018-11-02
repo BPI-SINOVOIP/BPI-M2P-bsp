@@ -43,6 +43,19 @@ core_param(verbose_smc, verbose_smc, bool, 0644);
 #define ROUND_UP(N, S) ((((N) + (S) - 1) / (S)) * (S))
 #define SET_RESULT(req, r, ro)	{ req->result = r; req->result_origin = ro; }
 
+/*generic smc for cpu 0*/
+u32  sunxi_smc_call(struct smc_param *param)
+{	
+	unsigned int cpu_id;
+
+	cpu_id = get_cpu();
+	if(cpu_id != 0)
+		panic("CPU %d try to enter generic smc call which fix to CPU 0\n");
+	put_cpu();
+
+	return __sunxi_smc_call(param);
+}
+
 u32 te_smc_command_send(u32 arg0, u32 arg1, u32 arg2, u32 arg3)
 {
 	struct smc_param param;

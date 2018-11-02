@@ -362,7 +362,12 @@ static const char *sdmmc2_parents[] = {"sdmmc2mod"};
 static const char *hdmi_parents[]= {"pll_video1","","",""};
 static const char *mipidsi0_parents[]= {"pll_video0","","","",  "","","","",  "pll_video0","","","",  "","","",""}; //mipi_dsi10
 static const char *mipidsi1_parents[]= {"hosc","","","",  "","","","",  "","pll_video0","","",  "","","",""}; //mipi_dsi1
+static const char *pll_periphcpus_parents[] = {"pll_periph"};
+static const char *cpurcpus_parents[] = {"losc" , "hosc" , "pll_periphcpus" , "cpuosc" };
+static const char *cpurahbs_parents[] = {"cpurcpus"};
+static const char *cpurapbs_parents[] = {"cpurahbs"};
 static const char *cpurdev_parents[]  = {"losc", "hosc","",""};
+static const char *cpurtwi_parents[] = {"cpurapbs"};
 static const char *lvds_parents[] = {"lcd0"};
 static const char *de_parents[] = {"pll_de"};
 static const char *gmac_parents[] = {"ahb1","ahb2","",""};
@@ -436,6 +441,10 @@ SUNXI_CLK_PERIPH(uart1,   0,           0,        0,         0,          0,      
 SUNXI_CLK_PERIPH(uart2,   0,           0,        0,         0,          0,          0,          0,          0,          0,          0,          APB2_RST,   APB2_GATE,   0,            0,           18,          18,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(uart3,   0,           0,        0,         0,          0,          0,          0,          0,          0,          0,          APB2_RST,   APB2_GATE,   0,            0,           19,          19,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(uart4,   0,           0,        0,         0,          0,          0,          0,          0,          0,          0,          APB2_RST,   APB2_GATE,   0,            0,           20,          20,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(pll_periphcpus,  0,   0,        0,         CPUS_CFG,   8,          5,          0,          0,          0,          0,          0,         0,            0,            0,            0,           0,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(cpurcpus, CPUS_CFG,   16,       2,         CPUS_CFG,   0,          0,           4,         2,          0,          0,				0,  	0, 			0,     		   0,           0,            0,              0,               &clk_lock,NULL,             0); 
+SUNXI_CLK_PERIPH(cpurahbs, 0,           0,       0,         0,          0,          0,           0,         0,          0,          0,				0,  	0, 			0,     		   0,           0,            0,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(cpurapbs, 0,           0,       0,         CPUS_APB0,  0,          2,           0,         0,          0,          0,				0,  	0, 			0,     		   0,           0,            0,              0,               &clk_lock,NULL,             0); 
 SUNXI_CLK_PERIPH(cpurcir,  CPUS_CIR,  24,        2,         CPUS_CIR,   0,          4,          16,         2,          0,          CPUS_CIR,   CPUS_APB0_GATE,CPUS_APB0_RST,0,       31,            1,           1,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(twi3,    0,           0,        0,         0,          0,          0,          0,          0,          0,          0,     CPUS_APB0_RST, CPUS_APB0_GATE,0,            0,            6,           6,              0,               &clk_lock,NULL,             0);
 
@@ -503,8 +512,12 @@ struct periph_init_data sunxi_periphs_init[] = {
 };
 
 struct periph_init_data sunxi_periphs_cpus_init[] = {
+    {"pll_periphcpus",CLK_GET_RATE_NOCACHE|CLK_READONLY, pll_periphcpus_parents,ARRAY_SIZE(pll_periphcpus_parents),&sunxi_clk_periph_pll_periphcpus},
+    {"cpurcpus",CLK_GET_RATE_NOCACHE|CLK_READONLY, cpurcpus_parents,ARRAY_SIZE(cpurcpus_parents),&sunxi_clk_periph_cpurcpus},
+    {"cpurahbs",CLK_GET_RATE_NOCACHE|CLK_READONLY, cpurahbs_parents,ARRAY_SIZE(cpurahbs_parents),&sunxi_clk_periph_cpurahbs},
+    {"cpurapbs",CLK_GET_RATE_NOCACHE|CLK_READONLY, cpurapbs_parents,ARRAY_SIZE(cpurapbs_parents),&sunxi_clk_periph_cpurapbs},
     {"cpurcir",CLK_GET_RATE_NOCACHE,    cpurdev_parents,ARRAY_SIZE(cpurdev_parents),    &sunxi_clk_periph_cpurcir},
-    {"twi3",     0,       				apb2mod_parents,  ARRAY_SIZE(apb2mod_parents),  &sunxi_clk_periph_twi3},
+    {"twi3", CLK_GET_RATE_NOCACHE, 	cpurtwi_parents,ARRAY_SIZE(cpurtwi_parents),    &sunxi_clk_periph_twi3},
 };
 #ifdef CONFIG_COMMON_CLK_ENABLE_SYNCBOOT_EARLY
 extern int clk_syncboot(void);
@@ -523,7 +536,7 @@ void __init sunxi_init_clocks(void)
 #else
     /* get clk register base address */
     sunxi_clk_base = IO_ADDRESS(0x01c20000);
-    sunxi_clk_cpus_base = IO_ADDRESS(0x01f01400);
+    //sunxi_clk_cpus_base = IO_ADDRESS(0x01f01400);
 #endif
     sunxi_clk_factor_initlimits();
     /* register oscs */
@@ -532,6 +545,9 @@ void __init sunxi_init_clocks(void)
 
     clk = clk_register_fixed_rate(NULL, "hosc", NULL, CLK_IS_ROOT, 24000000);
     clk_register_clkdev(clk, "hosc", NULL);
+
+    clk = clk_register_fixed_rate(NULL, "cpuosc", NULL, CLK_IS_ROOT, 16000000);
+    clk_register_clkdev(clk, "cpuosc", NULL);
 
     sunxi_clk_get_factors_ops(&mipi_ops);
     mipi_ops.get_parent = get_parent_mipi;

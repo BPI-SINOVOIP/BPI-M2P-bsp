@@ -7,7 +7,7 @@
 #define TEE_SMC_NS_IRQ_DONE	(0x0FFFFFF7)
 #define TEE_SMC_NS_IRQ_CALL	(0x0FFFFFF6)
 
-ENTRY(sunxi_smc_call)
+ENTRY(__sunxi_smc_call)
         push	{r4-r12, lr}
 	mrs     r5,  cpsr
         cpsid	if
@@ -36,4 +36,15 @@ sunxi_smc_irq_handle:
         cpsid	i
         ldr     r0, =TEE_SMC_NS_IRQ_DONE
 	b       sunxi_issue_smc            @ Goback to secure world
-ENDPROC(sunxi_smc_call)
+
+ENDPROC(__sunxi_smc_call)
+
+ENTRY(__sunxi_fast_smc_call)
+    push	{r4-r12, lr}
+	mov	r4, r0
+	ldm	r4, {r0-r3}
+    .arch_extension sec
+	smc	#0
+	stm	r4, {r0-r3}
+	pop	{r4-r12, pc}
+ENDPROC(__sunxi_fast_smc_call)

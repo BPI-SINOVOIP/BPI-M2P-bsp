@@ -22,7 +22,6 @@ static void w1_gpio_write_bit_dir(void *data, u8 bit)
 {
 	struct w1_gpio_platform_data *pdata = data;
 
-        //printk(KERN_INFO "W1_GPIO: write_bit_dir %d,%d\n", pdata->pin, bit);
 	if (bit)
 		gpio_direction_input(pdata->pin);
 	else
@@ -33,45 +32,35 @@ static void w1_gpio_write_bit_val(void *data, u8 bit)
 {
 	struct w1_gpio_platform_data *pdata = data;
 
-        //printk(KERN_INFO "W1_GPIO: write_bit_data %d,%d\n", pdata->pin, bit);
-	__gpio_set_value(pdata->pin, bit);
+	gpio_set_value(pdata->pin, bit);
 }
 
 static u8 w1_gpio_read_bit(void *data)
 {
-        u8 pin_val;
 	struct w1_gpio_platform_data *pdata = data;
 
-	pin_val = __gpio_get_value(pdata->pin) ? 1 : 0;
-        //printk(KERN_INFO "W1_GPIO: read_bit %d,%d\n", pdata->pin, pin_val);
-        return pin_val;
+	return gpio_get_value(pdata->pin) ? 1 : 0;
 }
 
-static int __init w1_gpio_probe(struct platform_device *pdev)
+static int w1_gpio_probe(struct platform_device *pdev)
 {
 	struct w1_bus_master *master;
-	struct w1_gpio_platform_data *pdata; // = pdev->dev.platform_data;
+	struct w1_gpio_platform_data *pdata = pdev->dev.platform_data;
 	int err;
-        
-        pdata = dev_get_platdata(&pdev->dev);
 
-	if (!pdata) {
-                printk(KERN_ERR "W1-GPIO: no configuration pdata");
+	if (!pdata)
 		return -ENXIO;
-        }
-        
+
 	master = kzalloc(sizeof(struct w1_bus_master), GFP_KERNEL);
-	if (!master) {
-                printk(KERN_ERR "W1-GPIO: Out of memory");
+	if (!master)
 		return -ENOMEM;
-        }
-        
+
 	err = gpio_request(pdata->pin, "w1");
 	if (err) {
-                printk(KERN_ERR "W1_GPIO: gpio request for pin %d failed\n", pdata->pin);
+		dev_err(&pdev->dev, "failed to request GPIO %d\n", pdata->pin);
 		goto free_master;
-        }
-        
+	}
+
 	master->data = pdata;
 	master->read_bit = w1_gpio_read_bit;
 
@@ -92,7 +81,6 @@ static int __init w1_gpio_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, master);
 
-        printk(KERN_INFO "W1_GPIO: added w1 master on GPIO%d\n", pdata->pin);
 	return 0;
 
  free_gpio:
@@ -103,7 +91,7 @@ static int __init w1_gpio_probe(struct platform_device *pdev)
 	return err;
 }
 
-static int __exit w1_gpio_remove(struct platform_device *pdev)
+static int w1_gpio_remove(struct platform_device *pdev)
 {
 	struct w1_bus_master *master = platform_get_drvdata(pdev);
 	struct w1_gpio_platform_data *pdata = pdev->dev.platform_data;
@@ -150,14 +138,15 @@ static struct platform_driver w1_gpio_driver = {
 		.name	= "w1-gpio",
 		.owner	= THIS_MODULE,
 	},
-	.remove	= __exit_p(w1_gpio_remove),
+	.probe = w1_gpio_probe,
+	.remove	= w1_gpio_remove,
 	.suspend = w1_gpio_suspend,
 	.resume = w1_gpio_resume,
 };
 
 static int __init w1_gpio_init(void)
 {
-	return platform_driver_probe(&w1_gpio_driver, w1_gpio_probe);
+	return platform_driver_register(&w1_gpio_driver);
 }
 
 static void __exit w1_gpio_exit(void)

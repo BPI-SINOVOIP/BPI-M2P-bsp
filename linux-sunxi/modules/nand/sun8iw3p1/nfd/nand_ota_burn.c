@@ -108,7 +108,7 @@ __s32 burn_boot0_1k_mode(__u32 read_retry_type, __u32 Boot0_buf)
 		if (PHY_SimpleErase( &para ) < 0)
 		{
 			debug("Fail in erasing block %d.\n", i);
-			continue;
+			//continue;
 		}
 		debug("after erase.\n" );
 
@@ -174,7 +174,7 @@ __s32 burn_boot0_1k_mode_F16(__u32 read_retry_type, __u32 Boot0_buf)
 		if (PHY_SimpleErase( &para ) < 0)
 		{
 			debug("Fail in erasing block %d.\n", i);
-			continue;
+			//continue;
 		}
 		debug("after erase.\n" );
 
@@ -252,7 +252,7 @@ __s32 burn_boot0_lsb_mode(__u32 read_retry_type, __u32 Boot0_buf)
 		if (PHY_SimpleErase( &para ) < 0)
 		{
 			debug("Fail in erasing block %d\n", i);
-			continue;
+			//continue;
 		}
 		debug("after erase.\n" );
 
@@ -374,7 +374,7 @@ __s32  burn_boot0_lsb_FF_mode(__u32 read_retry_type, __u32 Boot0_buf )
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 
         /* 在块中烧写boot0备份, lsb mode下，每个块只能写前2个page */
@@ -843,7 +843,7 @@ __s32 burn_boot1_in_one_blk(__u32 BOOT1_buf, __u32 length)
 		if( PHY_SimpleErase( &para ) < 0 )
 		{
 			debug("Fail in erasing block %d.\n", i );
-			continue;
+			//continue;
 		}
 	
 		for (k=0; k<pages_per_copy; k++)

@@ -15,6 +15,10 @@ module_param_named(ctp_mask, ctp_mask, int , S_IRUGO | S_IWUSR | S_IWGRP);
 /*gsensor info*/
 static struct sw_device_info gsensors[] = {
         {    "bma250", {0x18, 0x19, 0x08, 0x38}, 0x00, {0x02,0x03,0xf9}, 0},
+#ifdef CONFIG_ARCH_SUN8IW8
+
+		{     "da380", {0x27, 0x26            }, 0x01, {0x13          }, 0},
+#endif
         {   "mma8452", {0x1c, 0x1d            }, 0x0d, {0x2A          }, 0},
         {   "mma7660", {0x4c                  }, 0x00, {0x00          }, 0},
         {   "mma865x", {0x1d                  }, 0x0d, {0x4A,0x5A     }, 0},
@@ -28,6 +32,8 @@ static struct sw_device_info gsensors[] = {
         {  "fxos8700", {0x1c, 0x1d, 0x1e, 0x1f}, 0x0d, {0xc7          }, 0},
         {   "lsm303d", {0x1e, 0x1d            }, 0x0f, {0x49          }, 0},    
 };
+
+#ifndef CONFIG_ARCH_SUN8IW8
 /*ctp info*/
 static struct sw_device_info ctps[] = {
         { "ft5x_ts", {      0x38},   0xa3, {0x55,0x08,0x02,0x06,0xa3}, 0},
@@ -51,6 +57,7 @@ static struct sw_device_info gyr_sensors[] = {
 static struct sw_device_info compass_sensors[] = {
         {"lsm303d", {0x1e, 0x1d            }, 0x0f, {0x49          }, 0}, 
 };
+
 
 /*lsensors para_name info*/
 static struct para_name ls_name = {
@@ -82,6 +89,18 @@ static struct para_name gyr_name = {
         GYR_SENSOR_DEVICE_KEY_NAME,
 };
 
+/*ctp para_name info*/
+static struct para_name c_name = {
+        "ctp_para",
+        "ctp_used",
+        "ctp_list_para",
+        "ctp_det_used",
+        "ctp_twi_id",
+        CTP_DEVICE_KEY_NAME,
+};
+
+#endif
+
 /*gsensor para_name info*/
 static struct para_name g_name = {
         "gsensor_para",
@@ -92,15 +111,7 @@ static struct para_name g_name = {
         GSENSOR_DEVICE_KEY_NAME,
 };
 
-/*ctp para_name info*/
-static struct para_name c_name = {
-        "ctp_para",
-        "ctp_used",
-        "ctp_list_para",
-        "ctp_det_used",
-        "ctp_twi_id",
-        CTP_DEVICE_KEY_NAME,
-};
+
 	
 static struct sw_device_name d_name = {"", "", "", "", 0, 0, 0, 0};
 static void sw_devices_events(struct work_struct *work);
@@ -171,6 +182,7 @@ static int i2c_check_addr(char check_addr[], unsigned short address)
         return 0;
 }
 
+#ifndef CONFIG_ARCH_SUN8IW8
 /**
  * ctp_wakeup - function
  *
@@ -219,6 +231,7 @@ static int ctp_wakeup(struct gpio_config gpio, int ms)
 
 	return 0;
 }
+#endif
 
 static script_item_u get_para_value(char* keyname, char* subname)
 {
@@ -908,7 +921,7 @@ static void sw_devices_events(struct work_struct *work)
                 ret = sw_register_device_detect(gsensors, &g_name, device_number);
                 if(ret < 0)
                         printk("gsensor detect fail!\n");
-
+#ifndef CONFIG_ARCH_SUN8IW8
                 device_number = (sizeof(lsensors)) / (sizeof(lsensors[0]));
                 ret = sw_register_device_detect(lsensors, &ls_name, device_number);
                 if(ret < 0)
@@ -923,7 +936,9 @@ static void sw_devices_events(struct work_struct *work)
                 ret = sw_register_device_detect(compass_sensors, &compass_name, device_number);
                 if(ret < 0)
                         printk("compass detect fail!\n");
+#endif				
         }
+#ifndef CONFIG_ARCH_SUN8IW8
         
         device_number = (sizeof(ctps)) / (sizeof(ctps[0]));
         ctp_wakeup(value, 20);
@@ -931,7 +946,7 @@ static void sw_devices_events(struct work_struct *work)
         ret = sw_register_device_detect(ctps, &c_name, device_number);        
         if(ret < 0)
                 printk("ctp detect fail!\n"); 
-        
+#endif		
         dprintk(DEBUG_INIT, "[sw_device]:%s end!\n", __func__);       
 }	
 

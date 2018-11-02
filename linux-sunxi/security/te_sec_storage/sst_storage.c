@@ -22,6 +22,7 @@
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/crc32.h>
+#include <asm/firmware.h>
 
 #include "sst.h"
 #include "sst_debug.h"
@@ -242,7 +243,7 @@ static int nv_write( int id,char *buf, ssize_t len )
 			ret = _sd_write(id, buf,len);
 			break;
 		default:
-			printk("Unknown no-volatile device\n");
+			pr_err("Unknown no-volatile device\n");
 			ret = -1 ;
 			break; 
 	}
@@ -263,7 +264,7 @@ static int nv_read( int	id, char *buf, ssize_t len)
 			ret = _sd_read(id,buf,len); 
 			break;
 		default:
-			printk("Unknown no-volatile device\n");
+			pr_err("Unknown no-volatile device\n");
 			ret = -1 ;
 			break; 
 	}
@@ -308,6 +309,8 @@ static int sunxi_secstorage_write(int item, unsigned char *buf, unsigned int len
 	return nv_write(item, buf, len);
 #endif
 }
+
+
 /*
  * Map format:
  *		name:length\0
@@ -381,31 +384,6 @@ static int __fill_name_in_map(unsigned char *buffer, const char *item_name, int 
 	return index;
 }
 
-int sunxi_secure_storage_init(void)
-{
-	int ret;
-
-	if(!secure_storage_inited)
-	{
-		get_flash_type();
-		ret = sunxi_secstorage_read(0, secure_storage_map, SEC_BLK_SIZE);
-		if(ret < 0)
-		{
-			dprintk("get secure storage map err\n");
-
-			return -1;
-		}
-		else if(ret > 0)
-		{
-			dprintk("the secure storage map is empty\n");
-			sst_memset(secure_storage_map, 0, SEC_BLK_SIZE);
-		}
-	}
-
-	secure_storage_inited = 1;
-
-	return 0;
-}
 
 int sunxi_secure_storage_init_oem_class(void *oem_class)
 {
@@ -568,6 +546,121 @@ int sunxi_secure_storage_write(const char *item_name, char *buffer, int length)
 	return 0;
 }
 
+/*load source data to secure_object struct
+ **
+ *    src		: secure_object 
+ *    len		: secure_object buffer len 
+ *    payload	: taregt payload 
+ *    retLen	: target payload actual length
+ **/
+static int unwrap_secure_object(void * src,  unsigned int len, void * payload,   int *retLen )
+{
+	store_object_t *obj;
+
+	if(len != sizeof(store_object_t)){
+		pr_err("Input length not equal secure object size 0x%x\n",len);
+		return -1 ;
+	}
+
+	obj = (store_object_t *) src ;
+
+	if( obj->magic != STORE_OBJECT_MAGIC ){
+		pr_err("Input object magic fail [0x%x]\n", obj->magic);
+		return -1 ;
+	}
+
+	if( obj->re_encrypt == STORE_REENCRYPT_MAGIC){
+		pr_err("secure object is encrypt by chip\n");
+	}
+
+	if( obj->crc != ~crc32_le(~0 , (void *)obj, sizeof(*obj)-4 ) ){
+		pr_err("Input object crc fail [0x%x]\n", obj->crc);
+		return -1 ;
+	}
+
+	memcpy(payload, obj->data ,obj->actual_len);
+	*retLen = obj->actual_len ;
+
+	return 0 ;
+}
+
+int sunxi_secure_object_read(const char *item_name, char *buffer, int buffer_len, int *data_len)
+{
+	char *secure_object;
+	int retLen ,ret ;
+	store_object_t *so ;
+
+	secure_object=kzalloc(4096,GFP_KERNEL);
+	if(!secure_object){
+		pr_err("sunxi secure storage out of memory\n");	
+		return -1 ;
+	}
+
+	ret = sunxi_secure_storage_read(item_name, secure_object, 4096, &retLen);
+	if(ret){
+		pr_err("sunxi storage read fail\n");
+		kfree(secure_object);
+		return -1 ;
+	}
+	so = (store_object_t *)secure_object;
+
+	ret = unwrap_secure_object((char *)so, retLen, buffer, data_len);
+	if(ret){
+		pr_err("unwrap secure object fail\n");
+		kfree(secure_object);
+		return -1 ;
+	}
+	kfree(secure_object);
+	return 0 ;
+}
+static int _cache_secure_hdcp(void)
+{
+	int ret ;
+	extern struct sunxi_sst_hdcp *sunxi_hdcp;
+
+	sunxi_hdcp =(struct sunxi_sst_hdcp*)kzalloc(sizeof(*sunxi_hdcp), GFP_KERNEL);
+	if(!sunxi_hdcp){
+		pr_err("%s: out of memroy\n",__func__);
+		return -1 ;
+	}
+	ret =sunxi_secure_object_read("hdcpkey", sunxi_hdcp->key, SZ_4K, &(sunxi_hdcp->act_len));
+	if(ret){
+		pr_err("%s: can't read hdcpkey in keystore\n",__func__);
+		kfree(sunxi_hdcp);
+		sunxi_hdcp = NULL ;
+		return -1 ;
+	}
+	pr_info("Cached encrypted hdcpkey\n");
+
+	return 0 ;
+}
+
+int sunxi_secure_storage_init(void)
+{
+	int ret;
+
+	if(!secure_storage_inited)
+	{
+		get_flash_type();
+		ret = sunxi_secstorage_read(0, secure_storage_map, SEC_BLK_SIZE);
+		if(ret < 0)
+		{
+			dprintk("get secure storage map err\n");
+
+			return -1;
+		}
+		else if(ret > 0)
+		{
+			dprintk("the secure storage map is empty\n");
+			sst_memset(secure_storage_map, 0, SEC_BLK_SIZE);
+		}
+	}
+	
+	secure_storage_inited = 1;
+	_cache_secure_hdcp();
+
+	return 0;
+}
 #ifdef OEM_STORE_IN_FS 
 /*Store source data to secure_object struct
  *
@@ -602,6 +695,7 @@ int wrap_secure_object(void * src, char *name,  unsigned int len, void * tagt,  
 
 	return 0 ;
 }
+
 
 /*
  * Test data and function

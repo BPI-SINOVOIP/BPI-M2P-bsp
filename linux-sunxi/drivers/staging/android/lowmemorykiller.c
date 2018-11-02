@@ -62,6 +62,10 @@ static unsigned long lowmem_deathpending_timeout;
 static uint32_t low_kill = 190;// for 512M lowmem device solution
 static uint32_t fast_kill = 0; // for 512M lowmem device 4K-H265 solution
 
+#define PROCESS_COM_SLOT 5
+#define PROCESS_COM_DEFAULT_STR	{ [0 ... (PROCESS_COM_SLOT-1)] = NULL }
+static char *process_com[PROCESS_COM_SLOT] = PROCESS_COM_DEFAULT_STR;    //  for 512M lowmem device
+
 extern unsigned int mem_size;
 static const char lowmem_device_kill_blacklist[][TASK_COMM_LEN] = {
 	/* 512M lowmem device not support app list*/
@@ -113,6 +117,17 @@ static int test_lowmem_device(struct task_struct *p, int cur_oom_score_adj)
 
 		if (cur_tasksize >= cur_maxpage)
 			goto need_kill;
+	}
+	else if (oom_score_adj != 0){
+		if (fast_kill == ANDROID_FAST_KILL_ENABLE) {
+			for (i = 0; (i < PROCESS_COM_SLOT) && (process_com[i] != NULL); i++) {
+				if (strstr(p->comm, process_com[i])) {
+					fast_kill = 0;
+					printk("lmk: fast_kill is 0.\n");
+					goto need_kill;
+				}
+			}
+		}
 	}
 
 	if (oom_adj == ANDROID_HOME_APP_ADJ) {
@@ -369,6 +384,9 @@ module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size,
 module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);
 module_param_named(low_kill, low_kill, uint, S_IRUGO | S_IWUSR);
 module_param_named(fast_kill, fast_kill, uint, S_IRUGO | S_IWUSR);
+module_param_array(process_com, charp, NULL, 0644);
+MODULE_PARM_DESC(process_com, "process com string for 512MB lowmemomry devices");
+
 
 module_init(lowmem_init);
 module_exit(lowmem_exit);

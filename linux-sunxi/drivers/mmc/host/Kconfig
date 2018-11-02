@@ -297,16 +297,6 @@ config MMC_ATMELMCI
 
 endchoice
 
-config MMC_ATMELMCI_DMA
-	bool "Atmel MCI DMA support"
-	depends on MMC_ATMELMCI && (AVR32 || ARCH_AT91SAM9G45) && DMA_ENGINE
-	help
-	  Say Y here to have the Atmel MCI driver use a DMA engine to
-	  do data transfers and thus increase the throughput and
-	  reduce the CPU utilization.
-
-	  If unsure, say N.
-
 config MMC_IMX
 	tristate "Motorola i.MX Multimedia Card Interface support"
 	depends on ARCH_MX1
@@ -575,24 +565,14 @@ config MMC_SUNXI
 	  If you have a board based on such a SoC and with a SD/MMC slot,
 	  say Y or M here.
 
-config MMC_SUNXI_SMHC
-	tristate "Winner's(SUNXI SMHC v5.0) SD/Multimedia Card Interface support"
-	depends on MMC && (ARCH_SUN8IW9)
-	default y
-	help
-	  This selects support for the SD/MMC controller on AllWinner SoCs SMHC.
-	  If you have a board based on such a SoC and with a SD/MMC slot,
-	  say Y or M here.
-
-
 config MMC_DEBUG_SUNXI
 	bool "Winner's(SUNXI) MMC Host Debug support"
-	depends on MMC && (MMC_SUNXI || MMC_SUNXI_SMHC)
+	depends on MMC && MMC_SUNXI 
 	default n
 
 config MMC_PRE_DBGLVL_SUNXI
 	int "Pre-defined debug level for SUNXI MMC driver"
-	depends on MMC &&  (MMC_SUNXI || MMC_SUNXI_SMHC) 
+	depends on MMC && MMC_SUNXI 
 	default 0
 
 config MMC_JZ4740

@@ -233,6 +233,11 @@ static s32 lcd_parse_panel_para(u32 disp, disp_panel_para * info)
         info->lcd_cpu_te = value;
     }
 
+	ret = disp_sys_script_get_item(primary_key, "lcd_cpu_mode", &value, 1);
+    if(ret == 1)
+    {
+        info->lcd_cpu_mode = value;
+    }
     ret = disp_sys_script_get_item(primary_key, "lcd_frm", &value, 1);
     if(ret == 1)
     {
@@ -1870,7 +1875,7 @@ static s32 disp_lcd_init(struct disp_device* lcd)
 			duty_ns = (backlight_bright * period_ns) / 256;
 			//DE_DBG("[PWM]backlight_bright=%d,period_ns=%d,duty_ns=%d\n",(u32)backlight_bright,(u32)period_ns, (u32)duty_ns);
 			disp_sys_pwm_set_polarity(lcdp->pwm_info.dev, lcdp->pwm_info.polarity);
-			disp_sys_pwm_config(lcdp->pwm_info.dev, duty_ns, period_ns);
+			//disp_sys_pwm_config(lcdp->pwm_info.dev, duty_ns, period_ns);
 			lcdp->pwm_info.duty_ns = duty_ns;
 			lcdp->pwm_info.period_ns = period_ns;
 		}

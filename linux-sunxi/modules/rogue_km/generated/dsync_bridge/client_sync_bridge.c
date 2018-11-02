@@ -134,10 +134,58 @@ IMG_INTERNAL PVRSRV_ERROR IMG_CALLCONV BridgeServerSyncPrimSet(IMG_HANDLE hBridg
 	return eError;
 }
 
+IMG_INTERNAL PVRSRV_ERROR IMG_CALLCONV BridgeSyncRecordRemoveByHandle(IMG_HANDLE hBridge,
+								      IMG_HANDLE hhRecord)
+{
+	PVRSRV_ERROR eError;
+	SYNC_RECORD_HANDLE pshRecordInt;
+	PVR_UNREFERENCED_PARAMETER(hBridge);
+
+	pshRecordInt = (SYNC_RECORD_HANDLE) hhRecord;
+
+	eError =
+		PVRSRVSyncRecordRemoveByHandleKM(
+					pshRecordInt);
+
+	return eError;
+}
+
+IMG_INTERNAL PVRSRV_ERROR IMG_CALLCONV BridgeSyncRecordAdd(IMG_HANDLE hBridge,
+							   IMG_HANDLE *phhRecord,
+							   IMG_HANDLE hhServerSyncPrimBlock,
+							   IMG_UINT32 ui32ui32FwBlockAddr,
+							   IMG_UINT32 ui32ui32SyncOffset,
+							   IMG_BOOL bbServerSync,
+							   IMG_UINT32 ui32ClassNameSize,
+							   const IMG_CHAR *puiClassName)
+{
+	PVRSRV_ERROR eError;
+	SYNC_RECORD_HANDLE pshRecordInt;
+	SYNC_PRIMITIVE_BLOCK * pshServerSyncPrimBlockInt;
+	PVR_UNREFERENCED_PARAMETER(hBridge);
+
+	pshServerSyncPrimBlockInt = (SYNC_PRIMITIVE_BLOCK *) hhServerSyncPrimBlock;
+
+	eError =
+		PVRSRVSyncRecordAddKM(
+					&pshRecordInt,
+					pshServerSyncPrimBlockInt,
+					ui32ui32FwBlockAddr,
+					ui32ui32SyncOffset,
+					bbServerSync,
+					ui32ClassNameSize,
+					puiClassName);
+
+	*phhRecord = pshRecordInt;
+	return eError;
+}
+
 IMG_INTERNAL PVRSRV_ERROR IMG_CALLCONV BridgeServerSyncAlloc(IMG_HANDLE hBridge,
 							     IMG_HANDLE hDevNode,
 							     IMG_HANDLE *phSyncHandle,
-							     IMG_UINT32 *pui32SyncPrimVAddr)
+							     IMG_UINT32 *pui32SyncPrimVAddr,
+							     IMG_UINT32 ui32ClassNameSize,
+							     const IMG_CHAR *puiClassName)
 {
 	PVRSRV_ERROR eError;
 	IMG_HANDLE hDevNodeInt;
@@ -150,7 +198,9 @@ IMG_INTERNAL PVRSRV_ERROR IMG_CALLCONV BridgeServerSyncAlloc(IMG_HANDLE hBridge,
 		PVRSRVServerSyncAllocKM(
 					hDevNodeInt,
 					&psSyncHandleInt,
-					pui32SyncPrimVAddr);
+					pui32SyncPrimVAddr,
+					ui32ClassNameSize,
+					puiClassName);
 
 	*phSyncHandle = psSyncHandleInt;
 	return eError;

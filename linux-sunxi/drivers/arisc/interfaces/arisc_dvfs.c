@@ -22,6 +22,7 @@
 
 #include "../arisc_i.h"
 #include <mach/sys_config.h>
+#include <mach/sunxi-chip.h>
 
 typedef struct arisc_freq_voltage
 {

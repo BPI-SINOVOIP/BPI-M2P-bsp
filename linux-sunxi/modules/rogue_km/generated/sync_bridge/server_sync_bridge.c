@@ -364,6 +364,166 @@ ServerSyncPrimSet_exit:
 }
 
 static IMG_INT
+PVRSRVBridgeSyncRecordRemoveByHandle(IMG_UINT32 ui32BridgeID,
+					  PVRSRV_BRIDGE_IN_SYNCRECORDREMOVEBYHANDLE *psSyncRecordRemoveByHandleIN,
+					  PVRSRV_BRIDGE_OUT_SYNCRECORDREMOVEBYHANDLE *psSyncRecordRemoveByHandleOUT,
+					 CONNECTION_DATA *psConnection)
+{
+	IMG_HANDLE hRecordHandleInt2 = IMG_NULL;
+
+	PVRSRV_BRIDGE_ASSERT_CMD(ui32BridgeID, PVRSRV_BRIDGE_SYNC_SYNCRECORDREMOVEBYHANDLE);
+				
+	/* Look up the address from the handle */
+	psSyncRecordRemoveByHandleOUT->eError =
+		PVRSRVLookupHandle(psConnection->psHandleBase,
+							(IMG_HANDLE *) &hRecordHandleInt2,
+							psSyncRecordRemoveByHandleIN->hhRecord,
+							PVRSRV_HANDLE_TYPE_SYNC_RECORD_HANDLE);
+	if(psSyncRecordRemoveByHandleOUT->eError != PVRSRV_OK)
+	{
+		goto SyncRecordRemoveByHandle_exit;
+	}
+
+	psSyncRecordRemoveByHandleOUT->eError = ServerSyncFreeResManProxy(hRecordHandleInt2);
+	/* Exit early if bridged call fails */
+	if(psSyncRecordRemoveByHandleOUT->eError != PVRSRV_OK)
+	{
+		goto SyncRecordRemoveByHandle_exit;
+	}
+
+	psSyncRecordRemoveByHandleOUT->eError =
+		PVRSRVReleaseHandle(psConnection->psHandleBase,
+					(IMG_HANDLE) psSyncRecordRemoveByHandleIN->hhRecord,
+					PVRSRV_HANDLE_TYPE_SYNC_RECORD_HANDLE);
+
+	if ((psSyncRecordRemoveByHandleOUT->eError != PVRSRV_OK) && (psSyncRecordRemoveByHandleOUT->eError != PVRSRV_ERROR_RETRY))
+	{
+		PVR_ASSERT(0);
+		goto SyncRecordRemoveByHandle_exit;
+	}
+
+SyncRecordRemoveByHandle_exit:
+
+	return 0;
+}
+
+static IMG_INT
+PVRSRVBridgeSyncRecordAdd(IMG_UINT32 ui32BridgeID,
+					  PVRSRV_BRIDGE_IN_SYNCRECORDADD *psSyncRecordAddIN,
+					  PVRSRV_BRIDGE_OUT_SYNCRECORDADD *psSyncRecordAddOUT,
+					 CONNECTION_DATA *psConnection)
+{
+	SYNC_RECORD_HANDLE pshRecordInt = IMG_NULL;
+	IMG_HANDLE hRecordHandleInt2 = IMG_NULL;
+	SYNC_PRIMITIVE_BLOCK * pshServerSyncPrimBlockInt = IMG_NULL;
+	IMG_HANDLE hSyncHandleInt2 = IMG_NULL;
+	IMG_CHAR *uiClassNameInt = IMG_NULL;
+
+	PVRSRV_BRIDGE_ASSERT_CMD(ui32BridgeID, PVRSRV_BRIDGE_SYNC_SYNCRECORDADD);
+
+	if (psSyncRecordAddIN->ui32ClassNameSize != 0)
+	{
+		uiClassNameInt = OSAllocMem(psSyncRecordAddIN->ui32ClassNameSize * sizeof(IMG_CHAR));
+		if (!uiClassNameInt)
+		{
+			psSyncRecordAddOUT->eError = PVRSRV_ERROR_OUT_OF_MEMORY;
+			goto SyncRecordAdd_exit;
+		}
+	}
+
+	/* Copy the data over */
+	if ( !OSAccessOK(PVR_VERIFY_READ, (IMG_VOID*) psSyncRecordAddIN->puiClassName, psSyncRecordAddIN->ui32ClassNameSize * sizeof(IMG_CHAR))
+		|| (OSCopyFromUser(NULL, uiClassNameInt, psSyncRecordAddIN->puiClassName,
+		psSyncRecordAddIN->ui32ClassNameSize * sizeof(IMG_CHAR)) != PVRSRV_OK) )
+	{
+		psSyncRecordAddOUT->eError = PVRSRV_ERROR_INVALID_PARAMS;
+
+		goto SyncRecordAdd_exit;
+	}
+
+	{
+		/* Look up the address from the handle */
+		psSyncRecordAddOUT->eError =
+			PVRSRVLookupHandle(psConnection->psHandleBase,
+								(IMG_HANDLE *) &hSyncHandleInt2,
+								psSyncRecordAddIN->hhServerSyncPrimBlock,
+								PVRSRV_HANDLE_TYPE_SYNC_PRIMITIVE_BLOCK);
+		if(psSyncRecordAddOUT->eError != PVRSRV_OK)
+		{
+			goto SyncRecordAdd_exit;
+		}
+
+		/* Look up the data from the resman address */
+		psSyncRecordAddOUT->eError = ResManFindPrivateDataByPtr(hSyncHandleInt2, (IMG_VOID **) &pshServerSyncPrimBlockInt);
+
+		if(psSyncRecordAddOUT->eError != PVRSRV_OK)
+		{
+			goto SyncRecordAdd_exit;
+		}
+	}
+
+	psSyncRecordAddOUT->eError =
+		PVRSRVSyncRecordAddKM(
+					&pshRecordInt,
+					pshServerSyncPrimBlockInt,
+					psSyncRecordAddIN->ui32ui32FwBlockAddr,
+					psSyncRecordAddIN->ui32ui32SyncOffset,
+					psSyncRecordAddIN->bbServerSync,
+					psSyncRecordAddIN->ui32ClassNameSize,
+					uiClassNameInt);
+
+	/* Exit early if bridged call fails */
+	if(psSyncRecordAddOUT->eError != PVRSRV_OK)
+	{
+		goto SyncRecordAdd_exit;
+	}
+
+	/* Create a resman item and overwrite the handle with it */
+	hRecordHandleInt2 = ResManRegisterRes(psConnection->hResManContext,
+												RESMAN_TYPE_SYNC_RECORD_HANDLE,
+												pshRecordInt,
+												(RESMAN_FREE_FN)&PVRSRVSyncRecordRemoveByHandleKM);
+	if (hRecordHandleInt2 == IMG_NULL)
+	{
+		psSyncRecordAddOUT->eError = PVRSRV_ERROR_UNABLE_TO_REGISTER_RESOURCE;
+		goto SyncRecordAdd_exit;
+	}
+
+	psSyncRecordAddOUT->eError = PVRSRVAllocHandle(psConnection->psHandleBase,
+							&psSyncRecordAddOUT->hhRecord,
+							(IMG_VOID *) hRecordHandleInt2,
+							PVRSRV_HANDLE_TYPE_SYNC_RECORD_HANDLE,
+							PVRSRV_HANDLE_ALLOC_FLAG_NONE
+							);
+	if (psSyncRecordAddOUT->eError != PVRSRV_OK)
+	{
+		goto SyncRecordAdd_exit;
+	}
+
+SyncRecordAdd_exit:
+	if (psSyncRecordAddOUT->eError != PVRSRV_OK)
+	{
+		/* If we have a valid resman item we should undo the bridge function by freeing the resman item */
+		if (hRecordHandleInt2)
+		{
+			PVRSRV_ERROR eError = ResManFreeResByPtr(hRecordHandleInt2);
+
+			/* Freeing a resource should never fail... */
+			PVR_ASSERT((eError == PVRSRV_OK) || (eError == PVRSRV_ERROR_RETRY));
+		}
+		else if (pshRecordInt)
+		{
+			PVRSRVSyncRecordRemoveByHandleKM(pshRecordInt);
+		}
+	}
+
+	if (uiClassNameInt)
+		OSFreeMem(uiClassNameInt);
+
+	return 0;
+}
+
+static IMG_INT
 PVRSRVBridgeServerSyncAlloc(IMG_UINT32 ui32BridgeID,
 					 PVRSRV_BRIDGE_IN_SERVERSYNCALLOC *psServerSyncAllocIN,
 					 PVRSRV_BRIDGE_OUT_SERVERSYNCALLOC *psServerSyncAllocOUT,
@@ -372,12 +532,33 @@ PVRSRVBridgeServerSyncAlloc(IMG_UINT32 ui32BridgeID,
 	IMG_HANDLE hDevNodeInt = IMG_NULL;
 	SERVER_SYNC_PRIMITIVE * psSyncHandleInt = IMG_NULL;
 	IMG_HANDLE hSyncHandleInt2 = IMG_NULL;
+	IMG_CHAR *uiClassNameInt = IMG_NULL;
 
 	PVRSRV_BRIDGE_ASSERT_CMD(ui32BridgeID, PVRSRV_BRIDGE_SYNC_SERVERSYNCALLOC);
 
 
 
 
+	if (psServerSyncAllocIN->ui32ClassNameSize != 0)
+	{
+		uiClassNameInt = OSAllocMem(psServerSyncAllocIN->ui32ClassNameSize * sizeof(IMG_CHAR));
+		if (!uiClassNameInt)
+		{
+			psServerSyncAllocOUT->eError = PVRSRV_ERROR_OUT_OF_MEMORY;
+	
+			goto ServerSyncAlloc_exit;
+		}
+	}
+
+			/* Copy the data over */
+			if ( !OSAccessOK(PVR_VERIFY_READ, (IMG_VOID*) psServerSyncAllocIN->puiClassName, psServerSyncAllocIN->ui32ClassNameSize * sizeof(IMG_CHAR))
+				|| (OSCopyFromUser(NULL, uiClassNameInt, psServerSyncAllocIN->puiClassName,
+				psServerSyncAllocIN->ui32ClassNameSize * sizeof(IMG_CHAR)) != PVRSRV_OK) )
+			{
+				psServerSyncAllocOUT->eError = PVRSRV_ERROR_INVALID_PARAMS;
+
+				goto ServerSyncAlloc_exit;
+			}
 
 				{
 					/* Look up the address from the handle */
@@ -397,7 +578,9 @@ PVRSRVBridgeServerSyncAlloc(IMG_UINT32 ui32BridgeID,
 		PVRSRVServerSyncAllocKM(
 					hDevNodeInt,
 					&psSyncHandleInt,
-					&psServerSyncAllocOUT->ui32SyncPrimVAddr);
+					&psServerSyncAllocOUT->ui32SyncPrimVAddr,
+					psServerSyncAllocIN->ui32ClassNameSize,
+					uiClassNameInt);
 	/* Exit early if bridged call fails */
 	if(psServerSyncAllocOUT->eError != PVRSRV_OK)
 	{
@@ -443,6 +626,8 @@ ServerSyncAlloc_exit:
 		}
 	}
 
+	if (uiClassNameInt)
+		OSFreeMem(uiClassNameInt);
 
 	return 0;
 }
@@ -882,7 +1067,7 @@ PVRSRVBridgeSyncPrimOpCreate(IMG_UINT32 ui32BridgeID,
 					psSyncPrimOpCreateOUT->eError =
 						PVRSRVLookupHandle(psConnection->psHandleBase,
 											(IMG_HANDLE *) &hServerSyncInt2[i],
-											hServerSyncInt2[i],
+											psSyncPrimOpCreateIN->phServerSync[i],
 											PVRSRV_HANDLE_TYPE_SERVER_SYNC_PRIMITIVE);
 					if(psSyncPrimOpCreateOUT->eError != PVRSRV_OK)
 					{
@@ -1524,6 +1709,8 @@ PVRSRV_ERROR RegisterSYNCFunctions(IMG_VOID)
 	SetDispatchTableEntry(PVRSRV_BRIDGE_SYNC_FREESYNCPRIMITIVEBLOCK, PVRSRVBridgeFreeSyncPrimitiveBlock);
 	SetDispatchTableEntry(PVRSRV_BRIDGE_SYNC_SYNCPRIMSET, PVRSRVBridgeSyncPrimSet);
 	SetDispatchTableEntry(PVRSRV_BRIDGE_SYNC_SERVERSYNCPRIMSET, PVRSRVBridgeServerSyncPrimSet);
+	SetDispatchTableEntry(PVRSRV_BRIDGE_SYNC_SYNCRECORDREMOVEBYHANDLE, PVRSRVBridgeSyncRecordRemoveByHandle);
+	SetDispatchTableEntry(PVRSRV_BRIDGE_SYNC_SYNCRECORDADD, PVRSRVBridgeSyncRecordAdd);
 	SetDispatchTableEntry(PVRSRV_BRIDGE_SYNC_SERVERSYNCALLOC, PVRSRVBridgeServerSyncAlloc);
 	SetDispatchTableEntry(PVRSRV_BRIDGE_SYNC_SERVERSYNCFREE, PVRSRVBridgeServerSyncFree);
 	SetDispatchTableEntry(PVRSRV_BRIDGE_SYNC_SERVERSYNCQUEUEHWOP, PVRSRVBridgeServerSyncQueueHWOp);

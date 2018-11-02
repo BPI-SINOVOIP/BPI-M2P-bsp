@@ -205,6 +205,7 @@ s32 tv_init(void)
 	disp_tv_func disp_func;
 	s32 i = 0, j = 0;
 	u32 sid = 0;
+	s32 sid_turn = 0;
 	script_item_u   val;
 	script_item_value_type_e  type;
 	char sub_key[20];
@@ -251,15 +252,29 @@ s32 tv_init(void)
 			sid = tve_low_get_sid(0x10);
 			if (0 == sid)
 				g_tv_info.screen[i].sid = 0x200;
-			else
+			else {
+				if(sid & (1<<9))
+					sid_turn = 0 + (sid & 0x1ff);
+				else
+					sid_turn = 0 - (sid & 0x1ff);
+
+				sid_turn += 91;
+
+				if(sid_turn >= 0)
+					sid_turn = (1<<9) | sid_turn;
+				else
+					sid_turn = 0 - sid_turn;
+				sid = (u32)sid_turn;
+
 				g_tv_info.screen[i].sid = sid;
+			}
 		}
 
 		for(i=0; i<SCREEN_COUNT; i++) {
 			tve_low_set_reg_base(i, g_tv_info.screen[i].base_address);
 			tve_clk_init(i);
 			tve_clk_config(i, g_tv_info.screen[i].tv_mode);
-			//tve_clk_enable(i);
+			tve_clk_enable(i);
 		}
 		tv_detect_enable();
 

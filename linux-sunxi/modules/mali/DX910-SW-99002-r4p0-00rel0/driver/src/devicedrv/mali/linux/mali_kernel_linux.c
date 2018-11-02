@@ -46,8 +46,14 @@
 #include "mali_linux_trace.h"
 #endif /* CONFIG_TRACEPOINTS */
 
+extern struct attribute_group gpu_attribute_group;
+
 /* from the __malidrv_build_info.c file that is generated during build */
 extern const char *__malidrv_build_info(void);
+
+extern void enable_gpu_clk(void);
+extern void disable_gpu_clk(void);
+extern void mali_dvfs_change(int level, int up_flag);
 
 /* Module parameter to control log level */
 int mali_debug_level = 2;
@@ -148,7 +154,7 @@ static int mali_driver_runtime_idle(struct device *dev);
 extern int mali_platform_device_register(void);
 extern int mali_platform_device_unregister(void);
 #endif
-
+extern int sun8i_mali_platform_device_register(void);
 /* Linux power management operations provided by the Mali device driver */
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29))
 struct pm_ext_ops mali_dev_ext_pm_ops = {
@@ -346,6 +352,11 @@ int mali_module_init(void)
 		return err;
 	}
 #endif
+    err = sun8i_mali_platform_device_register();
+    if (0 != err)
+	{
+        return err;
+    }
 
 	MALI_DEBUG_PRINT(2, ("mali_module_init() registering driver\n"));
 
@@ -406,7 +417,9 @@ static int mali_probe(struct platform_device *pdev)
 	}
 
 	mali_platform_device = pdev;
-
+	
+	sysfs_create_group(&mali_platform_device->dev.kobj, &gpu_attribute_group);
+	
 	if (_MALI_OSK_ERR_OK == _mali_osk_wq_init()) {
 		/* Initialize the Mali GPU HW specified by pdev */
 		if (_MALI_OSK_ERR_OK == mali_initialize_subsystems()) {
@@ -472,11 +485,13 @@ static void mali_miscdevice_unregister(void)
 static int mali_driver_suspend_scheduler(struct device *dev)
 {
 	mali_pm_os_suspend();
+	disable_gpu_clk();
 	return 0;
 }
 
 static int mali_driver_resume_scheduler(struct device *dev)
 {
+	enable_gpu_clk();
 	mali_pm_os_resume();
 	return 0;
 }
@@ -485,11 +500,13 @@ static int mali_driver_resume_scheduler(struct device *dev)
 static int mali_driver_runtime_suspend(struct device *dev)
 {
 	mali_pm_runtime_suspend();
+	disable_gpu_clk();
 	return 0;
 }
 
 static int mali_driver_runtime_resume(struct device *dev)
 {
+	enable_gpu_clk();
 	mali_pm_runtime_resume();
 	return 0;
 }

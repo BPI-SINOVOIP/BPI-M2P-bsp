@@ -55,4 +55,6 @@ obj-$(CONFIG_WL127X_RFKILL)	+= wl127x-rfkill.o
 obj-$(CONFIG_SENSORS_AK8975)	+= akm8975.o
 obj-$(CONFIG_SUNXI_VIBRATOR)	+= sunxi-vibrator.o
 obj-$(CONFIG_SUNXI_BROM_READ)	+= sunxi_brom_read.o
+obj-$(CONFIG_SUN8I_VIBRATOR)	+= sun8i_vibrator.o
+obj-$(CONFIG_SUN8I_VIBRATOR)	+= vib_sys_inf.o
 obj-$(CONFIG_SUNXI_RF_POWER) 	+= rf_pm/

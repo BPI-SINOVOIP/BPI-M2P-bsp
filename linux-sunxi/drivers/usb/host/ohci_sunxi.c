@@ -656,4 +656,20 @@ int sunxi_usb_enable_ohci(__u32 usbc_no)
 	return 0;
 }
 EXPORT_SYMBOL(sunxi_usb_enable_ohci);
+#ifdef CONFIG_ARCH_SUN8IW8
+int sunxi_set_vbus(__u32 usbc_no)
+{
+	struct sunxi_hci_hcd *sunxi_ohci = NULL;
+
+	sunxi_ohci = g_sunxi_ohci[usbc_no];
+	if(sunxi_ohci == NULL){
+		DMSG_PANIC("ERR: sunxi_ohci is null\n");
+		return -1;
+	}
+
+	schedule_work(&sunxi_ohci->usbc_work);
+	return 0;
+}
+EXPORT_SYMBOL(sunxi_set_vbus);
+#endif
 

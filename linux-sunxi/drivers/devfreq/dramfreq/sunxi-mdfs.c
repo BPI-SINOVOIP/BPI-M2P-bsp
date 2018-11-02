@@ -1096,7 +1096,7 @@ static void __sram mdfs_start(int type, int freq_jump, __dram_para_t *para,
 		mctl_write_w(reg_val, PWRCTL);
 
 		//add dqs delay when frequency down
-		if (para->dram_clk < 500) {
+		if (para->dram_clk < 200) {
 			for (i = 0; i < 8; i++) {
 				//byte 0
 				reg_val = mctl_read_w(DATX0IOCR(i));

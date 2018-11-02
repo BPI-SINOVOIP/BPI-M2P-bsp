@@ -35,6 +35,7 @@ void sunxi_set_reg_base(unsigned int address);
 int sunxi_hdmi_enter_lp(void);
 void sunxi_hdcp_rst(void);
 void sunxi_hdcp_hdl(void);
-
+int sunxi_hdmi_guardian(void);
+int sunxi_hdmi_phy_config(u32 pClk);
 #endif /* API_H_ */
 

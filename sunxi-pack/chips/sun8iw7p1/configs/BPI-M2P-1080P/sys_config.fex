@@ -89,7 +89,6 @@ led_state = 0
 [boot_init_gpio]
 used	=  0
 gpio0	=  port:PL10<1><default><default><1>
-gpio1	=  port:PA15<1><default><default><1>
 
 ;----------------------------------------------------------------------------------
 ;	used: 模块使能端     1：开启模块   0：关闭模块
@@ -136,7 +135,7 @@ sdc_d5          = port:PC13<3><1><2><default>
 sdc_d6          = port:PC14<3><1><2><default>
 sdc_d7          = port:PC15<3><1><2><default>
 sdc_2xmode   	= 1
-sdc_ddrmode		= 1
+sdc_ddrmode	= 1
 
 [twi_para]
 twi_port        = 0
@@ -234,8 +233,6 @@ pll_ratio           = 0x111
 dram_selfresh_en    = 1
 dram_freq           = 36
 wakeup_src0         =
-wakeup_src_wl       = port:PG10<4><default><default><0>
-;wakeup_src_bt       = port:PL03<6><default><default><0>
 
 ;----------------------------------------------------------------------------------
 ;i2c configuration
@@ -333,7 +330,7 @@ manual_cs     = 0
 ;----------------------------------------------------------------------------------
 [gpio_para]
 gpio_used       = 1
-gpio_num        = 29
+gpio_num        = 28
 gpio_pin_1      = port:PA12<1><default><default><0>
 gpio_pin_2      = port:PA11<1><default><default><0>
 gpio_pin_3      = port:PA06<1><default><default><0>
@@ -362,11 +359,15 @@ gpio_pin_25     = port:PL02<1><default><default><0>
 gpio_pin_26     = port:PL04<1><default><default><0>
 gpio_pin_27     = port:PA21<1><default><default><0>
 gpio_pin_28     = port:PA20<1><default><default><0>
-gpio_pin_29     = port:PL10<0><default><default><1>
 
-[led_assign]
-normal_led      = "gpio_pin_29"
-;standby_led     = "gpio_pin_10"
+;----------------------------------------------------------------------------------
+;leds config parameters
+;----------------------------------------------------------------------------------
+[leds_para]
+leds_used                       = 1
+red_led                         = port:PL10<1><default><default><0>
+red_led_active_low              = 0
+red_led_default_trigger         = "heartbeat"
 
 ;----------------------------------------------------------------------------------
 ;thermal configuration
@@ -517,7 +518,7 @@ tv_dac_src0		= 0
 ;----------------------------------------------------------------------------------
 [pwm0_para]
 pwm_used            = 0
-pwm_positive        = port:PA06<3><0><default><default>
+pwm_positive        = port:PA05<3><0><default><default>
 
 ;------------------------------------------------------------------------------;
 ; 10/100/100Mbps Ethernet MAC Controller Configure                             ;
@@ -689,7 +690,7 @@ tvin_channel_num    =
 ;DE-Interlace configuration
 ;----------------------------------------------------------------------------------
 [di_para]
-di_used           = 1
+di_used           = 0
 
 ;--------------------------------------------------------------------------------
 ;   SDMMC PINS MAPPING                                                          |
@@ -852,8 +853,8 @@ usb_not_suspend     = 0
 ;---       USB3控制标志
 ;--------------------------------
 [usbc3]
-usb_used            = 0
-;usb_drv_vbus_gpio   = 
+usb_used            = 1
+usb_drv_vbus_gpio   = 
 usb_drv_vbus_gpio   = 
 usb_restrict_gpio   =
 usb_host_init_state = 1
@@ -1305,5 +1306,8 @@ mali_extreme_vol = 1400
 ;1wire parameters (default - PA20)
 ;----------------------------------------------------------------------------------
 [w1_para]
-w1_used = 1
+w1_used = 0
 gpio = 20
+
+[corekeeper]
+corekeeper_enabled = 1

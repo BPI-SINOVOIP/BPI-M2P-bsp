@@ -301,10 +301,10 @@ static struct sysrq_key_op sysrq_ftrace_dump_op = {
 #else
 #define sysrq_ftrace_dump_op (*(struct sysrq_key_op *)NULL)
 #endif
-
 static void sysrq_handle_showmem(int key)
 {
 	show_mem(0);
+	dump_user_task();
 }
 static struct sysrq_key_op sysrq_showmem_op = {
 	.handler	= sysrq_handle_showmem,

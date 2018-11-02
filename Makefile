@@ -58,13 +58,10 @@ $(K_DOT_CONFIG): linux-sunxi
 kernel: $(K_DOT_CONFIG)
 	$(Q)$(MAKE) -C linux-sunxi ARCH=arm CROSS_COMPILE=${K_CROSS_COMPILE} -j$J INSTALL_MOD_PATH=output uImage modules
 	$(Q)$(MAKE) -C linux-sunxi ARCH=arm CROSS_COMPILE=${K_CROSS_COMPILE} -j$J INSTALL_MOD_PATH=output modules_install
-#	$(Q)$(MAKE) -C linux-sunxi/modules/mali CROSS_COMPILE=$(K_CROSS_COMPILE) ARCH=arm LICHEE_KDIR=${LICHEE_KDIR} install
 	$(Q)$(MAKE) -C linux-sunxi ARCH=arm CROSS_COMPILE=${K_CROSS_COMPILE} -j$J headers_install
 	cd linux-sunxi && ${K_CROSS_COMPILE}objcopy -R .note.gnu.build-id -S -O binary vmlinux bImage
 
 kernel-clean:
-	$(Q)$(MAKE) -C linux-sunxi/modules/mali CROSS_COMPILE=$(K_CROSS_COMPILE) ARCH=arm LICHEE_KDIR=${LICHEE_KDIR} clean
-	$(Q)$(MAKE) -C linux-sunxi/arch/arm/mach-sunxi/pm/standby ARCH=arm CROSS_COMPILE=${K_CROSS_COMPILE} clean
 	$(Q)$(MAKE) -C linux-sunxi ARCH=arm CROSS_COMPILE=${K_CROSS_COMPILE} -j$J distclean
 	rm -rf linux-sunxi/output/
 	rm -f linux-sunxi/bImage

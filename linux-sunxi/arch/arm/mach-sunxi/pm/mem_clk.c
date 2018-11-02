@@ -54,7 +54,7 @@ static __ccmu_pll1_reg0000_t		CmuReg_Pll1Ctl_tmp;
 static __ccmu_sysclk_ratio_reg0050_t	CmuReg_SysClkDiv_tmp;
 
 #ifdef CONFIG_ARCH_SUN8IW8P1
-#define PIO_INT_DEB_REG (AW_GPIO_BASE_PA + 0x258)
+#define PIO_INT_DEB_REG ((AW_GPIO_BASE_PA + 0x258) | 0xf0000000)
 static __u32 pio_int_deb_back = 0;
 void mem_pio_clk_src_init(void)
 {

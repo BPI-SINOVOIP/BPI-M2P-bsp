@@ -21,6 +21,7 @@
 #include <linux/apm-emulation.h>
 #include <linux/mfd/axp-mfd.h>
 #include <linux/module.h>
+#include <linux/gpio.h>
 #include <asm/io.h>
 #include "axp20-mfd.h"
 #include "../axp-regu.h"
@@ -117,7 +118,8 @@ static irqreturn_t axp_mfd_irq_handler(int irq, void *data)
 	struct axp_dev *chip = data;
 	disable_irq_nosync(irq);
 #ifdef CONFIG_ARCH_SUN8IW8P1
-	writel(0x1, (volatile void __iomem *)(NMI_IRQ_STATUS));
+	if(axp20_config.pmu_irq_id)
+		writel(0x1, (volatile void __iomem *)(NMI_IRQ_STATUS));
 #endif
 	if(AXP20_NOT_SUSPEND == axp20_suspend_flag)
 		(void)schedule_work(&chip->irq_work);
@@ -133,6 +135,7 @@ static int axp_i2c_probe(struct i2c_client *client,
 				  const struct i2c_device_id *id)
 {
 	int ret = 0;
+	unsigned long flags;
 
 	axp20_dev.client = client;
 	axp20_dev.dev = &client->dev;
@@ -148,9 +151,13 @@ static int axp_i2c_probe(struct i2c_client *client,
 		printk("axp mfd register failed\n");
 		return ret;
 	}
+	if(axp20_config.pmu_irq_id)
+		flags = IRQF_SHARED|IRQF_DISABLED |IRQF_NO_SUSPEND;
+	else
+		flags = IRQF_SHARED|IRQF_DISABLED |IRQF_NO_SUSPEND|IRQF_TRIGGER_LOW;
 
 	ret = request_irq(client->irq, axp_mfd_irq_handler,
-		IRQF_SHARED|IRQF_DISABLED |IRQF_NO_SUSPEND, "axp20", &axp20_dev);
+		flags, "axp20", &axp20_dev);
 	if (ret) {
 		dev_err(&client->dev, "failed to request irq %d\n",
 				client->irq);
@@ -158,8 +165,10 @@ static int axp_i2c_probe(struct i2c_client *client,
 	}
 	axp20ws = wakeup_source_register("axp_wakeup_source");
 #ifdef CONFIG_ARCH_SUN8IW8P1
-	writel(NMI_IRQ_LOW_LEVEL, (volatile void __iomem *)(NMI_IRQ_CTRL));
-	writel(NMI_IRQ_ENABLE, (volatile void __iomem *)(NMI_IRQ_EN));
+	if(axp20_config.pmu_irq_id){
+		writel(NMI_IRQ_LOW_LEVEL, (volatile void __iomem *)(NMI_IRQ_CTRL));
+		writel(NMI_IRQ_ENABLE, (volatile void __iomem *)(NMI_IRQ_EN));
+	}
 #endif
 
 	return ret;
@@ -252,7 +261,12 @@ static int __init axp20_board_init(void)
 #ifdef	CONFIG_AXP_TWI_USED
 		
 		axp_mfd_i2c_board_info[0].addr = axp20_config.pmu_twi_addr;
-		axp_mfd_i2c_board_info[0].irq = axp20_config.pmu_irq_id;
+		if(axp20_config.pmu_irq_id)
+			axp_mfd_i2c_board_info[0].irq = axp20_config.pmu_irq_id;
+		else{
+			axp20_config.pmu_irq_io_id = gpio_to_irq(axp20_config.pmu_irq_io.gpio);
+			axp_mfd_i2c_board_info[0].irq = axp20_config.pmu_irq_io_id;
+		}
 		ret = i2c_add_driver(&axp_i2c_driver);
 		if (ret < 0) {
 			printk("axp_i2c_driver add failed\n");

@@ -45,6 +45,7 @@ static int bb_hw_params(struct snd_pcm_substream *substream,
 static int bb_trigger(struct snd_pcm_substream *substream,
                               int cmd, struct snd_soc_dai *dai)
 {
+	pr_info("%s,l:%d\n", __func__, __LINE__);
 	return 0;
 }
 static int bb_set_sysclk(struct snd_soc_dai *cpu_dai, int clk_id,
@@ -75,12 +76,12 @@ static struct snd_soc_dai_driver bb_dai = {
 	.playback = {
 		.channels_min = 1,
 		.channels_max = 2,
-		.rates = SNDRV_PCM_RATE_8000,
+		.rates = SNDRV_PCM_RATE_8000|SNDRV_PCM_RATE_48000|SNDRV_PCM_RATE_44100,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
 	.capture = {
 		.channels_min = 1,
 		.channels_max = 2,
-		.rates = SNDRV_PCM_RATE_8000,
+		.rates = SNDRV_PCM_RATE_8000|SNDRV_PCM_RATE_48000|SNDRV_PCM_RATE_44100,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
 	.ops 		= &bb_dai_ops,
 };

@@ -80,34 +80,35 @@ typedef enum tag_TVE_SRC
     VGA_B = 6
 }__tve_src_t;
 
-s32 	hmid_src_sel(u32 sel);
-s32 	dsi_src_sel(u32 sel);
-s32   lvds_open(u32 sel, disp_panel_para * panel);
-s32   lvds_close(u32 sel);
+s32 hmid_src_sel(u32 sel);
+s32 dsi_src_sel(u32 sel);
+s32 lvds_open(u32 sel, disp_panel_para * panel);
+s32 lvds_close(u32 sel);
 
 s32 tcon_irq_enable(u32 sel, __lcd_irq_id_t id);
 s32 tcon_irq_disable(u32 sel, __lcd_irq_id_t id);
-s32 	tcon_set_reg_base(u32 sel, u32 address);
-u32   tcon_get_reg_base(u32 sel);
-s32   tcon_init(u32 sel);
-s32   tcon_exit(u32 sel);
-s32   tcon_get_timing(u32 sel,u32 index,disp_video_timings* tt);
-u32 	tcon_irq_query(u32 sel,__lcd_irq_id_t id);
-u32   tcon_get_start_delay(u32 sel,u32 tcon_index);
-u32   tcon_get_cur_line(u32 sel, u32 tcon_index);
-s32   tcon_gamma(u32 sel, u32 en,u32 *gamma_tbl);
+s32 tcon_set_reg_base(u32 sel, u32 address);
+u32 tcon_get_reg_base(u32 sel);
+s32 tcon_init(u32 sel);
+s32 tcon_exit(u32 sel);
+s32 tcon_get_timing(u32 sel,u32 index,disp_video_timings* tt);
+u32 tcon_irq_query(u32 sel,__lcd_irq_id_t id);
+u32 tcon_get_start_delay(u32 sel,u32 tcon_index);
+u32 tcon_get_cur_line(u32 sel, u32 tcon_index);
+s32 tcon_gamma(u32 sel, u32 en,u32 *gamma_tbl);
 
 
-s32 	tcon0_cfg(u32 sel, disp_panel_para * panel);
+s32 tcon0_cfg(u32 sel, disp_panel_para * panel);
 s32 tcon0_cfg_ext(u32 sel, panel_extend_para *extend_panel);
-s32   tcon0_src_select(u32 sel, __lcd_src_t src);
+s32 tcon0_src_select(u32 sel, __lcd_src_t src);
 s32 tcon0_src_get(u32 sel);
-s32 	tcon0_open(u32 sel, disp_panel_para * panel);
-s32 	tcon0_close(u32 sel);
-s32   tcon0_set_dclk_div(u32 sel, u8 div);
-u32   tcon0_get_dclk_div(u32 sel);
+s32 tcon0_open(u32 sel, disp_panel_para * panel);
+s32 tcon0_close(u32 sel);
+s32 tcon0_set_dclk_div(u32 sel, u8 div);
+u32 tcon0_get_dclk_div(u32 sel);
 s32	tcon0_tri_busy(u32 sel);
-s32   tcon0_tri_start(u32 sel);
+s32 tcon0_cpu_set_auto_mode(u32 sel);
+s32 tcon0_tri_start(u32 sel);
 u32 tcon0_cpu_16b_to_24b(u32 value);
 u32 tcon0_cpu_24b_to_16b(u32 value);
 u32 tcon0_cpu_busy(u32 sel);
@@ -120,10 +121,10 @@ s32	tcon0_cpu_wr_16b_index(u32 sel, u32 index);
 s32	tcon0_cpu_wr_16b_data(u32 sel, u32 data);
 s32	tcon0_cpu_rd_16b(u32 sel, u32 index, u32 *data);
 
-s32 	tcon1_open(u32 sel);
-s32 	tcon1_close(u32 sel);
-s32   tcon1_src_select(u32 sel, __lcd_src_t src);
-s32   tcon1_src_get(u32 sel);
+s32 tcon1_open(u32 sel);
+s32 tcon1_close(u32 sel);
+s32 tcon1_src_select(u32 sel, __lcd_src_t src);
+s32 tcon1_src_get(u32 sel);
 s32 tcon1_cfg_ex(u32 sel, disp_panel_para * panel);
 s32 tcon1_set_timming(u32 sel, disp_video_timings *timming);
 s32 tcon1_cfg(u32 sel,disp_video_timings* timing);

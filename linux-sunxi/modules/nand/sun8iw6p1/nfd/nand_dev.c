@@ -19,6 +19,7 @@ extern struct _nand_partition* build_nand_partition(struct _nand_phy_partition* 
 extern void add_nftl_blk_list(struct _nftl_blk*head,struct _nftl_blk *nftl_blk);
 extern struct _nftl_blk* del_last_nftl_blk(struct _nftl_blk*head);
 extern int add_nand_blktrans_dev(struct nand_blk_dev *dev);
+extern int add_nand_blktrans_dev_for_dragonboard(struct nand_blk_dev *dev);
 extern int del_nand_blktrans_dev(struct nand_blk_dev *dev);
 extern struct _nand_disk* get_disk_from_phy_partition(struct _nand_phy_partition* phy_partition);
 extern uint16 get_partitionNO(struct _nand_phy_partition* phy_partition);
@@ -318,6 +319,36 @@ int add_nand(struct nand_blk_ops *tr, struct _nand_phy_partition* phy_partition)
 		cur_offset += disk->size;
 	}
     return 0;
+}
+
+int add_nand_for_dragonboard_test(struct nand_blk_ops *tr)
+{
+    struct _nand_dev *nand_dev;
+
+    nand_dev = kmalloc(sizeof(struct _nand_dev), GFP_KERNEL);
+    if (!nand_dev)
+	{
+	    nand_dbg_err("init kmalloc fail!\n");
+        return 1;
+	}
+
+	add_nand_dev_list(&tr->nand_dev_head,nand_dev);
+
+    nand_dev->nbd.nandr = &mytr;
+
+    nand_dev->nbd.size = 1024*4096;
+    nand_dev->nbd.priv = (void*)nand_dev;
+	
+    dev_num = 0;
+    nand_dev->nbd.devnum = dev_num;
+	printk("befor add nand blktrans dev\n");
+	if (add_nand_blktrans_dev_for_dragonboard(&nand_dev->nbd))
+    {
+        nand_dbg_err("nftl add blk disk dev failed\n");
+        return 1;
+    }
+    return 0;
+
 }
 
 /*****************************************************************************

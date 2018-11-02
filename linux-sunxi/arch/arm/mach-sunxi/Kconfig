@@ -396,4 +396,13 @@ config SUNXI_OOPS_HOOK
 		Hooks for oops:
 		1. enable sdcard jtag
 		2. print cpu/dram/gpu frequency and temperature
+
+config MEM_512M_DEBUG
+		bool "Force dram size to 512M(only for debug)"
+		depends on HOMLET_PLATFORM && ARCH_SUN8I
+		default n
+	help
+		Force the dram size to 512M, this config is only for debug,
+		Do not enable this in release version!
+
 endif

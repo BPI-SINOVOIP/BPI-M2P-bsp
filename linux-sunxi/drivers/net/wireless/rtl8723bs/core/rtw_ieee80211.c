@@ -1347,13 +1347,15 @@ u8 convert_ip_addr(u8 hch, u8 mch, u8 lch)
     return ((key_char2num(hch) * 100) + (key_char2num(mch) * 10 ) + key_char2num(lch));
 }
 
+extern void wifi_hwaddr_from_chipid(u8 *addr);
+extern char* rtw_custom_default_mac;
 extern char* rtw_initmac;
 void rtw_macaddr_cfg(u8 *mac_addr)
 {
 	u8 mac[ETH_ALEN];
 	if(mac_addr == NULL)	return;
 	
-	if ( rtw_initmac && is_valid_ether_addr(rtw_initmac) )
+	if (rtw_initmac)
 	{	//	Users specify the mac address
 		int jj,kk;
 
@@ -1361,18 +1363,49 @@ void rtw_macaddr_cfg(u8 *mac_addr)
 		{
 			mac[jj] = key_2char2num(rtw_initmac[kk], rtw_initmac[kk+ 1]);
 		}
-		_rtw_memcpy(mac_addr, mac, ETH_ALEN);
+		if(is_valid_ether_addr(mac))
+		{
+			_rtw_memcpy(mac_addr, mac, ETH_ALEN);
+			DBG_871X_LEVEL(_drv_always_, "MAC Address from custom burning is "MAC_FMT"\n", MAC_ARG(mac));
+		}
 	}
 	else
 	{	//	Use the mac address stored in the Efuse
 		_rtw_memcpy(mac, mac_addr, ETH_ALEN);
+		DBG_871X_LEVEL(_drv_always_, "MAC Address from Efuse is "MAC_FMT"\n", MAC_ARG(mac));
 	}
 	
 	if (((mac[0]==0xff) &&(mac[1]==0xff) && (mac[2]==0xff) &&
 	     (mac[3]==0xff) && (mac[4]==0xff) &&(mac[5]==0xff)) ||
 	    ((mac[0]==0x0) && (mac[1]==0x0) && (mac[2]==0x0) &&
-	     (mac[3]==0x0) && (mac[4]==0x0) &&(mac[5]==0x0)))
+	     (mac[3]==0x0) && (mac[4]==0x0) &&(mac[5]==0x0)) ||
+	     !is_valid_ether_addr(mac))
 	{
+#ifdef CONFIG_CUSTOM_DEFAULT_MAC_ADDRESS
+		if (rtw_custom_default_mac)
+		{	//	Users specify the mac address
+			int aa,bb;
+			for( aa = 0, bb = 0; aa < ETH_ALEN; aa++, bb += 3 )
+			{
+				mac[aa] = key_2char2num(rtw_custom_default_mac[bb], rtw_custom_default_mac[bb+ 1]);
+			}
+			DBG_871X_LEVEL(_drv_always_, "MAC Address from custom default set "MAC_FMT"\n", MAC_ARG(mac));
+		}
+		else
+		{
+			wifi_hwaddr_from_chipid(mac);
+			if(!is_valid_ether_addr(mac))
+			{
+				random_ether_addr(mac);
+				DBG_871X_LEVEL(_drv_always_, "MAC Address from random mac is "MAC_FMT"\n", MAC_ARG(mac));
+			}
+			else
+			{
+				DBG_871X_LEVEL(_drv_always_, "MAC Address from chip id is "MAC_FMT"\n", MAC_ARG(mac));
+			}
+		}
+		_rtw_memcpy(mac_addr, mac, ETH_ALEN);
+#else
 		mac[0] = 0x00;
 		mac[1] = 0xe0;
 		mac[2] = 0x4c;
@@ -1382,6 +1415,7 @@ void rtw_macaddr_cfg(u8 *mac_addr)
 		// use default mac addresss
 		_rtw_memcpy(mac_addr, mac, ETH_ALEN);
 		DBG_871X("MAC Address from efuse error, assign default one !!!\n");
+#endif
 	}	
 
 	DBG_871X("rtw_macaddr_cfg MAC Address  = "MAC_FMT"\n", MAC_ARG(mac_addr));

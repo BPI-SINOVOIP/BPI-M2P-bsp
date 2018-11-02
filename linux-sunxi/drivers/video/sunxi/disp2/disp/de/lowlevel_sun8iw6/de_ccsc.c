@@ -306,7 +306,7 @@ int de_csc_coeff_calc(unsigned int infmt, unsigned int incscmod, unsigned int ou
 	oper = 0;
 
 	//BYPASS
-	if(infmt == outfmt && incscmod == outcscmod && out_color_range == 0 && brightness == 50 && contrast == 50 && saturation == 50 && hue == 50)
+	if(infmt == outfmt && incscmod == outcscmod && out_color_range == DISP_COLOR_RANGE_0_255 && brightness == 50 && contrast == 50 && saturation == 50 && hue == 50)
 	{
 		memcpy(csc_coeff, bypass_csc, 48);
 		return 0;

@@ -335,9 +335,13 @@ s32 disp_tv_suspend(struct disp_device* ptv)
 		return DIS_FAIL;
 	}
 
-	if(ptvp->tv_func.tv_suspend != NULL) {
-		ptvp->tv_func.tv_suspend();
+	if(false == ptvp->suspended) {
+		ptvp->suspended = true;
+		if(ptvp->tv_func.tv_suspend != NULL) {
+			ptvp->tv_func.tv_suspend();
+		}
 	}
+
 	return 0;
 }
 
@@ -349,9 +353,13 @@ s32 disp_tv_resume(struct disp_device* ptv)
 		return DIS_FAIL;
 	}
 
-	if(ptvp->tv_func.tv_resume != NULL) {
-		ptvp->tv_func.tv_resume();
+	if(true == ptvp->suspended) {
+		if(ptvp->tv_func.tv_resume != NULL) {
+			ptvp->tv_func.tv_resume();
+		}
+		ptvp->suspended = false;
 	}
+
 	return 0;
 }
 

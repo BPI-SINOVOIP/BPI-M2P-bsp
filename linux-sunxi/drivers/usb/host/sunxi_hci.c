@@ -46,6 +46,12 @@
 
 #include  "sunxi_hci.h"
 
+#ifdef CONFIG_USB_SUNXI_USB_MANAGER
+#if defined (CONFIG_ARCH_SUN8IW8) || defined (CONFIG_ARCH_SUN8IW7)
+int usb_otg_id_status(void);
+#endif
+#endif
+
 #if defined (CONFIG_ARCH_SUN8IW5) || defined (CONFIG_ARCH_SUN8IW9) || defined (CONFIG_ARCH_SUN8IW8) || defined (CONFIG_ARCH_SUN8IW7)
 #define  USBPHYC_REG_o_PHYCTL		    0x0410
 #else
@@ -801,6 +807,173 @@ static void UsbPhyInit(__u32 usbc_no)
 }
 #endif
 
+#if defined (CONFIG_ARCH_SUN8IW7) || defined (CONFIG_ARCH_SUN8IW8)
+static int usb_phy_csr_add(int index)
+{
+	int val = 0x0;
+
+	switch(index)
+	{
+		case 0:
+			val = (u32 __force)SUNXI_USB_OTG_VBASE + 0x410;
+		break;
+
+#ifdef  CONFIG_ARCH_SUN8IW7
+		case 1:
+			val = (u32 __force)SUNXI_USB_OTG_VBASE + 0x410;
+		break;
+
+		case 2:
+			val = (u32 __force)SUNXI_USB_OTG_VBASE + 0x410;
+		break;
+
+		case 3:
+			val = (u32 __force)SUNXI_USB_OTG_VBASE + 0x410;
+		break;
+#endif
+		default:
+			DMSG_PANIC("usb_phy_csr_add is fial in %d index\n", index);
+		break;
+
+	}
+
+	return val;
+}
+
+int usb_phy_csr_read(int index)
+{
+	int val = 0x0;
+
+	switch(index)
+	{
+		case 0:
+			val = (u32 __force)SUNXI_USB_OTG_VBASE + 0x424;
+		break;
+
+#ifdef  CONFIG_ARCH_SUN8IW7
+		case 1:
+			val = (u32 __force)SUNXI_USB_HCI1_VBASE + 0x824;
+		break;
+
+		case 2:
+			val = (u32 __force)SUNXI_USB_HCI2_VBASE + 0x824;
+		break;
+
+		case 3:
+			val = (u32 __force)SUNXI_USB_HCI3_VBASE + 0x824;
+		break;
+#endif
+		default:
+
+			DMSG_PANIC("usb_phy_csr_write is fial in %d index\n", index);
+		break;
+	}
+
+	return val;
+}
+
+static int usb_phy_csr_write(int index)
+{
+	int val = 0x0;
+
+	switch(index)
+	{
+		case 0:
+			val = (u32 __force)SUNXI_USB_OTG_VBASE + 0x410;
+		break;
+#ifdef  CONFIG_ARCH_SUN8IW7
+		case 1:
+			val = (u32 __force)SUNXI_USB_HCI1_VBASE + 0x810;
+		break;
+
+		case 2:
+			val = (u32 __force)SUNXI_USB_HCI2_VBASE + 0x810;
+		break;
+
+		case 3:
+			val = (u32 __force)SUNXI_USB_HCI3_VBASE + 0x810;
+		break;
+#endif
+		default:
+			DMSG_PANIC("usb_phy_csr_write is fial in %d index\n", index);
+		break;
+	}
+
+	return val;
+}
+
+int usb_phyx_tp_write(int index, int addr, int data, int len)
+{
+	int temp = 0;
+	int j = 0;
+	int reg_value = 0;
+	int reg_temp = 0;
+	int dtmp = 0;
+
+	reg_value = USBC_Readl((u32 __force)SUNXI_USB_OTG_VBASE + 0x420);
+	reg_temp = reg_value;
+	reg_value |= 0x01;
+	USBC_Writel(reg_value, ((u32 __force)SUNXI_USB_OTG_VBASE + 0x420));
+
+	dtmp = data;
+	for(j=0; j < len; j++)
+	{
+		USBC_Writeb(addr+j, usb_phy_csr_add(index)+1);
+
+		temp = USBC_Readb(usb_phy_csr_write(index));
+		temp &= ~(0x1<<0);
+		USBC_Writeb(temp, usb_phy_csr_write(index));
+
+		temp = USBC_Readb(usb_phy_csr_add(index));
+		temp &= ~(0x1<<7);
+		temp |= (dtmp&0x1)<<7;
+		USBC_Writeb(temp, usb_phy_csr_add(index));
+
+		temp |= (0x1<<0);
+		USBC_Writeb(temp, usb_phy_csr_write(index));
+
+		temp &= ~(0x1<<0);
+		USBC_Writeb(temp, usb_phy_csr_write(index));
+
+		dtmp >>= 1;
+	}
+
+	USBC_Writel(reg_temp, ((u32 __force)SUNXI_USB_OTG_VBASE + 0x420));
+
+	return 0;
+}
+
+int usb_phyx_tp_read(int index, int addr, int len)
+{
+	int temp = 0;
+	int i=0;
+	int j=0;
+	int ret = 0;
+	int reg_value = 0;
+	int reg_temp = 0;
+
+	reg_value = USBC_Readl((u32 __force)SUNXI_USB_OTG_VBASE + 0x420);
+	reg_temp = reg_value;
+	reg_value |= 0x01;
+	USBC_Writel(reg_value, ((u32 __force)SUNXI_USB_OTG_VBASE + 0x420));
+
+	for(j=len; j>0; j--)
+	{
+		USBC_Writeb(addr+j-1, usb_phy_csr_add(index)+1);
+
+		for(i=0;i<0x4;i++);
+
+		temp = USBC_Readb(usb_phy_csr_read(index));
+		ret <<= 1;
+		ret |= (temp & 0x1);
+	}
+
+	USBC_Writel(reg_temp, ((u32 __force)SUNXI_USB_OTG_VBASE + 0x420));
+
+	return ret;
+}
+#endif
+
 #ifndef  SUNXI_USB_FPGA
 static s32 clock_init(struct sunxi_hci_hcd *sunxi_hci, u32 ohci)
 {
@@ -929,6 +1102,9 @@ static int open_clock(struct sunxi_hci_hcd *sunxi_hci, u32 ohci)
 	#if defined (CONFIG_ARCH_SUN8IW8) || defined (CONFIG_ARCH_SUN8IW7)
 	{
 		int reg_value = 0;
+
+		/* adjust disconnect threshold value */
+		usb_phyx_tp_write(sunxi_hci->usbc_no, 0x2a, 3, 2);
 
 		if(sunxi_hci->usbc_no == HCI0_USBC_NO){
 			reg_value = USBC_Readl((u32 __force)SUNXI_USB_OTG_VBASE + 0x420);
@@ -1361,7 +1537,9 @@ static void usb_passby(struct sunxi_hci_hcd *sunxi_hci, u32 enable)
 			if(sunxi_hci->hsic_flag){
 				reg_value = usb_get_hsic_phy_ctrl(reg_value, enable);
 			}else{
+#ifdef CONFIG_USB_SUSPEND
 				reg_value |= (1 << 10);		/* AHB Master interface INCR8 enable */
+#endif
 				reg_value |= (1 << 9);		/* AHB Master interface burst type INCR4 enable */
 				reg_value |= (1 << 8);		/* AHB Master interface INCRX align enable */
 #ifdef SUNXI_USB_FPGA
@@ -1398,7 +1576,9 @@ static void usb_passby(struct sunxi_hci_hcd *sunxi_hci, u32 enable)
 			if(sunxi_hci->hsic_flag){
 				reg_value = usb_get_hsic_phy_ctrl(reg_value, enable);
 			}else{
+#ifdef CONFIG_USB_SUSPEND
 				reg_value |= (1 << 10);		/* AHB Master interface INCR8 enable */
+#endif
 				reg_value |= (1 << 9);		/* AHB Master interface burst type INCR4 enable */
 				reg_value |= (1 << 8);		/* AHB Master interface INCRX align enable */
 				reg_value |= (1 << 0);		/* ULPI bypass enable */
@@ -1428,7 +1608,9 @@ static void usb_passby(struct sunxi_hci_hcd *sunxi_hci, u32 enable)
 				reg_value = usb_get_hsic_phy_ctrl(reg_value, enable);
 
 			}else{
+#ifdef CONFIG_USB_SUSPEND
 				reg_value |= (1 << 10);		/* AHB Master interface INCR8 enable */
+#endif
 				reg_value |= (1 << 9);		/* AHB Master interface burst type INCR4 enable */
 				reg_value |= (1 << 8);		/* AHB Master interface INCRX align enable */
 				reg_value |= (1 << 0);		/* ULPI bypass enable */
@@ -1461,7 +1643,9 @@ static void usb_passby(struct sunxi_hci_hcd *sunxi_hci, u32 enable)
 			if(sunxi_hci->hsic_flag){
 				reg_value = usb_get_hsic_phy_ctrl(reg_value, enable);
 			}else{
+#ifdef CONFIG_USB_SUSPEND
 				reg_value |= (1 << 10);		/* AHB Master interface INCR8 enable */
+#endif
 				reg_value |= (1 << 9);		/* AHB Master interface burst type INCR4 enable */
 				reg_value |= (1 << 8);		/* AHB Master interface INCRX align enable */
 				reg_value |= (1 << 0);		/* ULPI bypass enable */
@@ -1564,7 +1748,7 @@ static void free_pin(struct sunxi_hci_hcd *sunxi_hci)
 
 static void __sunxi_set_vbus(struct sunxi_hci_hcd *sunxi_hci, int is_on)
 {
-	u32 on_off = 0;
+	//u32 on_off = 0;
 
 	DMSG_INFO("[%s]: Set USB Power %s\n", sunxi_hci->hci_name, (is_on ? "ON" : "OFF"));
 
@@ -1572,14 +1756,27 @@ static void __sunxi_set_vbus(struct sunxi_hci_hcd *sunxi_hci, int is_on)
 	sunxi_hci->power_flag = is_on;
 
 	/* set power */
-	if(sunxi_hci->drv_vbus_gpio_set.gpio.data == 0){
-		on_off = is_on ? 1 : 0;
-	}else{
-		on_off = is_on ? 0 : 1;
+	//if(sunxi_hci->drv_vbus_gpio_set.gpio.data == 0){
+	//	on_off = is_on ? 1 : 0;
+	//}else{
+	//	on_off = is_on ? 0 : 1;
+	//}
+
+//no care of usb0 vbus when otg connect pc setup system without battery and to return
+#ifdef CONFIG_USB_SUNXI_USB_MANAGER
+#if defined (CONFIG_ARCH_SUN8IW8) || defined (CONFIG_ARCH_SUN8IW7)
+	if(sunxi_hci->usbc_no == HCI0_USBC_NO){
+		if(is_on){
+			if(usb_otg_id_status() == 1){
+				return;
+			}
+		}
 	}
+#endif
+#endif
 
 	if(sunxi_hci->drv_vbus_gpio_valid){
-		__gpio_set_value(sunxi_hci->drv_vbus_gpio_set.gpio.gpio, on_off);
+		__gpio_set_value(sunxi_hci->drv_vbus_gpio_set.gpio.gpio, is_on);
 	}
 
 	return;
@@ -1808,6 +2005,24 @@ static struct platform_device sunxi_usb_ohci_device[] = {
 };
 #endif
 
+#ifdef CONFIG_ARCH_SUN8IW8
+static void sunxi_usbc_work(struct work_struct *data)
+{
+	struct sunxi_hci_hcd *sunxi_hci  = NULL;
+
+	sunxi_hci = &sunxi_ehci0;
+
+	printk("sunxi_usbc_work, usbc:%d\n", sunxi_hci->usbc_no);
+
+	__sunxi_set_vbus(sunxi_hci, 0);
+	msleep(100);
+	__sunxi_set_vbus(sunxi_hci, 1);
+
+	printk("end sunxi_usbc_work\n");
+
+}
+#endif
+
 static int init_sunxi_hci(struct sunxi_hci_hcd *sunxi_hci, u32 usbc_no, u32 ohci, const char *hci_name)
 {
 	s32 ret = 0;
@@ -1954,7 +2169,9 @@ static int __init sunxi_hci_init(void)
 #ifdef  CONFIG_USB_SUNXI_OHCI0
 
 		init_sunxi_hci(&sunxi_ohci0, HCI0_USBC_NO, 1, ohci_name);
-
+#ifdef CONFIG_ARCH_SUN8IW8
+		INIT_WORK(&sunxi_ohci0.usbc_work, sunxi_usbc_work);
+#endif
 #ifndef  CONFIG_USB_SUNXI_EHCI0
 		alloc_pin(&sunxi_ohci0);
 #endif

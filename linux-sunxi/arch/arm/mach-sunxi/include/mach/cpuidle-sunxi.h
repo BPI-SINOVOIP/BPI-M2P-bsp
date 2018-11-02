@@ -135,12 +135,31 @@ static inline bool SUNXI_CPU_IS_WFI_MODE(unsigned int cpu)
 #define MAX_CLUSTERS		(2)
 #define MAX_CPU_IN_CLUSTER	(4)
 
+#if defined(CONFIG_ARCH_SUN8IW6P1)
+#define MSG_VBASE IO_ADDRESS(SUNXI_SRAM_A2_PBASE)
+#define ARISC_MESSAGE_POOL_END (SUNXI_SRAM_A2_SIZE)
+#define MSG_VEND (MSG_VBASE + ARISC_MESSAGE_POOL_END)
+
+/* flg between cpux & cpus for synchronization */
+#define CLUSTER_CPUX_FLG(cluster, cpu) (MSG_VEND -  4 - 16*(cluster) - 4*(cpu))
+#define CLUSTER_CPUS_FLG(cluster, cpu) (MSG_VEND - 36 - 16*(cluster) - 4*(cpu))
+#define CLUSTER_CPUW_FLG(cluster, cpu) (MSG_VEND - 68 - 16*(cluster) - 4*(cpu))
+#define CLUSTER_CPUS_GICW_FLG() (MSG_VEND - 100)
+#endif
+
 static inline void sunxi_idle_cpu_die(void)
 {
 	unsigned long actlr;
+#if defined(CONFIG_ARCH_SUN8IW6P1)
+	unsigned int mpidr = read_cpuid_mpidr();
+	unsigned int cluster = MPIDR_AFFINITY_LEVEL(mpidr, 1);
+	unsigned int cpu = MPIDR_AFFINITY_LEVEL(mpidr, 0);
+#endif
 
 	gic_cpu_exit(0);
-
+#if defined(CONFIG_ARCH_SUN8IW6P1)
+	writel(0, CLUSTER_CPUW_FLG(cluster, cpu)); /* for cpus sync */
+#endif
 	/* step1: disable cache */
 	asm("mrc    p15, 0, %0, c1, c0, 0" : "=r" (actlr) );
 	actlr &= ~(1<<2);
@@ -172,9 +191,15 @@ static inline void sunxi_idle_cpu_die(void)
 static inline void sunxi_idle_cluster_die(unsigned int cluster)
 {
 	unsigned long actlr;
+#if defined(CONFIG_ARCH_SUN8IW6P1)
+	unsigned int mpidr = read_cpuid_mpidr();
+	unsigned int cpu = MPIDR_AFFINITY_LEVEL(mpidr, 0);
+#endif
 
 	gic_cpu_exit(0);
-
+#if defined(CONFIG_ARCH_SUN8IW6P1)
+	writel(0, CLUSTER_CPUW_FLG(cluster, cpu)); /* for cpus sync */
+#endif
 	/* step1: disable cache */
 	asm("mrc    p15, 0, %0, c1, c0, 0" : "=r" (actlr) );
 	actlr &= ~(1<<2);

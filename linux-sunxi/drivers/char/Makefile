@@ -78,3 +78,12 @@ obj-$(CONFIG_SUNXI_DMA_TEST)	+= dma_test/
 obj-$(CONFIG_SUNXI_TRANSFORM)	+= sunxi_tr/
 obj-y				+= sunxi-scr/
 obj-y				+= sunxi-di/
+
+obj-${CONFIG_ID}       += sunxi_id/
+obj-${CONFIG_RESET_KEY} += sunxi_key/
+obj-$(CONFIG_IR_CUT)   += sunxi_ir_cut/
+
+obj-$(CONFIG_MATRIX_GPIO_INT)	+= matrix_gpio_int.o
+obj-$(CONFIG_MATRIX_PWM)	+= matrix_pwm.o
+obj-$(CONFIG_MATRIX_ROTARY_ENCODER)	+= matrix_rotary_encoder.o
+obj-$(CONFIG_MATRIX_HCSR04) 	+= matrix_hcsr04.o

@@ -925,7 +925,7 @@ static void sunxi_ths_reg_init(void)
 	sunxi_smc_writel(THS_CLEAR_INT_STA, thermal_data->base_addr + THS_INT_STA_REG);
 	sunxi_smc_writel(THS_FILT_CTRL_VALUE, thermal_data->base_addr + THS_FILT_CTRL_REG);
 
-	reg_value = temperature_to_reg(ths_zone_2.sunxi_ths_sensor_conf->trip_data->trip_val[0], 14186, 2794);
+	reg_value = temperature_to_reg(ths_zone_2.sunxi_ths_sensor_conf->trip_data->trip_val[0], 14186, 2719);
 	reg_value = (reg_value<<16);
 
 	sunxi_smc_writel(reg_value, thermal_data->base_addr + THS_INT_SHUT_TH_REG0);

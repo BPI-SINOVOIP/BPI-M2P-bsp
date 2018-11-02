@@ -15,3 +15,4 @@ obj-$(CONFIG_HDMI_SUNXI_LEGACY)   += legacy/hdmi/
 obj-$(CONFIG_DISP2_SUNXI) += disp2/disp/
 obj-$(CONFIG_HDMI_DISP2_SUNXI) += disp2/hdmi/
 obj-$(CONFIG_DISP2_SUNXI) += disp2/tv/
+obj-$(CONFIG_HDMI_EP952) += disp2/hdmi_ep952/

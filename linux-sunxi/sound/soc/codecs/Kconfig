@@ -442,22 +442,35 @@ config SND_SOC_MAX9877
 config SND_SOC_TPA6130A2
 	tristate
 
+config SND_SOC_RT3261
+	tristate "RT3261 karaoke codec"
+	depends on ARCH_SUN8IW7
+	default n
+	help
+	  Say Y or M if you want to add support for rt3261 codec.
+config SND_RT_EFFECT
+	tristate "pt2399 karaoke effect"
+	depends on ARCH_SUN8IW7
+	default n
+	help
+	  Say Y or M if you want to add support for pt2399 karaoke effect.
 
 config SND_SOC_AC100_CODEC
 	tristate "SUNXI AudioCodec AC100"
-	depends on ARCH_SUN8IW6 || ARCH_SUN9IW1
+	depends on ARCH_SUN9IW1 && MFD_ACX00
 	default n
 	help
 	  Say Y or M if you want to add support for AC100 audiocodec.
-config SND_SOC_AC100DAPM_CODEC
-	tristate "SUNXI AudioCodec AC100 DAPM"
-	depends on ARCH_SUN8IW6
+
+config SND_SOC_ACX00DAPM_CODEC
+	tristate "SUNXI AudioCodec ACX00 DAPM"
+	depends on MFD_ACX00 && (ARCH_SUN8IW6 || ARCH_SUN8IW7)
 	default n
 	help
-	  Say Y or M if you want to add support for AC100 audiocodec.
-config SND_SOC_AC200DAPM_CODEC
-	tristate "SUNXI AudioCodec AC200 DAPM"
-	depends on ARCH_SUN8IW6
+	  Say Y or M if you want to add support for ACX00 audiocodec.
+config SND_SOC_TAS5731_CODEC
+	tristate "TAS5731 CODEC"
+	depends on MFD_ACX00 && ARCH_SUN8IW6
 	default n
 	help
-	  Say Y or M if you want to add support for AC200 codec.
+	  Say Y or M if you want to add support for tas5731.

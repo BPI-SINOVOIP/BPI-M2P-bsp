@@ -15,7 +15,6 @@
 #include <mach/hardware.h>
 #include <mach/platform.h>
 #include <mach/sys_config.h>
-#include <mach/sunxi-smc.h>
 #include "power.h"
 #include "sunxi_init.h"
 
@@ -34,11 +33,11 @@ static struct clk *gpu_axi_clk         = NULL;
 static struct clk *gpu_pll_clk         = NULL;
 static struct clk *gpu_ctrl_clk        = NULL;
 static struct regulator *rgx_regulator = NULL;
-static char *regulator_id              = "axp22_dcdc2";
-static unsigned int min_vf_level_val   = 4;
-static unsigned int max_vf_level_val   = 6;
+static char *regulator_id			= NULL;
+static IMG_UINT32 min_vf_level_val     = 4;
+static IMG_UINT32 max_vf_level_val     = 6;
 
-static unsigned int vf_table[7][2]=
+static IMG_UINT32 vf_table[7][2] =
 {
 	{ 700,  48},
 	{ 800, 120},
@@ -51,7 +50,12 @@ static unsigned int vf_table[7][2]=
 
 long int GetConfigFreq(IMG_VOID)
 {
-	return vf_table[min_vf_level_val][1]*1000*1000;
+    return vf_table[min_vf_level_val][1]*1000*1000;
+}
+
+IMG_UINT32 AwClockFreqGet(IMG_HANDLE hSysData)
+{
+	return (IMG_UINT32)clk_get_rate(gpu_core_clk);
 }
 
 static IMG_VOID AssertGpuResetSignal(IMG_VOID)
@@ -258,33 +262,43 @@ PVRSRV_ERROR AwPostPowerState(PVRSRV_DEV_POWER_STATE eNewPowerState, PVRSRV_DEV_
 	return PVRSRV_OK;
 }
 
-IMG_VOID RgxResume(IMG_VOID)
+PVRSRV_ERROR AwSysPrePowerState(PVRSRV_SYS_POWER_STATE eNewPowerState)
 {
-	RgxEnablePower();
+	if(eNewPowerState == PVRSRV_SYS_POWER_STATE_ON)
+	{
+		RgxEnablePower();
 	
-	mdelay(2);
+		mdelay(2);
 	
-	/* set external isolation invalid */
-	sunxi_smc_writel(0, SUNXI_R_PRCM_VBASE + GPU_PWROFF_GATING);
+		/* set external isolation invalid */
+		writel(0, SUNXI_R_PRCM_VBASE + GPU_PWROFF_GATING);
 	
-	DeAssertGpuResetSignal();
-
-	RgxEnableClock();
+		DeAssertGpuResetSignal();
+		
+		RgxEnableClock();
+		
+		/* set delay for internal power stability */
+		writel(0x100, SUNXI_GPU_CTRL_VBASE + 0x18);
+	}
 	
-	/* delay for internal power stability */
-	sunxi_smc_writel(0x100, SUNXI_GPU_CTRL_VBASE + 0x18);
+	return PVRSRV_OK;
 }
 
-IMG_VOID RgxSuspend(IMG_VOID)
-{		
-	RgxDisableClock();
+PVRSRV_ERROR AwSysPostPowerState(PVRSRV_SYS_POWER_STATE eNewPowerState)
+{
+	if(eNewPowerState == PVRSRV_SYS_POWER_STATE_OFF)
+	{
+		RgxDisableClock();
+		
+		AssertGpuResetSignal();
 	
-	AssertGpuResetSignal();
+		/* set external isolation valid */
+		writel(1, SUNXI_R_PRCM_VBASE + GPU_PWROFF_GATING);
 	
-	/* set external isolation valid */
-	sunxi_smc_writel(1, SUNXI_R_PRCM_VBASE + GPU_PWROFF_GATING);
+		RgxDisablePower();
+	}
 	
-	RgxDisablePower();
+	return PVRSRV_OK;
 }
 
 #ifdef CONFIG_CPU_BUDGET_THERMAL
@@ -293,10 +307,11 @@ static int rgx_throttle_notifier_call(struct notifier_block *nfb, unsigned long 
     int retval = NOTIFY_DONE;
 	if(mode == BUDGET_GPU_THROTTLE)
     {
-        if (Is_powernow) {
-		RgxDvfsChange(min_vf_level_val, 0);
-        Is_powernow = 0;
-        }
+		if(Is_powernow)
+		{
+			RgxDvfsChange(min_vf_level_val, 0);
+			Is_powernow = 0;
+		}
     }
     else
 	{
@@ -345,8 +360,8 @@ IMG_VOID RgxSunxiInit(IMG_VOID)
 	SetClkVal("mem", vf_table[min_vf_level_val][1]);
 	SetClkVal("axi", AXI_CLK_FREQ);
 	
-	RgxResume();
-
+	(void) AwSysPrePowerState(PVRSRV_SYS_POWER_STATE_ON);
+	
 #ifdef CONFIG_CPU_BUDGET_THERMAL
 	register_budget_cooling_notifier(&rgx_throttle_notifier);
 #endif /* CONFIG_CPU_BUDGET_THERMAL */

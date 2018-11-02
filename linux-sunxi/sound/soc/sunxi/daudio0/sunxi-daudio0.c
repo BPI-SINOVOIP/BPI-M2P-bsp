@@ -118,6 +118,32 @@ void sunxi_snd_rxctrl_daudio0(struct snd_pcm_substream *substream, int on)
 	sunxi_smc_writel(reg_val, sunxi_daudio.regs + SUNXI_DAUDIOFCTL);
 	/*clear RX counter*/
 	sunxi_smc_writel(0, sunxi_daudio.regs + SUNXI_DAUDIORXCNT);
+	/* DAUDIO RX ENABLE */
+	reg_val = sunxi_smc_readl(sunxi_daudio.regs + SUNXI_DAUDIOCTL);
+	reg_val |= SUNXI_DAUDIOCTL_RXEN;
+	sunxi_smc_writel(reg_val, sunxi_daudio.regs + SUNXI_DAUDIOCTL);
+	/*for IO TO IO transfer*/
+	if (!substream) {
+		reg_val = sunxi_smc_readl(sunxi_daudio.regs + SUNXI_TXCHCFG);
+		reg_val &= ~(0x7<<4);
+		reg_val |= (0x1)<<4;
+		sunxi_smc_writel(reg_val, sunxi_daudio.regs + SUNXI_TXCHCFG);
+
+		reg_val = sunxi_smc_readl(sunxi_daudio.regs + SUNXI_DAUDIORXCHSEL);
+		reg_val |= (0x1<<12);
+		reg_val	|= (0x1<<0);
+		sunxi_smc_writel(reg_val, sunxi_daudio.regs + SUNXI_DAUDIORXCHSEL);
+
+		reg_val = sunxi_smc_readl(sunxi_daudio.regs + SUNXI_DAUDIORXCHMAP);
+		reg_val = 0x10;
+		sunxi_smc_writel(reg_val, sunxi_daudio.regs + SUNXI_DAUDIORXCHMAP);
+
+		reg_val = sunxi_smc_readl(sunxi_daudio.regs + SUNXI_DAUDIOFCTL);
+		reg_val |= SUNXI_DAUDIOFCTL_RXOM;
+		sunxi_smc_writel(reg_val, sunxi_daudio.regs + SUNXI_DAUDIOFCTL);
+		/*clear RX counter*/
+		sunxi_smc_writel(0, sunxi_daudio.regs + SUNXI_DAUDIORXCNT);
+	}
 
 	if (on) {
 		/* enable DMA DRQ mode for record */
@@ -649,11 +675,6 @@ int sunxi_daudio0_perpare(struct snd_pcm_substream *substream,
 
 		/*clear RX counter*/
 		sunxi_smc_writel(0, sunxi_daudio.regs + SUNXI_DAUDIORXCNT);
-
-		/* DAUDIO RX ENABLE */
-		reg_val = sunxi_smc_readl(sunxi_daudio.regs + SUNXI_DAUDIOCTL);
-		reg_val |= SUNXI_DAUDIOCTL_RXEN;
-		sunxi_smc_writel(reg_val, sunxi_daudio.regs + SUNXI_DAUDIOCTL);
 	}
 	return 0;
 }

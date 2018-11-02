@@ -1,6 +1,6 @@
 config FILE_INTEGRITY
 	tristate "File Integrity Check"
-	depends on SECURITY
+	depends on SECURITYFS
 	default n
 	help
 	  This selects off-line file integrity module , which help to verify 

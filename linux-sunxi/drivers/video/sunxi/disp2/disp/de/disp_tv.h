@@ -11,6 +11,7 @@ s32 disp_tv_set_hpd(struct disp_device*  ptv, u32 state);
 
 struct disp_device_private_data {
 	__u32 enabled;
+	bool suspended;
 
 	disp_tv_mode tv_mode;
 

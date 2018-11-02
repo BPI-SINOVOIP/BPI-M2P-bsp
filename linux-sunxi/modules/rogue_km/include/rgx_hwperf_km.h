@@ -68,9 +68,12 @@ extern "C" {
  * multiple of 64 bits, 8 bytes to allow the FW to write 8 byte quantities
  * at 8 byte aligned addresses.  BLD_ASSERT() is used to check this.
  */
+ 
 /*! Type used to encode the event that generated the HW performance packet.
  * NOTE: When this type is updated the corresponding hwperfbin2json tool source
  * needs to be updated as well. Also need to update the table in rgxhwperf.c.
+ * The RGX_HWPERF_EVENT_MASK_* macros will also need updating when adding new
+ * types.
  */
 typedef enum
 {
@@ -78,38 +81,41 @@ typedef enum
 	/* FW types 0x01..0x07 */
 	RGX_HWPERF_FW_BGSTART			= 0x01,
 	RGX_HWPERF_FW_BGEND				= 0x02,
-
 	RGX_HWPERF_FW_IRQSTART			= 0x03,
-	RGX_HWPERF_FW_IRQEND			= 0x04,
 
+	RGX_HWPERF_FW_IRQEND			= 0x04,
 	RGX_HWPERF_FW_DBGSTART			= 0x05,
 	RGX_HWPERF_FW_DBGEND			= 0x06,
 
-	/* HW types 0x08..0x17 */
+	/* HW types 0x08..0x18 */
 	RGX_HWPERF_HW_TAKICK			= 0x08,
 	RGX_HWPERF_HW_TAFINISHED		= 0x09,
-
 	RGX_HWPERF_HW_3DTQKICK			= 0x0A,
-	RGX_HWPERF_HW_3DSPMKICK			= 0x11,
+/*	RGX_HWPERF_HW_3DTQFINISHED		= 0x17, */
+/*	RGX_HWPERF_HW_3DSPMKICK			= 0x11, */
+/*	RGX_HWPERF_HW_3DSPMFINISHED		= 0x18, */
 	RGX_HWPERF_HW_3DKICK			= 0x0B,
-	RGX_HWPERF_HW_3DFINISHED		= 0x0C,
 
+	RGX_HWPERF_HW_3DFINISHED		= 0x0C,
 	RGX_HWPERF_HW_CDMKICK			= 0x0D,
 	RGX_HWPERF_HW_CDMFINISHED		= 0x0E,
-
 	RGX_HWPERF_HW_TLAKICK			= 0x0F,
-	RGX_HWPERF_HW_TLAFINISHED		= 0x10,
-	/* in use, see above			= 0x11 */
-	RGX_HWPERF_HW_PERIODIC			= 0x12,
-	
-	RGX_HWPERF_HW_RTUKICK			= 0x13,
-	RGX_HWPERF_HW_RTUFINISHED		= 0x14,
 
+	RGX_HWPERF_HW_TLAFINISHED		= 0x10,
+	RGX_HWPERF_HW_3DSPMKICK			= 0x11,
+	RGX_HWPERF_HW_PERIODIC			= 0x12,
+	RGX_HWPERF_HW_RTUKICK			= 0x13,
+	
+	RGX_HWPERF_HW_RTUFINISHED		= 0x14,
 	RGX_HWPERF_HW_SHGKICK			= 0x15,
 	RGX_HWPERF_HW_SHGFINISHED		= 0x16,
+	RGX_HWPERF_HW_3DTQFINISHED		= 0x17,
+
+	RGX_HWPERF_HW_3DSPMFINISHED		= 0x18,
 
 	/* other types 0x1A..0x1F */
 	RGX_HWPERF_CLKS_CHG				= 0x1A,
+	RGX_HWPERF_GPU_STATE_CHG		= 0x1B,
 
 	/* power types 0x20..0x27 */
 	RGX_HWPERF_PWR_EST_REQUEST		= 0x20,
@@ -117,6 +123,10 @@ typedef enum
 	RGX_HWPERF_PWR_EST_RESULT		= 0x22,
 	RGX_HWPERF_PWR_CHG				= 0x23,
 
+	/* context switch types 0x30..0x31 */
+	RGX_HWPERF_CSW_START			= 0x30,
+	RGX_HWPERF_CSW_FINISHED			= 0x31,
+	
 	/* last */
 	RGX_HWPERF_LAST_TYPE,
 
@@ -151,6 +161,9 @@ typedef RGXFWIF_DM RGX_HWPERF_DM;
 /*! Signature ASCII pattern 'HWP2' found in the first word of a HWPerfV2 packet
  */
 #define HWPERF_PACKET_V2_SIG		0x48575032
+/*! Signature ASCII pattern 'HWPA' found in the first word of a HWPerfV2a packet
+ */
+#define HWPERF_PACKET_V2A_SIG		0x48575041
 
 /*! This structure defines version 2 of the packet format which is
  * based around a header and a variable length data payload structure.
@@ -206,6 +219,9 @@ RGX_FW_STRUCT_SIZE_ASSERT(RGX_HWPERF_V2_PACKET_HDR)
 /*! Macro to obtain the size of the packet */
 #define RGX_HWPERF_GET_SIZE(_packet_addr)    ((IMG_UINT16)(((_packet_addr)->ui32Size) & RGX_HWPERF_SIZE_MASK))
 
+/*! Macro to obtain the size of the packet data */
+#define RGX_HWPERF_GET_DATA_SIZE(_packet_addr)   (RGX_HWPERF_GET_SIZE(_packet_addr) - sizeof(RGX_HWPERF_V2_PACKET_HDR))
+
 
 /*! Masks for use with the IMG_UINT32 eTypeId header field */
 #define RGX_HWPERF_TYPEID_MASK			0xFFFFU
@@ -233,6 +249,9 @@ RGX_FW_STRUCT_SIZE_ASSERT(RGX_HWPERF_V2_PACKET_HDR)
 #define RGX_HWPERF_GET_PACKET_DATA_BYTES(_packet_addr) ((IMG_BYTE*) ( ((IMG_BYTE*)(_packet_addr)) +sizeof(RGX_HWPERF_V2_PACKET_HDR) ) )
 #define RGX_HWPERF_GET_NEXT_PACKET(_packet_addr)       ((RGX_HWPERF_V2_PACKET_HDR*)  ( ((IMG_BYTE*)(_packet_addr))+(RGX_HWPERF_SIZE_MASK&(_packet_addr)->ui32Size)) )
 
+/*! Obtains a typed pointer to a packet header given the packed data address */
+#define RGX_HWPERF_GET_PACKET_HEADER(_packet_addr)     ((RGX_HWPERF_V2_PACKET_HDR*)  ( ((IMG_BYTE*)(_packet_addr)) - sizeof(RGX_HWPERF_V2_PACKET_HDR) ))
+
 
 /*! This structure holds the field data of a Hardware packet.
  */
@@ -241,12 +260,14 @@ IMG_UINT32 ui32DMCyc;        /*!< DataMaster cycle count register, 0 if none */\
 IMG_UINT32 ui32FrameNum;     /*!< Frame number */\
 IMG_UINT32 ui32PID;          /*!< Process identifier */\
 IMG_UINT32 ui32DMContext;    /*!< RenderContext for a TA,3D, Compute context for CDM, etc. */\
-IMG_UINT32 ui32RenderTarget; /*!< RenderTarget for a TA,3D, 0x0 otherwise */
+IMG_UINT32 ui32RenderTarget; /*!< RenderTarget for a TA,3D, 0x0 otherwise */\
+IMG_UINT32 ui32ExtJobRef; /*!< Externally provided job reference used to track work for debugging purposes */\
+IMG_UINT32 ui32IntJobRef; /*!< Internally provided job reference used to track work for debugging purposes */
 
 typedef struct
 {
 	RGX_HWPERF_HW_DATA_FIELDS_LIST
-	IMG_UINT32 ui32Reserved1;
+	IMG_UINT32 ui32Reserved1; /*!< Define only if needed to make RGX_HWPERF_HW_DATA_FIELDS 8-byte aligned */
 } RGX_HWPERF_HW_DATA_FIELDS;
 
 RGX_FW_STRUCT_SIZE_ASSERT(RGX_HWPERF_HW_DATA_FIELDS)
@@ -255,6 +276,21 @@ RGX_FW_STRUCT_SIZE_ASSERT(RGX_HWPERF_HW_DATA_FIELDS)
 /******************************************************************************
  * 	API Types
  *****************************************************************************/
+
+
+/*! Mask macros for use with RGXCtrlHWPerf() API.
+ * RGX_HWPERF_EVENT_ALL is obsolete, use RGX_HWPERF_EVENT_MASK_ALL
+ */
+#define RGX_HWPERF_EVENT_MASK_NONE          (IMG_UINT64_C(0x0000000000000000))
+#define RGX_HWPERF_EVENT_MASK_ALL           (IMG_UINT64_C(0xFFFFFFFFFFFFFFFF))
+#define RGX_HWPERF_EVENT_MASK_ALL_FW        (IMG_UINT64_C(0x000000000000007E))
+#define RGX_HWPERF_EVENT_MASK_HW_KICKFINISH (IMG_UINT64_C(0x0000000001FBFF00))
+#define RGX_HWPERF_EVENT_MASK_HW_PERIODIC   (IMG_UINT64_C(0x0000000000040000))
+#define RGX_HWPERF_EVENT_MASK_ALL_HW        (RGX_HWPERF_EVENT_MASK_HW_KICKFINISH \
+                                            | RGX_HWPERF_EVENT_MASK_HW_PERIODIC)
+#define RGX_HWPERF_EVENT_MASK_ALL_PWR_EST   (IMG_UINT64_C(0X0000000700000000))
+#define RGX_HWPERF_EVENT_MASK_ALL_PWR       (IMG_UINT64_C(0X0000000800000000))
+#define RGX_HWPERF_EVENT_MASK_VALUE(e)      (((IMG_UINT64)1)<<(e))
 
 /*! Type used in the RGX API RGXConfigureAndEnableHWPerfCounters()
  * It is used to configure the performance counter module in a layout

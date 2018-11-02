@@ -36,14 +36,14 @@ static int usb_wifi_host = 2;
 #if defined(CONFIG_PLATFORM_ARM_SUN6I) || defined(CONFIG_PLATFORM_ARM_SUN7I)
 extern int sw_usb_disable_hcd(__u32 usbc_no);
 extern int sw_usb_enable_hcd(__u32 usbc_no);
-extern void wifi_pm_power(int on);
+extern void rf_module_power(int on);
 static script_item_u item;
 #endif
 
 #ifdef CONFIG_PLATFORM_ARM_SUN8I
 extern int sunxi_usb_disable_hcd(__u32 usbc_no);
 extern int sunxi_usb_enable_hcd(__u32 usbc_no);
-extern void wifi_pm_power(int on);
+extern void rf_module_power(int on);
 static script_item_u item;
 #endif
 
@@ -80,7 +80,7 @@ int platform_wifi_power_on(void)
 		}
 
 		printk("sw_usb_enable_hcd: usbc_num = %d\n", item.val);
-		wifi_pm_power(1);
+		rf_module_power(1);
 		mdelay(10);
 	
 		#if !(defined(CONFIG_RTL8723A)) && !(defined(CONFIG_RTL8723B))
@@ -101,12 +101,9 @@ int platform_wifi_power_on(void)
 		}
 
 		printk("sw_usb_enable_hcd: usbc_num = %d\n", item.val);
-#if defined(CONFIG_ARCH_SUN8IW7P1)
-		printk(KERN_ERR "notice: set wl_reg_on 0 to power on 8188eu in sun8iw7p1!\n");
-		wifi_pm_power(0);
-#else
-		wifi_pm_power(1);
-#endif //defined(CONFIG_ARCH_SUN8IW7P1)
+
+		rf_module_power(1);
+
 		mdelay(10);
 	
 		#if !(defined(CONFIG_RTL8723A)) && !(defined(CONFIG_RTL8723B))
@@ -133,19 +130,16 @@ void platform_wifi_power_off(void)
 	#if !(defined(CONFIG_RTL8723A)) && !(defined(CONFIG_RTL8723B))
 	sw_usb_disable_hcd(item.val);
 	#endif
-	wifi_pm_power(0);
+	rf_module_power(0);
 #endif //defined(CONFIG_PLATFORM_ARM_SUN6I) || defined(CONFIG_PLATFORM_ARM_SUN7I)
 
 #if defined(CONFIG_PLATFORM_ARM_SUN8I)
 	#if !(defined(CONFIG_RTL8723A)) && !(defined(CONFIG_RTL8723B))
 	sunxi_usb_disable_hcd(item.val);
 	#endif
-#if defined(CONFIG_ARCH_SUN8IW7P1)
-	printk(KERN_ERR "notice: set wl_reg_on 1 to power off 8188eu in sun8iw7p1!\n");
-	wifi_pm_power(1);
-#else
-	wifi_pm_power(0);
-#endif //defined(CONFIG_ARCH_SUN8IW7P1)
+
+	rf_module_power(0);
+
 #endif //defined(CONFIG_PLATFORM_ARM_SUN8I) 
 
 }

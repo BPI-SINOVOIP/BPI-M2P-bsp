@@ -49,6 +49,8 @@ static cpumask_t dead_cpus;
 #define IS_WFI_MODE(cpu)    (readl(SUNXI_R_CPUCFG_VBASE + SUNXI_CLUSTER_CPU_STATUS(0)) & (1 << (16 + cpu)))
 #elif defined(CONFIG_ARCH_SUN8IW6)
 #define IS_WFI_MODE(cpu)    (readl(SUNXI_CPUXCFG_VBASE + SUNXI_CLUSTER_CPU_STATUS(0)) & (1 << (16 + cpu)))
+#elif defined(CONFIG_ARCH_SUN8IW7)
+#define IS_WFI_MODE(cpu)    (sunxi_smc_readl(IO_ADDRESS(SUNXI_R_CPUCFG_PBASE) + CPUX_STATUS(cpu)) & (1<<2))
 #else
 #define IS_WFI_MODE(cpu)    (readl(IO_ADDRESS(SUNXI_R_CPUCFG_PBASE) + CPUX_STATUS(cpu)) & (1<<2))
 #endif

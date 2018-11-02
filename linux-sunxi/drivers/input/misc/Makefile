@@ -63,4 +63,5 @@ obj-$(CONFIG_INPUT_XEN_KBDDEV_FRONTEND)	+= xen-kbdfront.o
 obj-$(CONFIG_INPUT_YEALINK)				+= yealink.o
 obj-$(CONFIG_E_COMPASS_AKM8963)				+= akm8963.o
 obj-$(CONFIG_GYR_BMG160)      		+= bmg160_gyr.o
+obj-$(CONFIG_INPUT_SHAFT_ENCODER)   += shaft_encoder.o
 bmg160_gyr-objs := bmg160_driver.o bmg160.o

@@ -740,6 +740,38 @@ s32 bsp_disp_get_screen_width_from_output_type(u32 screen_id, u32 output_type, u
 			width = 3840;
 			height = 2160;
 			break;
+		case DISP_TV_MOD_800_480P:
+			width = 800;
+			height = 480;
+			break;
+		case DISP_TV_MOD_1024_768P:
+			width = 1024;
+			height = 768;
+			break;
+		case DISP_TV_MOD_1280_1024P:
+			width = 1280;
+			height = 1024;
+			break;
+		case DISP_TV_MOD_1360_768P:
+			width = 1360;
+			height = 768;
+			break;
+		case DISP_TV_MOD_1440_900P:
+			width = 1440;
+			height = 900;
+			break;
+		case DISP_TV_MOD_1680_1050P:
+			width = 1680;
+			height = 1050;
+			break;
+		case DISP_TV_MOD_2048_1536P:
+			width = 2048;
+			height = 1536;
+			break;
+		case DISP_TV_MOD_1024_600P:
+			width = 1024;
+			height = 600;
+			break;
 		default:
 			printk("err:function:%s, line:%d,output_mode=%d\n", __func__, __LINE__, output_mode);
 		}
@@ -793,6 +825,38 @@ s32 bsp_disp_get_screen_height_from_output_type(u32 screen_id, u32 output_type, 
 		case DISP_TV_MOD_3840_2160P_24HZ:
 			width = 3840;
 			height = 2160;
+			break;
+		case DISP_TV_MOD_800_480P:
+			width = 800;
+			height = 480;
+			break;
+		case DISP_TV_MOD_1024_768P:
+			width = 1024;
+			height = 768;
+			break;
+		case DISP_TV_MOD_1280_1024P:
+			width = 1280;
+			height = 1024;
+			break;
+		case DISP_TV_MOD_1360_768P:
+			width = 1360;
+			height = 768;
+			break;
+		case DISP_TV_MOD_1440_900P:
+			width = 1440;
+			height = 900;
+			break;
+		case DISP_TV_MOD_1680_1050P:
+			width = 1680;
+			height = 1050;
+			break;
+		case DISP_TV_MOD_2048_1536P:
+			width = 2048;
+			height = 1536;
+			break;
+		case DISP_TV_MOD_1024_600P:
+			width = 1024;
+			height = 600;
 			break;
 		default:
 			printk("err:function:%s, line:%d,output_mode=%d\n", __func__, __LINE__, output_mode);
@@ -918,9 +982,19 @@ s32 bsp_disp_lcd_post_enable(u32 screen_id)
 s32 bsp_disp_lcd_pre_disable(u32 screen_id)
 {
 	struct disp_lcd* lcd;
+	struct disp_manager *mgr;
 
+	mgr = disp_get_layer_manager(screen_id);
 	lcd = disp_get_lcd(screen_id);
-	if(lcd && lcd->pre_disable) {
+	if(!mgr || !lcd) {
+		DE_WRN("get lcd%d or mgr%d fail\n", screen_id, screen_id);
+        return -1;
+	}
+
+	if(mgr->set_output_type)
+		mgr->set_output_type(mgr, DISP_OUTPUT_TYPE_NONE);
+
+	if(lcd->pre_disable) {
 		return lcd->pre_disable(lcd);
 	}
 	return DIS_FAIL;
@@ -938,10 +1012,6 @@ s32 bsp_disp_lcd_post_disable(u32 screen_id)
 		DE_WRN("get lcd%d or mgr%d fail\n", screen_id, screen_id);
         return -1;
 	}
-
-	if(mgr->set_output_type)
-		mgr->set_output_type(mgr, DISP_OUTPUT_TYPE_NONE);
-	bsp_disp_delay_ms(1);
 
 	if(lcd->post_disable)
 		ret = lcd->post_disable(lcd);
@@ -1612,6 +1682,22 @@ s32 bsp_disp_set_back_color(u32 screen_id, disp_color_info *bk_color)
 
 	if(mgr->set_back_color)
 		return mgr->set_back_color(mgr, bk_color);
+
+	return DIS_FAIL;
+}
+
+s32 bsp_disp_set_color_key(u32 screen_id, disp_colorkey *ck)
+{
+	struct disp_manager *mgr;
+
+	mgr = disp_get_layer_manager(screen_id);
+	if(!mgr) {
+		DE_WRN("get mgr%d fail\n", screen_id);
+		return DIS_FAIL;
+	}
+
+	if(mgr->set_color_key)
+		return mgr->set_color_key(mgr, ck);
 
 	return DIS_FAIL;
 }

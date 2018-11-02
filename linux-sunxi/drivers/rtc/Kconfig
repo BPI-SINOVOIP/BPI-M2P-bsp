@@ -957,8 +957,15 @@ config RTC_DRV_TX4939
 
 config RTC_DRV_SUNXI
 	tristate "sunxi rtc driver"	
+	depends on MFD_ACX00=n
 	help
 	  sunxi rtc driver
+
+config RTC_DRV_ACX00
+	tristate "acx00 rtc driver"
+	depends on MFD_ACX00
+	help
+	  acx00 rtc driver
 
 config RTC_DRV_MV
 	tristate "Marvell SoC RTC"

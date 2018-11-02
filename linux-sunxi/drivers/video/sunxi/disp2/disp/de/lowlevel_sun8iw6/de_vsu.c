@@ -13,6 +13,23 @@
 #include "de_scaler_table.h"
 
 #define VSU_OFST	0x20000		//VSU0 offset based on RTMX
+//screen limit
+#define P2P_D1_LCD_WIDTH  720
+#define P2P_D1_LCD_HEIGHT0 480
+#define P2P_D1_LCD_HEIGHT1 576
+
+//fb limit
+#define P2P_D1_FB_MIN_WIDTH  704 //TBD
+#define P2P_D1_FB_MAX_WIDTH  720 //TBD
+#define P2P_D1_FB_MIN_HEIGHT 480 //TBD
+#define P2P_D1_FB_MAX_HEIGHT 576 //TBD
+
+//frame limit
+#define P2P_D1_FRAME_MIN_WIDTH  720 //TBD
+#define P2P_D1_FRAME_MAX_WIDTH  720 //TBD
+#define P2P_D1_FRAME_MIN_HEIGHT 480 //TBD
+#define P2P_D1_FRAME_MAX_HEIGHT 576 //TBD
+
 static volatile __vsu_reg_t *vsu_dev[DEVICE_NUM][VI_CHN_NUM];
 static de_reg_blocks vsu_glb_block[DEVICE_NUM][VI_CHN_NUM];
 static de_reg_blocks vsu_out_block[DEVICE_NUM][VI_CHN_NUM];
@@ -206,7 +223,7 @@ static unsigned int de_vsu_calc_fir_coef(unsigned int step)
 //*********************************************************************************************************************
 int de_vsu_set_para(unsigned int sel, unsigned int chno, unsigned int enable, unsigned char fmt,
 					unsigned int in_w, unsigned int in_h,unsigned int out_w, unsigned int out_h,
-					scaler_para *ypara,scaler_para *cpara)
+					scaler_para *ypara,scaler_para *cpara, unsigned char yv12_4k_en, unsigned char yv12_d1_en)
 {
 	unsigned int pt_coef,in_cw,in_ch,format;
 
@@ -258,6 +275,44 @@ int de_vsu_set_para(unsigned int sel, unsigned int chno, unsigned int enable, un
 			break;
 	}
 
+	if(yv12_4k_en)
+	{
+		out_h = out_h<<1;
+		out_w = out_w>>1;
+
+		in_h = out_h;
+		in_w = out_w;
+
+		in_ch = in_h;
+		in_cw = in_w>>1;
+
+		ypara->hstep = 1<<VSU_PHASE_FRAC_BITWIDTH;
+		ypara->vstep = 1<<VSU_PHASE_FRAC_BITWIDTH;
+		cpara->hstep = 1<<(VSU_PHASE_FRAC_BITWIDTH-1);
+		cpara->vstep = 1<<VSU_PHASE_FRAC_BITWIDTH;
+		ypara->hphase = 0;
+		ypara->vphase = 0;
+		cpara->hphase = 0;
+		cpara->vphase = 0;
+	}
+
+	if(yv12_d1_en)
+	{
+		in_h = out_h;
+		in_w = out_w;
+
+		in_ch = in_h>>1;
+		in_cw = in_w>>1;
+
+		ypara->hstep = 1<<VSU_PHASE_FRAC_BITWIDTH;
+		ypara->vstep = 1<<VSU_PHASE_FRAC_BITWIDTH;
+		cpara->hstep = 1<<(VSU_PHASE_FRAC_BITWIDTH-1);
+		cpara->vstep = 1<<(VSU_PHASE_FRAC_BITWIDTH-1);
+		ypara->hphase = 0;
+		ypara->vphase = 0;
+		cpara->hphase = 0;
+		cpara->vphase = 0;
+	}
 	//basic parameter
 	vsu_dev[sel][chno]->outsize.dwval = ((out_h - 1)<<16) | (out_w - 1);
 	vsu_dev[sel][chno]->ysize.dwval = ((in_h - 1)<<16) | (in_w - 1);
@@ -268,6 +323,10 @@ int de_vsu_set_para(unsigned int sel, unsigned int chno, unsigned int enable, un
 	vsu_dev[sel][chno]->cvstep.dwval = cpara->vstep<<VSU_PHASE_FRAC_REG_SHIFT;
 	vsu_dev[sel][chno]->yhphase.dwval = ypara->hphase<<VSU_PHASE_FRAC_REG_SHIFT;
 	vsu_dev[sel][chno]->yvphase0.dwval = ypara->vphase<<VSU_PHASE_FRAC_REG_SHIFT;
+
+	//modify 14-11-8
+	vsu_dev[sel][chno]->chphase.dwval = cpara->hphase<<VSU_PHASE_FRAC_REG_SHIFT;
+	vsu_dev[sel][chno]->cvphase0.dwval = cpara->vphase<<VSU_PHASE_FRAC_REG_SHIFT;
 
 	//fir coefficient
 	//ch0
@@ -369,11 +428,17 @@ int de_vsu_calc_scaler_para(unsigned char fmt, de_rect64 crop, de_rect frame, de
 	}
 
 	tmp = (N2_POWER(crop.w,VSU_PHASE_FRAC_BITWIDTH));
-	do_div(tmp, frame.w);
+	if(frame.w)
+		do_div(tmp, frame.w);
+	else
+		tmp = 0;
 	ypara->hstep= (unsigned int)(tmp>>VSU_FB_FRAC_BITWIDTH);
 
 	tmp = (N2_POWER(crop.h,VSU_PHASE_FRAC_BITWIDTH));
-	do_div(tmp, frame.h);
+	if(frame.h)
+		do_div(tmp, frame.h);
+	else
+		tmp = 0;
 	ypara->vstep= (unsigned int)(tmp>>VSU_FB_FRAC_BITWIDTH);
 
 	ypara->hphase = ((crop.x & 0xffffffff)>>(32-VSU_PHASE_FRAC_BITWIDTH));
@@ -730,5 +795,246 @@ int de_recalc_ovl_bld_for_scale(unsigned int scaler_en, unsigned char *lay_en, i
 	}
 
 	return 0 ;
+}
+
+
+//screen limit
+#define P2P_4K_LCD_WIDTH  3840
+#define P2P_4K_LCD_HEIGHT 2160
+
+//fb limit
+#define P2P_4K_FB_MIN_WIDTH  3800 //TBD
+#define P2P_4K_FB_MAX_WIDTH  4096 //TBD
+#define P2P_4K_FB_MIN_HEIGHT 1580 //TBD
+#define P2P_4K_FB_MAX_HEIGHT 2304 //TBD
+
+//frame limit
+#define P2P_4K_FRAME_MIN_WIDTH  3000 //TBD
+#define P2P_4K_FRAME_MAX_WIDTH  3840 //TBD
+#define P2P_4K_FRAME_MIN_HEIGHT 1250 //TBD
+#define P2P_4K_FRAME_MAX_HEIGHT 2160 //TBD
+
+int de_get_4k_flag(unsigned int layer_en, unsigned char fmt, de_rect64 crop, de_rect frame,
+                   unsigned int lcd_width, unsigned int lcd_height)
+{
+	unsigned char yv12_4k_en;
+
+	yv12_4k_en = 0;
+
+	if(!layer_en)
+		return yv12_4k_en;
+
+	if((lcd_width < P2P_4K_LCD_WIDTH) || (lcd_height < P2P_4K_LCD_HEIGHT)){
+		return yv12_4k_en;
+	}
+
+	if((frame.w < P2P_4K_FRAME_MIN_WIDTH) || (frame.w > P2P_4K_FRAME_MAX_WIDTH)
+	  || (frame.h < P2P_4K_FRAME_MIN_HEIGHT) || (frame.h > P2P_4K_FRAME_MAX_HEIGHT)){
+		return yv12_4k_en;
+	}
+
+
+	if(((crop.w>>32) < P2P_4K_FB_MIN_WIDTH) || ((crop.w>>32) > P2P_4K_FB_MAX_WIDTH)
+	  || ((crop.h>>32) < P2P_4K_FB_MIN_HEIGHT) || ((crop.h>>32) > P2P_4K_FB_MAX_HEIGHT)){
+	  return yv12_4k_en;
+	}
+
+	switch(fmt)
+	{
+		case DE_FORMAT_YUV420_P:
+		case DE_FORMAT_YUV420_SP_UVUV:
+		case DE_FORMAT_YUV420_SP_VUVU:
+			yv12_4k_en = 1;break;
+		default:
+			yv12_4k_en = 0;break;
+	}
+
+	return yv12_4k_en;
+}
+
+void de_4k_p2p_recalc(unsigned char yv12_4k_en, unsigned int lcd_width, unsigned int lcd_height,
+                      de_rect64 *crop64_1, de_rect *frame_1, scaler_para *p2p_para_1,
+                      de_rect64 *crop64_2, de_rect *frame_2, scaler_para *p2p_para_2)
+{
+	de_rect crop;
+	de_rect frame;
+
+	if(!yv12_4k_en)
+		return;
+
+	crop.w = (unsigned int)(crop64_1->w>>VSU_FB_FRAC_BITWIDTH);
+	crop.h = (unsigned int)(crop64_1->h>>VSU_FB_FRAC_BITWIDTH);
+	crop.x = (int)(crop64_1->x>>VSU_FB_FRAC_BITWIDTH);
+	crop.y = (int)(crop64_1->y>>VSU_FB_FRAC_BITWIDTH);
+
+	frame.x = 0;
+	frame.y = 0;
+
+	//source larger than screen, crop the source
+	if(crop.w > lcd_width)
+	{
+		crop.x = ((((crop.w - lcd_width)>>1)<<1)>>1);
+		crop.w = lcd_width;
+		frame.x = 0;
+	}
+
+	//source larger than screen, crop the source
+	if(crop.h > lcd_height)
+	{
+		crop.y = ((((crop.h - lcd_height)>>1)<<1)>>1);
+		crop.h = lcd_height;
+		frame.y = 0;
+	}
+	//source smaller than screen, make frame para center in the screen
+	if(crop.w < lcd_width)
+	{
+		crop.x = 0;
+		frame.x = ((((lcd_width-crop.w)>>1)<<1)>>1);
+	}
+
+	//source smaller than screen, make frame para center in the screen
+	if(crop.h < lcd_height)
+	{
+		crop.y = 0;
+		//crop_h will divid by 2 cause yv12_4k, and will divid by 2 cause yuv420, so make it aligned in 4 pixel
+		crop.h = (crop.h>>2)<<2;
+		frame.y = ((((lcd_height-crop.h)>>1)<<1)>>1);
+	}
+
+	frame.w = crop.w;
+	frame.h = crop.h;
+
+	crop64_1->w = crop64_2->w = (((unsigned long long)crop.w)<<VSU_FB_FRAC_BITWIDTH);
+	crop64_1->h = crop64_2->h = (((unsigned long long)crop.h)<<(VSU_FB_FRAC_BITWIDTH-1));
+	crop64_1->x = crop64_2->x = (((long long)crop.x)<<VSU_FB_FRAC_BITWIDTH);
+	crop64_1->y = crop64_2->y = (((long long)crop.y)<<(VSU_FB_FRAC_BITWIDTH-1));
+
+	frame_1->w = frame_2->w = frame.w>>1;
+	frame_1->h = frame_2->h = frame.h;
+	frame_1->x = frame.x;
+	frame_2->x = frame.x + frame_1->w;
+	frame_1->y = frame_2->y = frame.y;
+
+	p2p_para_1->hphase = p2p_para_2->hphase = 0;
+	p2p_para_1->vphase = p2p_para_2->vphase = 0;
+	p2p_para_1->hstep = p2p_para_2->hstep = 1<<(VSU_PHASE_FRAC_BITWIDTH+1);
+	p2p_para_1->vstep = p2p_para_2->vstep = 1<<(VSU_PHASE_FRAC_BITWIDTH-1);
+
+	return;
+}
+
+
+int de_get_d1_flag(unsigned int layer_en, unsigned char fmt, de_rect64 crop, de_rect frame,
+                   unsigned int lcd_width, unsigned int lcd_height)
+{
+	unsigned char yv12_d1_en;
+
+	yv12_d1_en = 0;
+
+	if(!layer_en)
+		return yv12_d1_en;
+
+	if((lcd_width != P2P_D1_LCD_WIDTH) ||
+	   ((lcd_height != P2P_D1_LCD_HEIGHT0)&&(lcd_height != P2P_D1_LCD_HEIGHT1))){
+	    //printk("lcd size = [%d %d].\n", lcd_width, lcd_height);
+		return yv12_d1_en;
+	}
+
+	if((frame.w < P2P_D1_FRAME_MIN_WIDTH) || (frame.w > P2P_D1_FRAME_MAX_WIDTH)
+	  || (frame.h < P2P_D1_FRAME_MIN_HEIGHT) || (frame.h > P2P_D1_FRAME_MAX_HEIGHT)){
+	   //printk("frame size = [%d %d].\n", frame.w, frame.h);
+		return yv12_d1_en;
+	}
+
+	if(((crop.w>>32) < P2P_D1_FB_MIN_WIDTH) || ((crop.w>>32) > P2P_D1_FB_MAX_WIDTH)
+	  || ((crop.h>>32) < P2P_D1_FB_MIN_HEIGHT) || ((crop.h>>32) > P2P_D1_FB_MAX_HEIGHT)){
+	   //printk("crop size = [%d %d].\n", (unsigned int)(crop.w>>32), (unsigned int )(crop.h>>32));
+	   return yv12_d1_en;
+	}
+
+	if((unsigned int)(crop.h>>32) != lcd_height){
+	    //printk("des != src : [%d %d].\n", (unsigned int)(crop.h>>32), lcd_height);
+	    return yv12_d1_en;
+	}
+
+	switch(fmt)
+	{
+		case DE_FORMAT_YUV420_P:
+		case DE_FORMAT_YUV420_SP_UVUV:
+		case DE_FORMAT_YUV420_SP_VUVU:
+			yv12_d1_en = 1;break;
+		default:
+			//printk("fmt != yuv420 : [%d].\n", fmt);
+			yv12_d1_en = 0;
+			break;
+	}
+
+	return yv12_d1_en;
+}
+
+void de_d1_p2p_recalc(unsigned char yv12_d1_en, unsigned int lcd_width, unsigned int lcd_height,
+                      de_rect64 *crop64, de_rect *frame, scaler_para *p2p_para)
+{
+	de_rect crop;
+
+	if(!yv12_d1_en)
+		return;
+
+	crop.w = (unsigned int)(crop64->w>>VSU_FB_FRAC_BITWIDTH);
+	crop.h = (unsigned int)(crop64->h>>VSU_FB_FRAC_BITWIDTH);
+	crop.x = (int)(crop64->x>>VSU_FB_FRAC_BITWIDTH);
+	crop.y = (int)(crop64->y>>VSU_FB_FRAC_BITWIDTH);
+
+	frame->x = 0;
+	frame->y = 0;
+
+	//source larger than screen, crop the source
+	if(crop.w > lcd_width)
+	{
+		crop.x = ((((crop.w - lcd_width)>>1)<<1)>>1);
+		crop.w = lcd_width;
+		frame->x = 0;
+	}
+
+	//source larger than screen, crop the source
+	if(crop.h > lcd_height)
+	{
+		crop.y = ((((crop.h - lcd_height)>>1)<<1)>>1);
+		crop.h = lcd_height;
+		frame->y = 0;
+	}
+	//source smaller than screen, make frame para center in the screen
+	if(crop.w < lcd_width)
+	{
+		crop.x = 0;
+		frame->x = ((((lcd_width-crop.w)>>1)<<1)>>1);
+	}
+
+	//source smaller than screen, make frame para center in the screen
+	if(crop.h < lcd_height)
+	{
+		crop.y = 0;
+		//crop_h will divid by 2 cause yv12_d1, and will divid by 2 cause yuv420, so make it aligned in 4 pixel
+		crop.h = (crop.h>>2)<<2;
+		frame->y = ((((lcd_height-crop.h)>>1)<<1)>>1);
+	}
+
+	frame->w = crop.w;
+	frame->h = crop.h;
+
+	crop64->w = (((unsigned long long)crop.w)<<VSU_FB_FRAC_BITWIDTH);
+	crop64->h = (((unsigned long long)crop.h)<<VSU_FB_FRAC_BITWIDTH);
+	crop64->x = (((long long)crop.x)<<VSU_FB_FRAC_BITWIDTH);
+	crop64->y = (((long long)crop.y)<<VSU_FB_FRAC_BITWIDTH);
+
+	p2p_para->hphase = 0;
+	p2p_para->vphase = 0;
+	p2p_para->hstep = 1<<VSU_PHASE_FRAC_BITWIDTH;
+	p2p_para->vstep = 1<<VSU_PHASE_FRAC_BITWIDTH;
+
+	//printk("crop = [%d, %d, %d, %d]\n frame = [%d, %d, %d, %d]\n para = [%x %x %x %x]\n.",
+	//       crop.x, crop.y, crop.w, crop.h, frame->x, frame->y, frame->w, frame->h, 
+	//       p2p_para->hphase, p2p_para->vphase, p2p_para->hstep, p2p_para->vstep);
+	return;
 }
 

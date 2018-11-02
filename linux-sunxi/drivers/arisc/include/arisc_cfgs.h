@@ -65,9 +65,6 @@
 	#define ARISC_PARA_ADDR_OFFSET      (SUNXI_SRAM_A2_SIZE - 4 * 1024)
 #endif
 
-/* spinlock max timeout, base on ms */
-#define ARISC_SPINLOCK_TIMEOUT      (100)
-
 /* send message max timeout, base on ms */
 #define ARISC_SEND_MSG_TIMEOUT      (4000)
 

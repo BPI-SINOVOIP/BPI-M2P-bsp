@@ -576,7 +576,7 @@ static void __free_from_contiguous(struct device *dev, struct page *page,
 	dma_release_from_contiguous(dev, page, size >> PAGE_SHIFT);
 }
 
-inline pgprot_t __get_dma_pgprot(struct dma_attrs *attrs, pgprot_t prot)
+pgprot_t __get_dma_pgprot(struct dma_attrs *attrs, pgprot_t prot)
 {
 	prot = dma_get_attr(DMA_ATTR_WRITE_COMBINE, attrs) ?
 			    pgprot_writecombine(prot) :

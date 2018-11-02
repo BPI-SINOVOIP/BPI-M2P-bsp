@@ -57,7 +57,13 @@ cd $SCRIPT_ROOT
 
 PVRVERSION=[PVRVERSION]
 PVRBUILD=[PVRBUILD]
+PRIMARY_ARCH="[PRIMARY_ARCH]"
+ARCHITECTURES="[ARCHITECTURES]"
+
+# These destination directories are the same for 32- or 64-bit binaries.
 MOD_DESTDIR=/system/modules
+BIN_DESTDIR=/system/vendor/bin
+DATA_DESTDIR=${BIN_DESTDIR}
 
 # Exit with an error messages.
 # $1=blurb
@@ -113,15 +119,6 @@ function install_locally {
         $DOIT echo "file $2" >> $DDK_INSTALL_LOG
     }
 
-    # Install KM components
-    if [ -f install_km.sh ]; then
-        DDK_INSTALL_LOG=$KMLOG
-        echo "Installing Kernel components"
-        $DOIT echo "version $PVRVERSION" > $DDK_INSTALL_LOG
-        source install_km.sh
-        echo
-    fi
-
 	# Android-specific targetfs mkdir workarounds
 	if [ ! -d ${DISCIMAGE}/data ]; then
 		mkdir ${DISCIMAGE}/data
@@ -134,14 +131,43 @@ function install_locally {
 		chmod 0771 ${DISCIMAGE}/data/app
 	fi
 
-    # Install UM components
-    if [ -f install_um.sh ]; then
-        DDK_INSTALL_LOG=$UMLOG
-        echo "Installing User components"
+    for arch in $ARCHITECTURES; do
+        if [ ! -d $arch ]; then
+            echo "Unknown architecture $arch.  Aborting"
+            exit 1
+        fi
+
+        case $arch in
+            target*64)
+                SHLIB_DESTDIR=/system/vendor/lib64
+                ;;
+            *)
+                SHLIB_DESTDIR=/system/vendor/lib
+        esac
+        EGL_DESTDIR=${SHLIB_DESTDIR}/egl
+
+        pushd $arch > /dev/null
+        # Install UM components
+        if [ -f install_um.sh ]; then
+            DDK_INSTALL_LOG=$UMLOG
+            echo "Installing User components for architecture $arch"
+            $DOIT echo "version $PVRVERSION" > $DDK_INSTALL_LOG
+            source install_um.sh
+            echo 
+        fi
+        popd > /dev/null
+    done
+
+    pushd $PRIMARY_ARCH > /dev/null
+    # Install KM components
+    if [ -f install_km.sh ]; then
+        DDK_INSTALL_LOG=$KMLOG
+        echo "Installing Kernel components for architecture $PRIMARY_ARCH"
         $DOIT echo "version $PVRVERSION" > $DDK_INSTALL_LOG
-        source install_um.sh
-        echo 
+        source install_km.sh
+        echo
     fi
+    popd > /dev/null
 
 	$DOIT mkdir -p ${DISCIMAGE}/system/lib/egl
 	$DOIT cat >${DISCIMAGE}/system/lib/egl/egl.cfg <<EOF

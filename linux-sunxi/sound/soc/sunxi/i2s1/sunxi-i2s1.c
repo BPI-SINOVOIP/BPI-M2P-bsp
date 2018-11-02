@@ -31,11 +31,14 @@
 #include <mach/hardware.h>
 #include <mach/sys_config.h>
 #include <linux/gpio.h>
-
+#include <linux/pinctrl/pinconf-sunxi.h>
 #include "sunxi-i2s1dma.h"
 #include "sunxi-i2s1.h"
 
 struct sunxi_i2s1_info sunxi_i2s1;
+static unsigned int pin_count = 0;
+static script_item_u  *pin_i2s1_list;
+static struct pinctrl *i2s1_pinctrl;
 
 static int regsave[8];
 static int i2s1_used 			= 0;
@@ -691,6 +694,10 @@ static void i2s1regrestore(void)
 static int sunxi_i2s1_suspend(struct snd_soc_dai *cpu_dai)
 {
 	u32 reg_val;
+	u32 pin_index = 0;
+	u32 config;
+	struct gpio_config *pin_i2s1_cfg;
+	char pin_name[SUNXI_PIN_NAME_MAX_LEN];
 	pr_debug("[I2S1]Entered %s\n", __func__);
 
 	/*Global disable Digital Audio Interface*/
@@ -712,6 +719,15 @@ static int sunxi_i2s1_suspend(struct snd_soc_dai *cpu_dai)
 //     } else {
 //             clk_disable(i2s1_apbclk);
 //     }
+		devm_pinctrl_put(i2s1_pinctrl);
+		/* request pin individually */
+		for (pin_index = 0; pin_index < pin_count; pin_index++) {
+			pin_i2s1_cfg = &(pin_i2s1_list[pin_index].gpio);
+			/* valid pin of sunxi-pinctrl, config pin attributes individually.*/
+			sunxi_gpio_to_name(pin_i2s1_cfg->gpio, pin_name);
+			config = SUNXI_PINCFG_PACK(SUNXI_PINCFG_TYPE_FUNC, 7);
+			pin_config_set(SUNXI_PINCTRL, pin_name, config);
+		}
 	return 0;
 }
 
@@ -736,6 +752,11 @@ static int sunxi_i2s1_resume(struct snd_soc_dai *cpu_dai)
 	reg_val = readl(sunxi_i2s1.regs + SUNXI_I2S1CTL);
 	reg_val |= SUNXI_I2S1CTL_GEN;
 	writel(reg_val, sunxi_i2s1.regs + SUNXI_I2S1CTL);
+	i2s1_pinctrl = devm_pinctrl_get_select_default(cpu_dai->dev);
+	if (IS_ERR_OR_NULL(i2s1_pinctrl)) {
+		dev_warn(cpu_dai->dev,
+			"i2s1 pins are not configured from the driver\n");
+	}
 
 	return 0;
 }
@@ -786,6 +807,11 @@ static int __init sunxi_i2s1_dev_probe(struct platform_device *pdev)
 	if (IS_ERR_OR_NULL(i2s1_pinctrl)) {
 		dev_warn(&pdev->dev,
 			"pins are not configured from the driver\n");
+	}
+	pin_count = script_get_pio_list ("i2s1", &pin_i2s1_list);
+	if (pin_count == 0) {
+		/* "daudio0" have no pin configuration */
+		pr_err("i2s1 have no pin configuration\n");
 	}
 #if defined(CONFIG_ARCH_SUN8IW5) \
 	|| defined(CONFIG_ARCH_SUN8IW6)

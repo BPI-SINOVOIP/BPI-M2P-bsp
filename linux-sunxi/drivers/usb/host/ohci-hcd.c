@@ -53,6 +53,10 @@
 
 #undef OHCI_VERBOSE_DEBUG	/* not always helpful */
 
+#ifdef CONFIG_ARCH_SUN8IW8
+int sunxi_set_vbus(__u32 usbc_no);
+#endif
+
 /* For initializing controller (mask in an HCFS mode too) */
 #define	OHCI_CONTROL_INIT	OHCI_CTRL_CBSR
 #define	OHCI_INTR_INIT \
@@ -769,6 +773,11 @@ static irqreturn_t ohci_irq (struct usb_hcd *hcd)
 
 		portstatus0 = ohci_readl(ohci, &ohci->regs->roothub.portstatus[0]);
 		if((portstatus0 & RH_PS_CCS) && (portstatus0 & RH_PS_CSC)){
+#ifdef CONFIG_ARCH_SUN8IW8
+#ifdef CONFIG_USB_SUNXI_V3_UVC
+			sunxi_set_vbus(0);
+#endif
+#endif
 			printk("ohci_irq: fullspeed or lowspeed device connect\n");
 		}else if(!(portstatus0 & RH_PS_CCS) && (portstatus0 & RH_PS_CSC)){
 			printk("ohci_irq: fullspeed or lowspeed device disconnect\n");

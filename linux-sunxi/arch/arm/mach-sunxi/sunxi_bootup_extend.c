@@ -35,6 +35,7 @@
 #include <mach/platform.h>
 #include <mach/sys_config.h>
 #include <mach/sunxi-chip.h>
+#include <mach/sunxi-smc.h>
 
 static int bootup_extend_enabel = 0;
 
@@ -90,15 +91,15 @@ static int __rtc_reg_write(u32 addr, u32 data)
     if (!__hwspin_lock_timeout(AW_RTC_REG_HWSPINLOCK, 100, &rtc_hw_lock, &hwflags)) {
 #if (defined CONFIG_ARCH_SUN8IW6P1) || (defined CONFIG_ARCH_SUN9IW1P1)
         temp = (addr << 16) | (data << 8);
-        writel(temp, __RTC_REG);
+        sunxi_smc_writel(temp, __RTC_REG);
         temp |= 1 << 31;
-        writel(temp, __RTC_REG);
+        sunxi_smc_writel(temp, __RTC_REG);
         temp &= ~(1<< 31);
-        writel(temp, __RTC_REG);
+        sunxi_smc_writel(temp, __RTC_REG);
 #endif
 
 #if (defined CONFIG_ARCH_SUN8IW7P1)
-        writel(data, (__RTC_REG + 0x4 * addr));
+        sunxi_smc_writel(data, (__RTC_REG + 0x4 * addr));
 #endif
         __hwspin_unlock(AW_RTC_REG_HWSPINLOCK, &rtc_hw_lock, &hwflags);
         printk(KERN_DEBUG "%s: write rtc reg success, rtc reg 0x%x:0x%x\n", __func__, addr, data);

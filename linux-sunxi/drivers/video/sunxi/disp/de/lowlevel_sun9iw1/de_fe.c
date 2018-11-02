@@ -2989,7 +2989,7 @@ u32 DE_SCAL_Get_Fb_Addr0(u8 sel)
 
 u32 DE_SCAL_Set_Fb_Addr0(u8 sel, u32 *addr)
 {
-    scal_dev[sel]->buf_addr0.dwval = addr;
+    scal_dev[sel]->buf_addr0.dwval = (u32)addr;
     return 0;
 }
 

@@ -460,20 +460,18 @@ static enum power_supply_property axp_usb_props[] = {
 static void axp_battery_check_status(struct axp_charger *charger,
             union power_supply_propval *val)
 {
-  if (charger->bat_det) {
-    if (charger->ext_valid){
-    	if( charger->rest_vol == 100)
-        val->intval = POWER_SUPPLY_STATUS_FULL;
-    	else if(charger->charge_on)
-    		val->intval = POWER_SUPPLY_STATUS_CHARGING;
-    	else
-    		val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
-    }
-    else
-      val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
-  }
-  else
-    val->intval = POWER_SUPPLY_STATUS_FULL;
+	if (charger->bat_det) {
+		if (charger->ext_valid){
+			if( charger->rest_vol == 100)
+				val->intval = POWER_SUPPLY_STATUS_FULL;
+			else if(charger->is_on)
+				val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			else
+				val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+		}else
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+	}else
+		val->intval = POWER_SUPPLY_STATUS_FULL;
 }
 
 static void axp_battery_check_health(struct axp_charger *charger,
@@ -2356,7 +2354,10 @@ static int axp20_resume(struct platform_device *dev)
 #else
 	if(AXP20_SUSPEND_WITH_IRQ == axp20_suspend_flag){
 		axp20_suspend_flag = AXP20_NOT_SUSPEND;
-		enable_irq(axp20_config.pmu_irq_id);
+		if(axp20_config.pmu_irq_id)
+			enable_irq(axp20_config.pmu_irq_id);
+		else
+			enable_irq(axp20_config.pmu_irq_io_id);
 	}else
 		axp20_suspend_flag = AXP20_NOT_SUSPEND;
 #endif

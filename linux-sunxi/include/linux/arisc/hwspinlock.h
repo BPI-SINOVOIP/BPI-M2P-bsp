@@ -24,9 +24,13 @@
 
 #include <linux/spinlock.h>
 
-#define	AW_MSG_HWSPINLOCK         (0)
-#define	AW_AUDIO_HWSPINLOCK       (1)
-#define	AW_RTC_REG_HWSPINLOCK     (2)
+#define AW_MSG_HWSPINLOCK               (0)
+#define AW_AUDIO_HWSPINLOCK             (1)
+#define AW_RTC_REG_HWSPINLOCK           (2)
+#define SUNXI_HWSPINLOCKID_CPUIDLE      (3)
+
+/* spinlock max timeout, base on ms */
+#define ARISC_SPINLOCK_TIMEOUT          (100)
 
 //the taken ot not state of spinlock
 #define	AW_SPINLOCK_NOTTAKEN      (0)

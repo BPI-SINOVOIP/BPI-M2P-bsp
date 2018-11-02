@@ -42,12 +42,10 @@ static __audio_hdmi_func 	g_hdmi_func;
 static hdmi_audio_t 		hdmi_para;
 atomic_t pcm_count_num_muti;
 static int   sample_resolution 	= 0;
-static int   hub_used 			= 0;
-static bool  spdif_used 		= 0;
-static bool  hdmi_used 			= 0;
-static bool  hub_codec_en 		= true;
-static bool  hub_hdmi_en 		= false;
-static bool  hub_spdif_en 		= false;
+static int   hub_used		= 0;
+static bool  spdif_used		= 0;
+static bool  hdmi_used		= 0;
+static bool  codec_used		= 0;
 static bool  hdmiaudio_reset_en = false;
 static struct sunxi_dma_params sunxi_daudio_pcm_stereo_out = {
 	.name		= "daudio2_play",
@@ -75,17 +73,17 @@ static int sunxi_audiohub_trigger(struct snd_pcm_substream *substream,
 		case SNDRV_PCM_TRIGGER_RESUME:
 		case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 			if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-				if (hub_codec_en) {
+				if (codec_used) {
 					#ifdef CONFIG_SND_SUN8IW7_SNDCODEC
 					audiocodec_hub_enable(1);
 					#endif
 				}
-				if (hdmi_used && hub_hdmi_en){
+				if (hdmi_used){
 					#ifdef CONFIG_SND_SUN8IW7_HDMIPCM
 					tdm2_tx_enable(1, 1);
 					#endif
 				}
-				if (spdif_used && hub_spdif_en) {
+				if (spdif_used) {
 					#ifdef CONFIG_SND_SUNXI_SOC_SPDIF
 					spdif_txctrl_enable(1, substream->runtime->channels, 1);
 					#endif
@@ -98,17 +96,17 @@ static int sunxi_audiohub_trigger(struct snd_pcm_substream *substream,
 		case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 			if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 			} else {
-				if (hub_codec_en) {
+				if (codec_used) {
 					#ifdef CONFIG_SND_SUN8IW7_SNDCODEC
 					audiocodec_hub_enable(0);
 					#endif
 				}
-				if (hdmi_used && hub_hdmi_en){
+				if (hdmi_used){
 					#ifdef CONFIG_SND_SUN8IW7_HDMIPCM
 					tdm2_tx_enable(0, 0);
 					#endif
 				}
-				if (spdif_used && hub_spdif_en) {
+				if (spdif_used) {
 					#ifdef CONFIG_SND_SUNXI_SOC_SPDIF
 					spdif_txctrl_enable(0, substream->runtime->channels, 0);
 					#endif
@@ -127,7 +125,7 @@ static int sunxi_audiohub_perpare(struct snd_pcm_substream *substream,
 {
 	u32 reg_val;
 	/* play or record */
-	if (hdmi_used && hub_hdmi_en) {
+	if (hdmi_used) {
 		#ifdef CONFIG_SND_SUN8IW7_HDMIPCM
 		tdm2_prepare(substream);
 		#endif
@@ -191,7 +189,7 @@ static int sunxi_audiohub_hw_params(struct snd_pcm_substream *substream,
 		default:
 			return -EINVAL;
 	}
-	if (hdmi_used && hub_hdmi_en) {
+	if (hdmi_used) {
 		#ifdef CONFIG_SND_SUN8IW7_HDMIPCM
 		tdm2_hw_params(sample_resolution);
 		#endif
@@ -227,13 +225,13 @@ static int sunxi_audiohub_hw_params(struct snd_pcm_substream *substream,
 		}
 	}
 
-	if (spdif_used && hub_spdif_en) {
+	if (spdif_used) {
 		#ifdef CONFIG_SND_SUNXI_SOC_SPDIF
 		spdif_hw_params(sample_resolution);
 		#endif
 	}
 
-	if (hub_hdmi_en) {
+	if (hdmi_used) {
 		/* play or record */
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			dma_data = &sunxi_daudio_pcm_stereo_out;
@@ -246,12 +244,12 @@ static int sunxi_audiohub_hw_params(struct snd_pcm_substream *substream,
 
 static int sunxi_audiohub_set_fmt(struct snd_soc_dai *cpu_dai, unsigned int fmt)
 {
-	if (hdmi_used && hub_hdmi_en) {
+	if (hdmi_used) {
 		#ifdef CONFIG_SND_SUN8IW7_HDMIPCM
 		tdm2_set_fmt(fmt);
 		#endif
 	}
-	if (spdif_used && hub_spdif_en) {
+	if (spdif_used) {
 		#ifdef CONFIG_SND_SUNXI_SOC_SPDIF
 		spdif_set_fmt(0);
 		#endif
@@ -275,13 +273,13 @@ static int sunxi_audiohub_set_clkdiv(struct snd_soc_dai *cpu_dai, int div_id, in
 	u32 spdif_mpll=0, spdif_bclk_div=0, spdif_mult_fs=0;
 	#endif
 
-	if (hdmi_used && hub_hdmi_en) {
+	if (hdmi_used) {
 		#ifdef CONFIG_SND_SUN8IW7_HDMIPCM
 		tdm2_set_clkdiv(sample_rate);
 		#endif
 	}
 
-	if (spdif_used && hub_spdif_en) {
+	if (spdif_used) {
 		#ifdef CONFIG_SND_SUNXI_SOC_SPDIF
 		get_clock_divder(sample_rate, 32, &spdif_mclk_div, &spdif_mpll, &spdif_bclk_div, &spdif_mult_fs);
 		spdif_set_clkdiv(SUNXI_DIV_MCLK, spdif_mclk_div);
@@ -321,7 +319,7 @@ static void sunxi_audiohub_shutdown(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
 	/*hdmi*/
-	if (hdmi_used && hub_hdmi_en && g_hdmi_func.hdmi_audio_enable) {
+	if (hdmi_used && g_hdmi_func.hdmi_audio_enable) {
 		g_hdmi_func.hdmi_audio_enable(0, 1);
 	}
 }
@@ -369,14 +367,23 @@ static int __init sunxi_audiohub_dev_probe(struct platform_device *pdev)
 	type = script_get_item("audiohub", "spdif_used", &val);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
         	pr_err("[audiohub] spdif_used type err!\n");
-    	}
-	spdif_used = val.val;
+		spdif_used = 0;
+	} else
+		spdif_used = val.val;
 
 	type = script_get_item("audiohub", "hdmi_used", &val);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
         	pr_err("[audiohub] hdmi_used type err!\n");
-    	}
-	hdmi_used = val.val;
+		hdmi_used = 0;
+	} else
+		hdmi_used = val.val;
+
+	type = script_get_item("audiohub", "codec_used", &val);
+	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
+        	pr_err("[audiohub] codec_used type err!\n");
+		codec_used = 0;
+	} else
+		codec_used = val.val;
 
 	ret = snd_soc_register_dais(&pdev->dev,sunxi_audiohub_dai, ARRAY_SIZE(sunxi_audiohub_dai));
 	if (ret) {
@@ -441,9 +448,6 @@ static int __init sunxi_audiohub_init(void)
 }
 module_init(sunxi_audiohub_init);
 
-module_param_named(hub_codec_en, hub_codec_en, bool, S_IRUGO | S_IWUSR);
-module_param_named(hub_hdmi_en, hub_hdmi_en, bool, S_IRUGO | S_IWUSR);
-module_param_named(hub_spdif_en, hub_spdif_en, bool, S_IRUGO | S_IWUSR);
 module_param_named(hdmiaudio_reset_en, hdmiaudio_reset_en, bool, S_IRUGO | S_IWUSR);
 
 static void __exit sunxi_audiohub_exit(void)

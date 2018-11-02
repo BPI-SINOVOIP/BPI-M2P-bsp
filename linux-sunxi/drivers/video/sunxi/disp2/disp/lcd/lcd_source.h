@@ -80,13 +80,20 @@ s32 sunxi_lcd_pwm_enable(u32 pwm_channel);
 s32 sunxi_lcd_pwm_disable(u32 pwm_channel);
 
 /**
+*
+* sunxi_lcd_cpu_set_auto_mode - when flushing data,it need set auto mode after transfer command.
+* @screen_id: The index of screen.
+ */
+s32 sunxi_lcd_cpu_set_auto_mode(u32 screen_id);
+
+/**
  * sunxi_lcd_cpu_write - write command and para to cpu panel.
  * @scree_id: The index of screen.
  * @command: Command to be transfer.
  * @para: The pointer to para
  * @para_num: The number of para
  */
-s32 sunxi_lcd_cpu_write(u32 scree_id, u32 command, u32 *para, u32 para_num);
+s32 sunxi_lcd_cpu_write(u32 screen_id, u32 index, u32 data);//(u32 scree_id, u32 command, u32 *para, u32 para_num);
 
 /**
  * sunxi_lcd_cpu_write_index - write command to cpu panel.

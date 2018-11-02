@@ -1050,3 +1050,5 @@ s32 tcon_cmap(u32 sel, u32 mode,unsigned int lcd_cmap_tbl[2][3][4])
     return 0;
 }
 
+extern __s32 dsi_dcs_rd(__u32 sel,__u8 cmd,__u8* para_p,__u32* num_p);
+EXPORT_SYMBOL(dsi_dcs_rd);

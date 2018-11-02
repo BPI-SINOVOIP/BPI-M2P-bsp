@@ -225,7 +225,9 @@ static s32 disp_lyr_update_regs(struct disp_layer *lyr)
 	if((NULL == lyr->p_sw_init_flag) || (0 == *(lyr->p_sw_init_flag))) {
 		disp_al_layer_set_extra_info(lyr->channel_id, lyr->layer_id, &layer_info, &lyrp->extra_info);
 	} else {
+#if defined(CONFIG_HOMLET_PLATFORM)
 		disp_al_layer_set_extra_info_sw(lyr->channel_id, lyr->layer_id, &layer_info, &lyrp->extra_info);
+#endif
 	}
 	if(layer_info.mode != 0)
 		layer_info.fb.format = DISP_FORMAT_ARGB_8888;
@@ -456,7 +458,9 @@ s32 disp_lyr_deinterlace_cfg(struct disp_layer *lyr)
 		scaler_info.out_fb.format = DISP_FORMAT_ARGB_8888;
 		scaler_info.out_fb.b_trd_src = info->b_trd_out;
 		scaler_info.out_fb.trd_mode = (disp_3d_src_mode)info->out_trd_mode;
+#if defined(CONFIG_HOMLET_PLATFORM)
 		disp_al_deinterlace_cfg(scaler_id, &scaler_info);
+#endif
 		lyrp->shadow_info_dirty = true;
 	}
 
@@ -534,21 +538,37 @@ s32 disp_init_lyr(__disp_bsp_init_para * para)
 //for coping bootlogo to fb0
 u32 disp_layer_get_addr(u32 sel, u32 hid)
 {
+#if defined(CONFIG_HOMLET_PLATFORM)
     return disp_al_layer_get_addr(sel, hid);
+#else
+	return 0;
+#endif
 }
 
 u32 disp_layer_set_addr(u32 sel, u32 hid, u32 addr)
 {
-    return disp_al_layer_set_addr(sel, hid, addr);
+#if defined(CONFIG_HOMLET_PLATFORM)
+	return disp_al_layer_set_addr(sel, hid, addr);
+#else
+	return 0;
+#endif
 }
 
 u32 disp_layer_get_in_width(u32 sel, u32 hid)
 {
+#if defined(CONFIG_HOMLET_PLATFORM)
     return disp_al_layer_get_inWidth(sel, hid);
+#else
+	return 0;
+#endif
 }
 
 u32 disp_layer_get_in_height(u32 sel, u32 hid)
 {
+#if defined(CONFIG_HOMLET_PLATFORM)
     return disp_al_layer_get_inHeight(sel, hid);
+#else
+	return 0;
+#endif
 }
 

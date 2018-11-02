@@ -8,7 +8,7 @@ obj-$(CONFIG_HWMON_VID)		+= hwmon-vid.o
 # APCI drivers
 obj-$(CONFIG_SENSORS_ACPI_POWER) += acpi_power_meter.o
 obj-$(CONFIG_SENSORS_ATK0110)	+= asus_atk0110.o
-
+EXTRA_LDFLAGS += --strip-debug	
 # Native drivers
 # asb100, then w83781d go first, as they can override other drivers' addresses.
 obj-$(CONFIG_SENSORS_ASB100)	+= asb100.o
@@ -137,6 +137,7 @@ obj-$(CONFIG_SENSORS_WM8350)	+= wm8350-hwmon.o
 obj-$(CONFIG_SENSORS_DUMMY_ACC) += dummy-acc.o
 
 obj-$(CONFIG_PMBUS)		+= pmbus/
+obj-$(CONFIG_DA380)		+= da380/
 
 obj-$(CONFIG_SENSORS_INA219)	+= ina219.o
 

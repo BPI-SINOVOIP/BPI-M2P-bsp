@@ -70,10 +70,13 @@ static struct regulator *aif3_cldo3 = NULL;
 static struct regulator *bt_aldo2_vol = NULL;
 static struct regulator *pa_sw0_vol = NULL;
 static script_item_u 	aif3_voltage;
-static script_item_u 	aldo2_voltage;
-static script_item_u 	sw0_voltage;
+static script_item_u 	i2s_voltage;
+static script_item_u 	pa_voltage;
 static int homlet_flag = 0;
 static int audio_pa_used = 0;
+static unsigned int aif3_voltage_val = 0;
+static unsigned int i2s_voltage_val = 0;
+static unsigned int pa_voltage_val = 0;
 
 #define sndvir_audio_RATES  (SNDRV_PCM_RATE_8000_192000|SNDRV_PCM_RATE_KNOT)
 #define sndvir_audio_FORMATS (SNDRV_PCM_FMTBIT_S8 | SNDRV_PCM_FMTBIT_S16_LE | \
@@ -1626,14 +1629,15 @@ static int codec_set_bt_clk_format(struct snd_kcontrol *kcontrol,
 
 	if (codec_bt_clk_format) {
 		/*a80+70:cldo3:config voltage for aif3*/
-		aif3_cldo3 = regulator_get(NULL, aif3_voltage.str);
-		if (!aif3_cldo3) {
-			pr_err("get audio aif3_cldo3 failed\n");
-			return -EFAULT;
+		if (aif3_voltage.str) {
+			aif3_cldo3 = regulator_get(NULL, aif3_voltage.str);
+			if (!aif3_cldo3) {
+				pr_err("get audio aif3_cldo3 failed\n");
+				return -EFAULT;
+			}
+			regulator_set_voltage(aif3_cldo3, aif3_voltage_val, aif3_voltage_val);
+			regulator_enable(aif3_cldo3);
 		}
-		regulator_set_voltage(aif3_cldo3, 3000000, 3000000);
-		regulator_enable(aif3_cldo3);
-
 #ifdef CONFIG_ARCH_SUN9IW1
 		/*config sysclk 24.576M*/
 		sunxi_daudio0_set_rate(24576000);
@@ -1906,14 +1910,15 @@ static int codec_set_digital_bb_bt_clk_format(struct snd_kcontrol *kcontrol,
 
 	if (codec_digital_bb_bt_clk_format) {
 		/*a80+70:cldo3:config voltage for aif3*/
-		aif3_cldo3 = regulator_get(NULL,aif3_voltage.str);
-		if (!aif3_cldo3) {
-			pr_err("get audio aif3_cldo3 failed\n");
-			return -EFAULT;
+		if (aif3_voltage.str) {
+			aif3_cldo3 = regulator_get(NULL,aif3_voltage.str);
+			if (!aif3_cldo3) {
+				pr_err("get audio aif3_cldo3 failed\n");
+				return -EFAULT;
+			}
+			regulator_set_voltage(aif3_cldo3, aif3_voltage_val, aif3_voltage_val);
+			regulator_enable(aif3_cldo3);
 		}
-		regulator_set_voltage(aif3_cldo3, 3000000, 3000000);
-		regulator_enable(aif3_cldo3);
-
 		/* enable  aif3 module clk*/
 		reg_val = snd_soc_read(codec, MOD_CLK_ENA);
 		reg_val |= (0x1<<MOD_CLK_AIF3);
@@ -4965,18 +4970,20 @@ static int sndvir_audio_soc_probe(struct snd_soc_codec *codec)
 	}
 	homlet_flag = val.val;
  	if (!homlet_flag) {
-		if(script_get_item("audio0", "aif3_voltage", &aif3_voltage) != SCIRPT_ITEM_VALUE_TYPE_STR){
-			pr_err("[aif3_voltage]script_get_item return type err!!!!!!!!!!!!\n");
-			return -EFAULT;
+		if (script_get_item("audio0", "aif3_voltage", &aif3_voltage) != SCIRPT_ITEM_VALUE_TYPE_STR) {
+			pr_err("[aif3_voltage]script_get_item type err!!!!!!!!!!!!\n");
 		}
+		type = script_get_item("audio0", "aif3_voltage_val", &val);
+		if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
+			pr_err("[CODEC] aif3_voltage_val type err!\n");
+		}
+		aif3_voltage_val = val.val;
  	}
-	if(script_get_item("audio0", "aldo2_voltage", &aldo2_voltage) != SCIRPT_ITEM_VALUE_TYPE_STR){
-		pr_err("[aldo2_voltage]script_get_item return type err!!!!!!!!!!!!\n");
-		return -EFAULT;
+	if (script_get_item("audio0", "i2s_voltage", &i2s_voltage) != SCIRPT_ITEM_VALUE_TYPE_STR) {
+		pr_err("[i2s_voltage]script_get_item type err!!!!!!!!!!!!\n");
 	}
-	if(script_get_item("audio0", "sw0_voltage", &sw0_voltage) != SCIRPT_ITEM_VALUE_TYPE_STR){
-		pr_err("[sw0_voltage]script_get_item return type err!!!!!!!!!!!!\n");
-		return -EFAULT;
+	if (script_get_item("audio0", "pa_voltage", &pa_voltage) != SCIRPT_ITEM_VALUE_TYPE_STR) {
+		pr_err("[pa_voltage],script_get_item type err!!!!!!!!!!!!\n");
 	}
 	type = script_get_item("audio0", "audio_pa_used", &val);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
@@ -4984,26 +4991,36 @@ static int sndvir_audio_soc_probe(struct snd_soc_codec *codec)
 	}
 	audio_pa_used = val.val;
 	if (homlet_flag) {
-		pa_sw0_vol = regulator_get(NULL, sw0_voltage.str);
-		if (!pa_sw0_vol) {
-			pr_err("get audio pa_sw0_vol failed\n");
-			return -EFAULT;
+		if (pa_voltage.str) {
+			pa_sw0_vol = regulator_get(NULL, pa_voltage.str);
+			if (!pa_sw0_vol) {
+				pr_err("get audio pa_sw0_vol failed\n");
+			}
+			type = script_get_item("audio0", "pa_voltage_val", &val);
+			if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
+				pr_err("[CODEC] pa_voltage_val type err!\n");
+			}
+			pa_voltage_val = val.val;
+			regulator_set_voltage(pa_sw0_vol, pa_voltage_val, pa_voltage_val);
+			regulator_enable(pa_sw0_vol);
 		}
-		regulator_set_voltage(pa_sw0_vol, 3300000, 3300000);
-		regulator_enable(pa_sw0_vol);
-
-		bt_aldo2_vol = regulator_get(NULL, aldo2_voltage.str);
-		if (!bt_aldo2_vol) {
-			pr_err("get audio bt_aldo2_vol failed\n");
-			return -EFAULT;
+		if (i2s_voltage.str!=NULL) {
+			bt_aldo2_vol = regulator_get(NULL, i2s_voltage.str);
+			if (!bt_aldo2_vol) {
+				pr_err("get audio bt_aldo2_vol failed\n");
+			}
+			type = script_get_item("audio0", "i2s_voltage_val", &val);
+			if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
+				pr_err("[CODEC] i2s_voltage_val type err!\n");
+			}
+			i2s_voltage_val = val.val;
+			regulator_set_voltage(bt_aldo2_vol, i2s_voltage_val, i2s_voltage_val);
+			regulator_enable(bt_aldo2_vol);
 		}
-		regulator_set_voltage(bt_aldo2_vol, 1800000, 1800000);
-		regulator_enable(bt_aldo2_vol);
 	}
 	type = script_get_item("audio0", "audio_int_ctrl", &item_eint);
 	if (SCIRPT_ITEM_VALUE_TYPE_PIO != type) {
 		pr_err("script_get_item return type err\n");
-		return -EFAULT;
 	}
 	codec_irq_queue = create_singlethread_workqueue("codec_irq");
 
@@ -5060,7 +5077,6 @@ static int sndvir_audio_soc_probe(struct snd_soc_codec *codec)
 			pr_err("script_get_item return type err\n");
 			return -EFAULT;
 		}
-	
 		/*request pa gpio*/
 		req_status = gpio_request(item.gpio.gpio, NULL);
 		if (0 != req_status) {
@@ -5325,28 +5341,28 @@ static int sndvir_audio_resume(struct snd_soc_codec *codec)
 	headphone_state = 0;
 	hs_data->state	= -1;
 	if (homlet_flag) {
-		pa_sw0_vol = regulator_get(NULL, sw0_voltage.str);
-		if (!pa_sw0_vol) {
-			pr_err("get audio pa_sw0_vol failed\n");
-			return -EFAULT;
+		if (pa_voltage.str) {
+			pa_sw0_vol = regulator_get(NULL, pa_voltage.str);
+			if (!pa_sw0_vol) {
+				pr_err("get audio pa_sw0_vol failed\n");
+			}
+			regulator_set_voltage(pa_sw0_vol, pa_voltage_val, pa_voltage_val);
+			regulator_enable(pa_sw0_vol);
 		}
-		regulator_set_voltage(pa_sw0_vol, 3300000, 3300000);
-		regulator_enable(pa_sw0_vol);
-
-		bt_aldo2_vol = regulator_get(NULL, aldo2_voltage.str);
-		if (!bt_aldo2_vol) {
-			pr_err("get audio bt_aldo2_vol failed\n");
-			return -EFAULT;
+		if (i2s_voltage.str) {
+			bt_aldo2_vol = regulator_get(NULL, i2s_voltage.str);
+			if (!bt_aldo2_vol) {
+				pr_err("get audio bt_aldo2_vol failed\n");
+			}
+			regulator_set_voltage(bt_aldo2_vol, i2s_voltage_val, i2s_voltage_val);
+			regulator_enable(bt_aldo2_vol);
 		}
-		regulator_set_voltage(bt_aldo2_vol, 1800000, 1800000);
-		regulator_enable(bt_aldo2_vol);
 	}
 	/*process for normal standby*/
 	if (NORMAL_STANDBY == standby_type) {
 	/*process for super standby*/
 	} else if(SUPER_STANDBY == standby_type) {
 		schedule_work(&hs_data->codec_resume);
-
 	}
 	switch_hw_config(codec);
 

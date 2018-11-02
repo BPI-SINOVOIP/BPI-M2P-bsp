@@ -47,6 +47,7 @@
 #include <asm/hardware/gic.h>
 #include <mach/sunxi-chip.h>
 #include <mach/sunxi-smc.h>
+#include <linux/arisc/hwspinlock.h>
 
 union gic_base {
 	void __iomem *common_base;
@@ -97,40 +98,124 @@ struct irq_chip gic_arch_extn = {
 #define MAX_GIC_NR	1
 #endif
 
+#if (defined CONFIG_ARM_SUN8IW6_CPUIDLE)
+static DEFINE_SPINLOCK(gic_cpucfg_lock);
+static volatile unsigned int hwlock_initd_flg = 0;
+
+void hwspinlock_ready_init(void)
+{
+	hwlock_initd_flg = 1;
+}
+EXPORT_SYMBOL(hwspinlock_ready_init);
+#endif
 
 static struct gic_chip_data gic_data[MAX_GIC_NR] __read_mostly;
 u32 cpu_cfg_readl(void __iomem * reg)
 {
-    u32 ret;
-    unsigned long flags;
-    write_lock_irqsave(&cpu_ahb_lock, flags);
-    ret = sunxi_smc_readl(reg);
-    write_unlock_irqrestore(&cpu_ahb_lock, flags);
-    return ret;
+	u32 ret;
+	unsigned long flags;
+
+#if (defined CONFIG_ARM_SUN8IW6_CPUIDLE)
+	if (hwlock_initd_flg) {
+		if (arisc_hwspin_lock_timeout(SUNXI_HWSPINLOCKID_CPUIDLE, \
+		                              ARISC_SPINLOCK_TIMEOUT, \
+		                              &gic_cpucfg_lock, &flags))
+			printk(KERN_WARNING "%s,%d timeout\n", __func__, __LINE__);
+	} else
+#endif
+		write_lock_irqsave(&cpu_ahb_lock, flags);
+
+	ret = sunxi_smc_readl(reg);
+
+#if (defined CONFIG_ARM_SUN8IW6_CPUIDLE)
+	if (hwlock_initd_flg)
+		arisc_hwspin_unlock(SUNXI_HWSPINLOCKID_CPUIDLE, \
+		                    &gic_cpucfg_lock, &flags);
+	else
+#endif
+		write_unlock_irqrestore(&cpu_ahb_lock, flags);
+
+	return ret;
 }
+
 void cpu_cfg_writel(u32 val,void __iomem * reg)
 {   
-    unsigned long flags;
-    write_lock_irqsave(&cpu_ahb_lock, flags);
-    sunxi_smc_writel(val,reg);
-    write_unlock_irqrestore(&cpu_ahb_lock, flags);
+	unsigned long flags;
+
+#if (defined CONFIG_ARM_SUN8IW6_CPUIDLE)
+	if (hwlock_initd_flg) {
+		if (arisc_hwspin_lock_timeout(SUNXI_HWSPINLOCKID_CPUIDLE, \
+		                              ARISC_SPINLOCK_TIMEOUT, \
+		                              &gic_cpucfg_lock, &flags))
+			printk(KERN_WARNING "%s,%d timeout\n", __func__, __LINE__);
+	} else
+#endif
+		write_lock_irqsave(&cpu_ahb_lock, flags);
+
+	sunxi_smc_writel(val,reg);
+
+#if (defined CONFIG_ARM_SUN8IW6_CPUIDLE)
+	if (hwlock_initd_flg)
+		arisc_hwspin_unlock(SUNXI_HWSPINLOCKID_CPUIDLE, \
+		                    &gic_cpucfg_lock, &flags);
+	else
+#endif
+		write_unlock_irqrestore(&cpu_ahb_lock, flags);
 }
+
 u32 cpu_gic_readl(void __iomem * reg)
 {
-    u32 ret;
-    unsigned long flags;
-    read_lock_irqsave(&cpu_ahb_lock, flags);
-    ret = readl(reg);
-    read_unlock_irqrestore(&cpu_ahb_lock, flags);
-    return ret;
+	u32 ret;
+	unsigned long flags;
+
+#if (defined CONFIG_ARM_SUN8IW6_CPUIDLE)
+	if (hwlock_initd_flg) {
+		if (arisc_hwspin_lock_timeout(SUNXI_HWSPINLOCKID_CPUIDLE, \
+		                              ARISC_SPINLOCK_TIMEOUT, \
+		                              &gic_cpucfg_lock, &flags))
+			printk(KERN_WARNING "%s,%d timeout\n", __func__, __LINE__);
+	} else
+#endif
+		read_lock_irqsave(&cpu_ahb_lock, flags);
+
+	ret = readl(reg);
+
+#if (defined CONFIG_ARM_SUN8IW6_CPUIDLE)
+	if (hwlock_initd_flg)
+		arisc_hwspin_unlock(SUNXI_HWSPINLOCKID_CPUIDLE, \
+		                    &gic_cpucfg_lock, &flags);
+	else
+#endif
+		read_unlock_irqrestore(&cpu_ahb_lock, flags);
+
+	return ret;
 }
+
 void cpu_gic_writel(u32 val,void __iomem * reg)
 {   
-    unsigned long flags;
-    read_lock_irqsave(&cpu_ahb_lock, flags);
-    writel(val,reg);
-    read_unlock_irqrestore(&cpu_ahb_lock, flags);
+	unsigned long flags;
+
+#if (defined CONFIG_ARM_SUN8IW6_CPUIDLE)
+	if (hwlock_initd_flg) {
+		if (arisc_hwspin_lock_timeout(SUNXI_HWSPINLOCKID_CPUIDLE, \
+		                              ARISC_SPINLOCK_TIMEOUT, \
+		                              &gic_cpucfg_lock, &flags))
+			printk(KERN_WARNING "%s,%d timeout\n", __func__, __LINE__);
+	} else
+#endif
+		read_lock_irqsave(&cpu_ahb_lock, flags);
+
+	writel(val,reg);
+
+#if (defined CONFIG_ARM_SUN8IW6_CPUIDLE)
+	if (hwlock_initd_flg)
+		arisc_hwspin_unlock(SUNXI_HWSPINLOCKID_CPUIDLE, \
+		                    &gic_cpucfg_lock, &flags);
+	else
+#endif
+		read_unlock_irqrestore(&cpu_ahb_lock, flags);
 }
+
 #ifdef CONFIG_GIC_NON_BANKED
 static void __iomem *gic_get_percpu_base(union gic_base *base)
 {

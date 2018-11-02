@@ -38,48 +38,40 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ### ###########################################################################
 
-ifeq ($(USE_CLANG),1)
-export CC  := $(OUT_DIR)/host/$(HOST_OS)-$(HOST_ARCH)/bin/clang
-export CXX := $(OUT_DIR)/host/$(HOST_OS)-$(HOST_ARCH)/bin/clang++
-endif
-
-# We need to run this early because config/core.mk hasn't been
-# included yet. Use the same variable names as in that makefile.
-#
-_CC		:= $(if $(filter default,$(origin CC)),gcc,$(CC))
-_CLANG	:= $(shell ../tools/cc-check.sh --clang --cc $(_CC))
-
 SYS_CFLAGS := \
  -fno-short-enums \
  -funwind-tables \
  -D__linux__
 SYS_INCLUDES := \
- -isystem $(ANDROID_ROOT)/bionic/libc/arch-$(ANDROID_ARCH)/include \
  -isystem $(ANDROID_ROOT)/bionic/libc/include \
- -isystem $(ANDROID_ROOT)/bionic/libc/kernel/common \
- -isystem $(ANDROID_ROOT)/bionic/libc/kernel/arch-$(ANDROID_ARCH) \
+ -isystem $(ANDROID_ROOT)/bionic/libc/kernel/uapi \
  -isystem $(ANDROID_ROOT)/bionic/libm/include \
- -isystem $(ANDROID_ROOT)/bionic/libm/include/$(ANDROID_ARCH) \
  -isystem $(ANDROID_ROOT)/bionic/libthread_db/include \
+ -isystem $(ANDROID_ROOT)/external/libunwind/include \
+ -isystem $(ANDROID_ROOT)/external/openssl/include \
  -isystem $(ANDROID_ROOT)/frameworks/base/include \
- -isystem $(ANDROID_ROOT)/system/core/include \
- -isystem $(ANDROID_ROOT)/system/media/camera/include \
  -isystem $(ANDROID_ROOT)/hardware/libhardware/include \
- -isystem $(ANDROID_ROOT)/external/openssl/include
+ -isystem $(ANDROID_ROOT)/system/core/include \
+ -isystem $(ANDROID_ROOT)/system/core/adf/libadf/include \
+ -isystem $(ANDROID_ROOT)/system/core/adf/libadfhwc/include \
+ -isystem $(ANDROID_ROOT)/system/core/libsync/include \
+ -isystem $(ANDROID_ROOT)/system/core/libsync \
+ -isystem $(ANDROID_ROOT)/system/media/camera/include
 
-ifeq ($(_CLANG),true)
-SYS_INCLUDES := \
- -nostdinc $(SYS_INCLUDES) \
- -isystem $(ANDROID_ROOT)/external/clang/lib/include
-endif
+# Obsolete libc includes
+SYS_INCLUDES += \
+ -isystem $(ANDROID_ROOT)/bionic/libc/kernel/common \
+ -isystem $(ANDROID_ROOT)/bionic/libc/kernel/arch-$(ANDROID_ARCH)
 
 # The following include is a workaround for ICS 4.0.4 partial directory change
 SYS_INCLUDES += \
  -isystem $(ANDROID_ROOT)/frameworks/base/native/include \
  -isystem $(ANDROID_ROOT)/frameworks/native/include
 
-SYS_EXE_LDFLAGS := \
- -Bdynamic -nostdlib -Wl,-dynamic-linker,/system/bin/linker \
- -lc -ldl -lcutils
+ifeq ($(_CLANG),true)
+SYS_INCLUDES := \
+ -nostdinc $(SYS_INCLUDES) \
+ -isystem $(ANDROID_ROOT)/external/clang/lib/Headers
+endif
 
-SYS_LIB_LDFLAGS := $(SYS_EXE_LDFLAGS)
+OPTIM := -O2

@@ -2,14 +2,9 @@ PWD=$(shell pwd)
 
 include ../../.config
 
-MALI_DRV_ROOT=DX910-SW-99002-r4p0-00rel0_modify/driver/src/devicedrv/mali
-MALI_UMP_ROOT=DX910-SW-99002-r4p0-00rel0_modify/driver/src/devicedrv/ump
-MALI_EGL_ROOT=DX910-SW-99002-r4p0-00rel0_modify/driver/src/egl/x11/drm_module/mali_drm
-
-#BPI-M2P
-KERNEL_VERSION=3.4.39-BPI-M2P-Kernel
-LICHEE_PLATFORM=linux
-LICHEE_MOD_DIR=$(LICHEE_KDIR)/output/lib/modules/$(KERNEL_VERSION)
+MALI_DRV_ROOT=DX910-SW-99002-r4p0-00rel0/driver/src/devicedrv/mali
+MALI_UMP_ROOT=DX910-SW-99002-r4p0-00rel0/driver/src/devicedrv/ump
+MALI_EGL_ROOT=DX910-SW-99002-r4p0-00rel0/driver/src/egl/x11/drm_module/mali_drm
 
 ifeq ($(LICHEE_PLATFORM),linux)
 UMP_ENABLE=1
@@ -18,16 +13,14 @@ UMP_ENABLE=0
 endif
 
 install: build
-	mkdir -p $(LICHEE_MOD_DIR)/kernel/drivers/gpu/mali
-	mkdir -p $(LICHEE_MOD_DIR)/kernel/drivers/gpu/ump
-	cp $(MALI_DRV_ROOT)/mali.ko $(LICHEE_MOD_DIR)/kernel/drivers/gpu/mali
-	cp $(MALI_EGL_ROOT)/mali_drm.ko $(LICHEE_MOD_DIR)/kernel/drivers/gpu/mali
+	cp $(MALI_DRV_ROOT)/mali.ko $(LICHEE_MOD_DIR)/
+	cp $(MALI_EGL_ROOT)/mali_drm.ko $(LICHEE_MOD_DIR)/
 	if [ $(UMP_ENABLE) -eq 1 ]; then \
-		cp $(MALI_UMP_ROOT)/ump.ko $(LICHEE_MOD_DIR)/kernel/drivers/gpu/ump; \
+		cp $(MALI_UMP_ROOT)/ump.ko $(LICHEE_MOD_DIR)/; \
 	fi
-	echo OK!!
 
 build:
+	@echo LICHEE_MOD_DIR: $(LICHEE_MOD_DIR)
 	@echo LICHEE_KDIR: $(LICHEE_KDIR)
 	@echo LICHEE_PLATFORM: $(LICHEE_PLATFORM)
 	@echo UMP_ENABLE: $(UMP_ENABLE)

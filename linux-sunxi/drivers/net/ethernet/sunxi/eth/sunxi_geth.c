@@ -33,6 +33,7 @@
 #include <mach/sys_config.h>
 #include <mach/gpio.h>
 #include <mach/sunxi-chip.h>
+#include <mach/platform.h>
 
 #include "sunxi_geth.h"
 #include "sunxi_geth_status.h"
@@ -45,6 +46,7 @@
 #define EPHY_CLK "ephy"
 #endif
 
+#define CONFIG_GETH_ATTRS
 #define DMA_DESC_RX	256
 #define DMA_DESC_TX	256
 #define BUDGET		(dma_desc_rx/4)
@@ -154,9 +156,7 @@ struct geth_priv {
 
 	spinlock_t lock;
 	spinlock_t tx_lock;
-#ifdef CONFIG_GMAC_PHY_POWER
-	u32 gpio_power_hd;
-#endif
+	int gpio_power_hd;
 };
 
 #ifdef CONFIG_GETH_PHY_POWER
@@ -179,6 +179,73 @@ static int geth_open(struct net_device *ndev);
 static void geth_tx_complete(struct geth_priv *priv);
 static void geth_rx_refill(struct net_device *ndev);
 
+#ifdef CONFIG_GETH_ATTRS
+static ssize_t adjust_bgs_show(struct device *dev, struct device_attribute * attr,char * buf)
+{
+	int bgs_value = 0;
+	struct net_device *ndev = to_net_dev(dev);
+	struct geth_priv *priv = netdev_priv(ndev);
+	u32 clk_value = readl(priv->geth_extclk + GETH_CLK_REG);
+#ifdef CONFIG_ARCH_SUN8IW8
+	if (priv->phy_ext == INT_PHY) {
+		bgs_value = (clk_value >> 28) - (readl(SUNXI_SID_VBASE + 0x00) & 0x0F);
+	}
+#elif CONFIG_ARCH_SUN8IW7
+	if (priv->phy_ext == INT_PHY) {
+		bgs_value = (clk_value >> 28) - ((readl(SUNXI_SID_VBASE + 0x210) >> 24) & 0x0F);
+	}
+#endif
+	return sprintf(buf, "bgs: %d\n", bgs_value);
+}
+
+static ssize_t adjust_bgs_write(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	unsigned int out = simple_strtoul(buf, NULL, 10);
+	struct net_device *ndev = to_net_dev(dev);
+	struct geth_priv *priv = netdev_priv(ndev);
+	u32 clk_value = readl(priv->geth_extclk + GETH_CLK_REG);
+#ifdef CONFIG_ARCH_SUN8IW8
+	if (priv->phy_ext == INT_PHY) {
+		clk_value &= ~(0xF << 28);
+		clk_value |= ((readl(SUNXI_SID_VBASE + 0x00) & 0x0F)
+				+ out) << 28;
+	}
+#elif CONFIG_ARCH_SUN8IW7
+	if (priv->phy_ext == INT_PHY) {
+		clk_value &= ~(0xF << 28);
+		clk_value |= (((readl(SUNXI_SID_VBASE + 0x210) >> 24)
+				& 0x0F) + out) << 28;
+	}
+#endif
+	writel(clk_value, priv->geth_extclk + GETH_CLK_REG);
+	return count;
+}
+
+
+static struct device_attribute adjust_reg[] = {
+	__ATTR(adjust_bgs, 0777, adjust_bgs_show, adjust_bgs_write),
+};
+
+static int geth_create_attrs(struct net_device *ndev)
+{
+	int j,ret;
+	for (j = 0; j < ARRAY_SIZE(adjust_reg); j++) {
+		ret = device_create_file(&ndev->dev, &adjust_reg[j]);
+		if (ret)
+			goto sysfs_failed;
+	}
+	goto succeed;
+
+sysfs_failed:
+	while (j--)
+		device_remove_file(&ndev->dev,&adjust_reg[j]);
+succeed:
+	return ret;
+}
+#endif
+
+
 #ifdef DEBUG
 static void desc_print(struct dma_desc *desc, int size)
 {
@@ -198,12 +265,10 @@ static void desc_print(struct dma_desc *desc, int size)
 static int geth_power_on(struct geth_priv *priv)
 {
 	int value;
-        
-#ifdef CONFIG_GMAC_PHY_POWER
-	pr_info("[BPI-M2P] %s\n",__FUNCTION__);
-	gpio_set_value(priv->gpio_power_hd, 1);
-#endif
-        
+	if (gpio_is_valid(priv->gpio_power_hd)) {
+		gpio_set_value(priv->gpio_power_hd, 1);
+		mdelay(50);
+		}
 #ifdef CONFIG_GETH_PHY_POWER
 	struct regulator **regu;
 	int ret = 0, i = 0;
@@ -267,12 +332,10 @@ err:
 static void geth_power_off(struct geth_priv *priv)
 {
 	int value;
-        
-#ifdef CONFIG_GMAC_PHY_POWER
-	pr_info("[BPI-M2P] %s\n",__FUNCTION__);
-	gpio_set_value(priv->gpio_power_hd, 0);
-#endif
-        
+	if (gpio_is_valid(priv->gpio_power_hd)) {
+		gpio_set_value(priv->gpio_power_hd, 0);
+		mdelay(50);
+		}
 #ifdef CONFIG_GETH_PHY_POWER
 	struct regulator **regu = priv->power;
 	int i = 0;
@@ -428,11 +491,18 @@ static int geth_phy_init(struct net_device *ndev)
 		goto err;
 	}
 
+	phy_write(phydev, MII_BMCR, BMCR_RESET);
+	while (BMCR_RESET & phy_read(phydev, MII_BMCR))
+		msleep(30);
+
+	value = phy_read(phydev, MII_BMCR);
+	phy_write(phydev, MII_BMCR, (value & ~BMCR_PDOWN));
+
 	phydev->irq = PHY_POLL;
 
-	phydev = phy_connect(ndev, dev_name(&phydev->dev), &geth_adjust_link,
+	value = phy_connect_direct(ndev, phydev, &geth_adjust_link,
 			0, priv->phy_interface);
-	if (IS_ERR(phydev)) {
+	if (value) {
 		netdev_err(ndev, "Could not attach to PHY\n");
 		goto err;
 	} else {
@@ -441,32 +511,26 @@ static int geth_phy_init(struct net_device *ndev)
 				"poll", dev_name(&phydev->dev));
 #if defined(CONFIG_ARCH_SUN8IW8) || defined(CONFIG_ARCH_SUN8IW7)
 		if (priv->phy_ext == INT_PHY) {
-			phy_write(phydev, 0x1f, 0x013d);
-			phy_write(phydev, 0x10, 0x3ffe);
-			phy_write(phydev, 0x1f, 0x063d);
-			phy_write(phydev, 0x13, 0x8000);
-			phy_write(phydev, 0x1f, 0x023d);
-			phy_write(phydev, 0x18, 0x1000);
-			phy_write(phydev, 0x1f, 0x063d);
-			phy_write(phydev, 0x15, 0x132c);
-			phy_write(phydev, 0x1f, 0x013d);
-			phy_write(phydev, 0x13, 0xd602);
-			phy_write(phydev, 0x17, 0x003b);
-			phy_write(phydev, 0x1f, 0x063d);
-			phy_write(phydev, 0x14, 0x7088);
-			phy_write(phydev, 0x1f, 0x033d);
-			phy_write(phydev, 0x11, 0x8530);
-			phy_write(phydev, 0x1f, 0x003d);
+			//EPHY Initial
+			phy_write(phydev, 0x1f , 0x0100); /* switch to page 1        */
+			phy_write(phydev, 0x12 , 0x4824); /* Disable APS             */
+			phy_write(phydev, 0x1f , 0x0200); /* switchto page 2         */
+			phy_write(phydev, 0x18 , 0x0000); /* PHYAFE TRX optimization */
+			phy_write(phydev, 0x1f , 0x0600); /* switchto page 6         */
+			phy_write(phydev, 0x14 , 0x708F); /* PHYAFE TX optimization  */
+			phy_write(phydev, 0x19 , 0x0000);
+			phy_write(phydev, 0x13 , 0xf000); /* PHYAFE RX optimization  */
+			phy_write(phydev, 0x15 , 0x1530);
+			phy_write(phydev, 0x1f , 0x0800); /* switch to page 8         */
+			phy_write(phydev, 0x18 , 0x00bc); /* PHYAFE TRX optimization */
+			//disable iEEE
+			phy_write(phydev, 0x1f , 0x0100); /* switchto page 1 */
+			/* reg 0x17 bit3,set 0 to disable iEEE */
+			phy_write(phydev, 0x17 , phy_read(phydev, 0x17) & (~(1<<3)));
+			phy_write(phydev, 0x1f , 0x0000); /* switch to page 0 */
 		}
 
 #endif
-		phy_write(phydev, MII_BMCR, BMCR_RESET);
-		while (BMCR_RESET & phy_read(phydev, MII_BMCR))
-			msleep(30);
-
-		value = phy_read(phydev, MII_BMCR);
-		phy_write(phydev, MII_BMCR, (value & ~BMCR_PDOWN));
-
 	}
 
 	phydev->supported &= PHY_GBIT_FEATURES;
@@ -759,8 +823,8 @@ static void geth_chip_hwaddr(u8 *addr)
 		goto out;
 	}
 
-	sg_init_one(&sg, chipid, sizeof(chipid) - 1);
-	ret = crypto_hash_update(&desc, &sg, sizeof(chipid) - 1);
+	sg_init_one(&sg, chipid, sizeof(chipid));
+	ret = crypto_hash_update(&desc, &sg, sizeof(chipid));
 	if (ret < 0) {
 		pr_err("crypto_hash_update() failed for id\n");
 		goto out;
@@ -818,7 +882,7 @@ static void geth_clk_enable(struct geth_priv *priv)
 	value |= GETH_RESET_BIT;
 	writel(value, priv->clkbase + AHB1_MOD_RESET);
 #else
-	if (priv->phy_ext == INT_PHY)
+	if (priv->phy_ext == INT_PHY && priv->ephy_clk)
 		clk_prepare_enable(priv->ephy_clk);
 	clk_prepare_enable(priv->geth_clk);
 #endif
@@ -835,6 +899,18 @@ static void geth_clk_enable(struct geth_priv *priv)
 	if (phy_interface == PHY_INTERFACE_MODE_RGMII
 			|| phy_interface == PHY_INTERFACE_MODE_GMII)
 		clk_value |= 0x00000002;
+
+#if defined(CONFIG_ARCH_SUN8IW8)
+	if (priv->phy_ext == INT_PHY) {
+		clk_value |= ((readl(SUNXI_SID_VBASE + 0x00) & 0x0F)
+				+ 3) << 28;
+	}
+#elif defined(CONFIG_ARCH_SUN8IW7)
+	if (priv->phy_ext == INT_PHY) {
+		clk_value |= (((readl(SUNXI_SID_VBASE + 0x210) >> 24)
+				& 0x0F) + 3) << 28;
+	}
+#endif
 	writel(clk_value, priv->geth_extclk + GETH_CLK_REG);
 }
 
@@ -851,7 +927,7 @@ static void geth_clk_disable(struct geth_priv *priv)
 	value &= ~GETH_RESET_BIT;
 	writel(value, priv->clkbase + AHB1_MOD_RESET);
 #else
-	if (priv->phy_ext == INT_PHY)
+	if (priv->phy_ext == INT_PHY && priv->ephy_clk)
 		clk_disable_unprepare(priv->ephy_clk);
 	clk_disable_unprepare(priv->geth_clk);
 #endif
@@ -1580,6 +1656,15 @@ static int geth_script_parse(struct platform_device *pdev)
 		break;
 	}
 
+	priv->gpio_power_hd = -1;
+	type = script_get_item("gmac_phy_power", "gmac_phy_power_en", &item);
+	if (SCIRPT_ITEM_VALUE_TYPE_PIO == type) {
+		if (!gpio_request(item.gpio.gpio, NULL)) {
+			gpio_direction_output(item.gpio.gpio, 1);
+			priv->gpio_power_hd = item.gpio.gpio;
+		}
+	}
+
 #ifdef CONFIG_GETH_PHY_POWER
 	memset(power_tb, 0, sizeof(power_tb));
 	for (cnt = 0; cnt < ARRAY_SIZE(power_tb); cnt++) {
@@ -1625,13 +1710,11 @@ static int geth_sys_request(struct platform_device *pdev)
 	struct geth_priv *priv = netdev_priv(ndev);
 	int ret = 0;
 	struct resource *res;
-        
-#ifdef CONFIG_GMAC_PHY_POWER
+
 	script_item_value_type_e  type;
 	script_item_u item;
 	int req_status;
-#endif
- 
+
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "geth_extclk");
 	if (unlikely(!res)){
 		ret = -ENODEV;
@@ -1705,22 +1788,20 @@ static int geth_sys_request(struct platform_device *pdev)
 		}
 	}
 #endif
-        
-#ifdef CONFIG_GMAC_PHY_POWER && CONFIG_GETH_SCRIPT_SYS
+
 	type = script_get_item("gmac_phy_power", "gmac_phy_power_en", &item);
 	if (SCIRPT_ITEM_VALUE_TYPE_PIO != type) {
-		pr_err("script_get_item return type err\n");
-		return -EFAULT;
-	}
-	/*request gpio*/
-	req_status = gpio_request(item.gpio.gpio, NULL);
-	if (0 != req_status) {
-		pr_err("request gpio failed!\n");
-	}
-	gpio_direction_output(item.gpio.gpio, 1);
-	priv->gpio_power_hd = item.gpio.gpio;        
- #endif
-        
+		priv->gpio_power_hd = -1;
+	} else {
+		/*request gpio*/
+		req_status = gpio_request(item.gpio.gpio, NULL);
+		if (0 != req_status) {
+			pr_err("request gpio failed!\n");
+		}
+		gpio_direction_output(item.gpio.gpio, 1);
+		priv->gpio_power_hd = item.gpio.gpio;
+ 	}
+
 	return 0;
 
 pin_err:
@@ -1863,6 +1944,10 @@ static int geth_probe(struct platform_device *pdev)
 
 	/* Before open the device, the mac address is be set */
 	geth_check_addr(ndev, mac_str);
+
+#ifdef CONFIG_GETH_ATTRS
+	geth_create_attrs(ndev);
+#endif
 
 	return 0;
 

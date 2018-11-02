@@ -1244,6 +1244,12 @@ static int codec_pa_play_open(void)
 	/*set TX FIFO MODE*/
 	/*send last sample when dac fifo under run*/
 	codec_wr_control(SUNXI_DAC_FIFOC ,0x1, LAST_SE, 0x0);
+#ifdef CONFIG_ARCH_SUN8IW8
+	codec_wr_control(SUNXI_DAC_FIFOC ,0x1, 0, 0x0);
+#else
+	codec_wr_control(SUNXI_DAC_FIFOC ,0x1, DAC_FIFO_FLUSH, 0x1);
+#endif
+
 	codec_wr_prcm_control(DAC_PA_SRC, 0x1, DACALEN, 0x1);
 	codec_wr_prcm_control(DAC_PA_SRC, 0x1, DACAREN, 0x1);
 	if (version_v3_used) {
@@ -2258,6 +2264,9 @@ static int __init sndpcm_codec_probe(struct platform_device *pdev)
 	codec_pll2clk = clk_get(NULL, "pll2");
 	if ((!codec_pll2clk)||(IS_ERR(codec_pll2clk))) {
 		pr_err("try to get codec_pll2clk failed!\n");
+	}
+	if (clk_set_rate(codec_pll2clk, 24576000)) {
+		pr_err("set codec_pll2clk rate fail\n");
 	}
 	if (clk_prepare_enable(codec_pll2clk)) {
 		pr_err("enable codec_pll2clk failed; \n");

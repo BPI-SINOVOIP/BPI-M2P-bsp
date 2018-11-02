@@ -143,7 +143,7 @@ static inline int rtc_read_reg(struct ac100 *ac100, int reg)
  *
  * return the value to be set to year reg.
  */
-int actual_year_to_reg_year(int actual_year)
+static int actual_year_to_reg_year(int actual_year)
 {
 	if (actual_year < YEAR_SUPPORT_MIN || actual_year > YEAR_SUPPORT_MAX) {
 		pr_err("%s(%d) err: we only support (%d ~ %d), but input %d\n", __func__, __LINE__,
@@ -159,14 +159,14 @@ int actual_year_to_reg_year(int actual_year)
  *
  * return the actual year, eg 2014.
  */
-int reg_year_to_actual_year(int reg_val)
+static int reg_year_to_actual_year(int reg_val)
 {
 	if (reg_val > MAX_YEAR_REG_VAL)
 		reg_val = MAX_YEAR_REG_VAL;
 	return reg_val + YEAR_SUPPORT_MIN;
 }
 
-bool time_valid(struct rtc_time *tm)
+static bool time_valid(struct rtc_time *tm)
 {
 	int actual_year, actual_month, leap_year = 0;
 	int err = 0;
@@ -478,7 +478,7 @@ static int alarm_gettime(struct sunxi_rtc *rtc_dev, struct rtc_time *tm)
 	return 0;
 }
 
-void alarm_enable(struct sunxi_rtc *rtc_dev)
+static void alarm_enable(struct sunxi_rtc *rtc_dev)
 {
 #ifdef CONFIG_ARCH_SUN8IW6P1
 	int reg_val = 0;
@@ -498,7 +498,7 @@ void alarm_enable(struct sunxi_rtc *rtc_dev)
 #endif
 }
 
-void alarm_disable(struct sunxi_rtc *rtc_dev)
+static void alarm_disable(struct sunxi_rtc *rtc_dev)
 {
 	int reg_val = 0;
 	/* disable alarm irq */
@@ -524,7 +524,7 @@ void alarm_disable(struct sunxi_rtc *rtc_dev)
 #endif
 }
 
-int sunxi_alarm_enable(struct sunxi_rtc *rtc_dev)
+static int sunxi_alarm_enable(struct sunxi_rtc *rtc_dev)
 {
 	mutex_lock(&rtc_dev->mutex);
 
@@ -534,7 +534,7 @@ int sunxi_alarm_enable(struct sunxi_rtc *rtc_dev)
 	return 0;
 }
 
-int sunxi_alarm_disable(struct sunxi_rtc *rtc_dev)
+static int sunxi_alarm_disable(struct sunxi_rtc *rtc_dev)
 {
 	mutex_lock(&rtc_dev->mutex);
 
@@ -782,8 +782,29 @@ static int __exit sunxi_rtc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void sunxi_rtc_shutdown(struct platform_device *pdev)
+{
+	#ifdef CONFIG_ARCH_SUN8IW6
+	struct sunxi_rtc *rtc_dev = platform_get_drvdata(pdev);
+	int reg_val;
+	reg_val = rtc_read_reg(rtc_dev->ac100, CK32K_OUT_CTRL1_OFF);
+	reg_val &= ~(0x1<<0);
+	rtc_write_reg(rtc_dev->ac100, CK32K_OUT_CTRL1_OFF, reg_val);
+
+	reg_val = rtc_read_reg(rtc_dev->ac100, CK32K_OUT_CTRL2_OFF);
+	reg_val &= ~(0x1<<0);
+	rtc_write_reg(rtc_dev->ac100, CK32K_OUT_CTRL2_OFF, reg_val);
+
+	reg_val = rtc_read_reg(rtc_dev->ac100, CK32K_OUT_CTRL3_OFF);
+	reg_val &= ~(0x1<<0);
+	rtc_write_reg(rtc_dev->ac100, CK32K_OUT_CTRL3_OFF, reg_val);
+	#endif
+}
+
+
 static struct platform_driver sunxi_rtc_driver = {
 	.probe		= sunxi_rtc_probe,
+	.shutdown	= sunxi_rtc_shutdown,
 	.remove		= __exit_p(sunxi_rtc_remove),
 	.driver		= {
 		.name	= RTC_NAME,

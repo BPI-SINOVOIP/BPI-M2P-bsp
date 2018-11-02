@@ -578,7 +578,7 @@ int de_rtmx_set_lay_haddr(unsigned int sel, unsigned int chno, unsigned int layn
 // return         :
 //                  success
 //*********************************************************************************************************************
-int de_rtmx_set_lay_laddr(unsigned int sel, unsigned int chno, unsigned int layno, unsigned char fmt,de_rect crop,
+int de_rtmx_set_lay_laddr(unsigned int sel, unsigned int chno, unsigned int layno, unsigned char fmt, unsigned char yv12_4k_en, de_rect crop,
                           unsigned int *size, unsigned int *align, de_3d_in_mode trdinmode, unsigned int *addr, unsigned char *haddr)
 {
 	long long addr_off[3];
@@ -607,6 +607,9 @@ int de_rtmx_set_lay_laddr(unsigned int sel, unsigned int chno, unsigned int layn
 	pitch[1] = DISPALIGN(size[1]*ucnt,align[1]);
 	pitch[2] = DISPALIGN(size[2]*ucnt,align[2]);
 
+	if(yv12_4k_en){
+		pitch[0] = pitch[0]<<1;
+	}
 	if(trdinmode == DE_3D_SRC_MODE_LI)
 		addr_off[0] = addr[0]+ de_rtmx_get_li_addr_offset(size[0],align[0],x0,y0,ycnt);
 	else
@@ -763,7 +766,7 @@ int de_rtmx_get_3d_in(unsigned char fmt, de_rect crop, de_fb *size, unsigned int
 		crop_h0 = image_h0>>1;
 		crop_h1 = image_h1>>1;
 		crop_h2 = image_h2>>1;
-		printk("%s,%d: fmt=%d, check it and fixme!!!\n", __func__, __LINE__, fmt);;
+		//printk("%s,%d: fmt=%d, check it and fixme!!!\n", __func__, __LINE__, fmt);;
 	}
 
 	if(data_type == 0x2) //planar
@@ -1025,7 +1028,7 @@ static int de_rtmx_get_coarse_fac(unsigned int ovl_w, unsigned int ovl_h,unsigne
 						   unsigned int lcd_fps, unsigned int lcd_height, unsigned int de_freq_MHz,
 						   unsigned int *yhm, unsigned int *yhn, unsigned int *yvm, unsigned int *yvn,
 						   unsigned int *chm, unsigned int *chn, unsigned int *cvm, unsigned int *cvn,
-						   unsigned int *midyw, unsigned int *midyh, unsigned int *midcw, unsigned int *midch)
+						   unsigned int *midyw, unsigned int *midyh, unsigned int *midcw, unsigned int *midch, unsigned char yv12_4k_en)
 {
 	unsigned int format,wshift, hshift,status;
 	unsigned int tmpyhm, tmpyhn, tmpyvm, tmpyvn;
@@ -1085,8 +1088,44 @@ static int de_rtmx_get_coarse_fac(unsigned int ovl_w, unsigned int ovl_h,unsigne
 	ovl_h = ovl_h & (~((1<<hshift)-1));
 
 	status = 0x0;
+
+	if(yv12_4k_en)
+	{
+		*yhm  = 0;
+		*yhn  = 0;
+		*chm  = 0;
+		*chn  = 0;
+		*midyw = ovl_w;
+		*midcw = ovl_w>>1;
+		*yvm  = 0;
+		*yvn  = 0;
+		*cvm  = 0;
+		*cvn  = 0;
+		*midyh = ovl_h;
+		*midch = ovl_h;
+
+		return status;
+	}
+
 	//horizontal Y channel
-	if(ovl_w > 8*vsu_outw)
+	if(ovl_w > 2048)
+	{
+		tmpyhn = ovl_w>>1;
+		tmpyhn = tmpyhn & (~((1<<wshift)-1));
+		tmpyhm = ovl_w;
+		*yhm   = tmpyhm;
+		*yhn   = tmpyhn;
+		*chm   = *yhm;
+		*chn   = *yhn;
+
+		//actually fetch horizontal pixel Y channel
+		*midyw = tmpyhn;
+
+		//actually fetch horizontal pixel C channel
+		*midcw = tmpyhn>>wshift;
+		status = 0x1;
+	}
+	else if(ovl_w > 8*vsu_outw)
 	{
 		tmpyhn = 8*vsu_outw;
 		tmpyhn = tmpyhn & (~((1<<wshift)-1));
@@ -1200,13 +1239,13 @@ static int de_rtmx_get_coarse_fac(unsigned int ovl_w, unsigned int ovl_h,unsigne
 //*********************************************************************************************************************
 int de_rtmx_set_coarse_fac(unsigned int sel, unsigned char chno, unsigned int fmt, unsigned int lcd_fps, unsigned int lcd_height, unsigned int de_freq_MHz,
 						   unsigned int ovl_w, unsigned int ovl_h,unsigned int vsu_outw, unsigned int vsu_outh,
-						   unsigned int *midyw, unsigned int *midyh, unsigned int *midcw, unsigned int *midch)
+						   unsigned int *midyw, unsigned int *midyh, unsigned int *midcw, unsigned int *midch, unsigned char yv12_4k_en)
 {
 	unsigned int yhm,yhn,yvm,yvn,chm,chn,cvm,cvn;
 	int status;
 
 	status = de_rtmx_get_coarse_fac(ovl_w, ovl_h,vsu_outw, vsu_outh, fmt, lcd_fps, lcd_height, de_freq_MHz,
-						   &yhm, &yhn, &yvm, &yvn, &chm, &chn, &cvm, &cvn, midyw, midyh, midcw, midch);
+						   &yhm, &yhn, &yvm, &yvn, &chm, &chn, &cvm, &cvn, midyw, midyh, midcw, midch, yv12_4k_en);
 
 	de200_rtmx[sel].vi_ovl[chno]->vi_hori_ds[0].bits.m = yhm;
 	de200_rtmx[sel].vi_ovl[chno]->vi_hori_ds[0].bits.n = yhn;
@@ -1246,7 +1285,15 @@ int de_rtmx_set_pf_en(unsigned int sel, unsigned char *pen)
 
 int de_rtmx_set_pipe_cfg(unsigned int sel, unsigned char pno, unsigned int color, de_rect bldrc)
 {
-	de200_rtmx[sel].bld_ctl->bld_pipe_attr[pno].fcolor.dwval = color;
+	/* fix the pipe fill color to 0xff000000(alpha=1)
+	 * actually, we just want to fix the fill color of the bottom pipe
+	 * so only the fill color function of the bottom pipe is enabled
+	 * cause:
+	 * co = cs + cb * (1 - as), ao = as + ab * (1 - as), Co(result) = co / ao
+	 * when ab = 0, the result is	( Cs );
+	 *  when 1, the result is ( Cs * as ), this is what we want.
+	 */
+	de200_rtmx[sel].bld_ctl->bld_pipe_attr[pno].fcolor.dwval = 0xff000000;
 	de200_rtmx[sel].bld_ctl->bld_pipe_attr[pno].insize.bits.width = bldrc.w==0?0:bldrc.w-1;
 	de200_rtmx[sel].bld_ctl->bld_pipe_attr[pno].insize.bits.height = bldrc.h==0?0:bldrc.h-1;
 	de200_rtmx[sel].bld_ctl->bld_pipe_attr[pno].offset.bits.coorx = bldrc.x;
@@ -1329,6 +1376,15 @@ int de_rtmx_set_blend_mode(unsigned int sel, unsigned int bldno, unsigned char m
 
 	return 0;
 }
+
+int de_rtmx_set_blend_color(unsigned int sel, unsigned int bldno, unsigned int color)
+{
+	de200_rtmx[sel].bld_ctl->bld_pipe_attr[bldno].fcolor.dwval = (0xff<<24)|(color&0xffffff);
+	bld_attr_block[sel].dirty = 1;
+
+	return 0;
+}
+
 
 int de_rtmx_set_outitl(unsigned int sel, unsigned char interlace_en)
 {

@@ -6,11 +6,14 @@ struct disp_al_private_data
 	u32 output_type[DEVICE_NUM];//index according to device
 	u32 output_mode[DEVICE_NUM];//indicate mode for tv/hdmi, lcd_if for lcd
 	u32 output_cs[DEVICE_NUM];//index according to device
-	u32 connection[DEVICE_NUM];//connection[0]=1:indicate disp0 <->device1
+	u32 disp_device[DEVICE_NUM];//disp_device[0]=1:indicate disp0 <->device1
+	u32 disp_disp[DEVICE_NUM];// disp_disp[0]=1: indicate device0 <-> disp1
 	disp_rectsz disp_size[DEVICE_NUM];
 	unsigned long long logo_addr[DEVICE_NUM][3];
 	disp_rectsz logo_size[DEVICE_NUM];
 	disp_layer_info logo_info[DEVICE_NUM];
+	u32 output_fps[DEVICE_NUM];//index according to device
+	u32 tcon_index[DEVICE_NUM];
 };
 
 static struct disp_al_private_data al_priv;
@@ -32,8 +35,13 @@ int disp_al_manager_exit(unsigned int disp)
 
 int disp_al_manager_apply(unsigned int disp, struct disp_manager_data *data)
 {
-	if(data->flag & MANAGER_ENABLE_DIRTY)
+	if(data->flag & MANAGER_ENABLE_DIRTY) {
 		al_priv.output_cs[data->config.disp_device] = data->config.cs;
+		al_priv.disp_size[disp].width = data->config.size.width;
+		al_priv.disp_size[disp].height = data->config.size.height;
+		al_priv.disp_device[disp] = data->config.disp_device;
+		al_priv.disp_disp[data->config.disp_device] = disp;
+	}
 
 	return de_al_mgr_apply(disp, data);
 }
@@ -141,6 +149,7 @@ static struct lcd_clk_info clk_tbl[] = {
 	{LCD_IF_LVDS,   7, 1, 1},
 	{LCD_IF_DSI,    4, 1, 4},
 };
+
 /* lcd */
 /* lcd_dclk_freq * div -> lcd_clk_freq * div2 -> pll_freq */
 /* lcd_dclk_freq * dsi_div -> lcd_dsi_freq */
@@ -170,6 +179,17 @@ int disp_al_lcd_get_clk_info(u32 screen_id, struct lcd_clk_info *info, disp_pane
 	if(0 == find)
 		__wrn("cant find clk info for lcd_if %d\n", panel->lcd_if);
 
+	if(panel->lcd_dclk_freq < 10) {
+		tcon_div = 10;
+		lcd_div = 4;
+	}
+	else if(panel->lcd_dclk_freq < 40 && panel->lcd_dclk_freq >= 10) {
+		tcon_div = 10;
+		lcd_div = 2;
+	} else {
+		tcon_div = 6;
+		lcd_div = 1;
+	}
 	info->tcon_div = tcon_div;
 	info->lcd_div = lcd_div;
 	info->dsi_div = dsi_div;
@@ -182,8 +202,11 @@ int disp_al_lcd_cfg(u32 screen_id, disp_panel_para * panel, panel_extend_para *e
 	struct lcd_clk_info info;
 
 	al_priv.output_type[screen_id] = (u32)DISP_OUTPUT_TYPE_LCD;
-	al_priv.output_type[screen_id] = (u32)panel->lcd_if;
+	al_priv.output_mode[screen_id] = (u32)panel->lcd_if;
+	al_priv.output_fps[screen_id] = panel->lcd_dclk_freq * 1000000 / panel->lcd_ht / panel->lcd_vt;
+	al_priv.tcon_index[screen_id] = 0;
 
+	de_update_device_fps(al_priv.disp_disp[screen_id], al_priv.output_fps[screen_id]);
 	tcon_init(screen_id);
 	disp_al_lcd_get_clk_info(screen_id, &info, panel);
 	DE_INF("lcd %d clk_div=%d!\n", screen_id, info.tcon_div);
@@ -360,8 +383,12 @@ int disp_al_hdmi_disable(u32 screen_id)
 int disp_al_hdmi_cfg(u32 screen_id, disp_video_timings *video_info)
 {
 	al_priv.output_type[screen_id] = (u32)DISP_OUTPUT_TYPE_HDMI;
-	al_priv.output_type[screen_id] = (u32)video_info->vic;
+	al_priv.output_mode[screen_id] = (u32)video_info->vic;
+		al_priv.output_fps[screen_id] = video_info->pixel_clk / video_info->hor_total_time /\
+		video_info->ver_total_time * (video_info->b_interlace + 1) / (video_info->trd_mode + 1);
+	al_priv.tcon_index[screen_id] = 1;
 
+	de_update_device_fps(al_priv.disp_disp[screen_id], al_priv.output_fps[screen_id]);
 	tcon_init(screen_id);
 	tcon1_set_timming(screen_id, video_info);
 	if(al_priv.output_cs[screen_id] != 0)//YUV output
@@ -377,6 +404,10 @@ int disp_al_vdevice_cfg(u32 screen_id, disp_video_timings *video_info, disp_vdev
 
 	al_priv.output_type[screen_id] = (u32)DISP_OUTPUT_TYPE_LCD;
 	al_priv.output_mode[screen_id] = (u32)para->intf;
+	al_priv.output_fps[screen_id] = video_info->pixel_clk / video_info->hor_total_time /\
+		video_info->ver_total_time;
+	al_priv.tcon_index[screen_id] = 0;
+	de_update_device_fps(al_priv.disp_disp[screen_id], al_priv.output_fps[screen_id]);
 
 	memset(&info, 0, sizeof(disp_panel_para));
 	info.lcd_if = para->intf;
@@ -511,10 +542,15 @@ int disp_init_al(disp_bsp_init_para * para)
 		u32 chn_num = de_feat_get_num_chns(disp);
 		u32 layer_num;
 		u32 logo_find = 0;
+		u32 disp_device;
+		disp_video_timings tt;
 
-		al_priv.output_type[disp] = para->boot_info.type;
-		al_priv.output_mode[disp] = para->boot_info.mode;
-
+		memset(&tt, 0, sizeof(disp_video_timings));
+		al_priv.disp_device[disp] = de_rtmx_get_mux(disp);
+		disp_device = al_priv.disp_device[disp];
+		al_priv.output_type[disp_device] = (DISP_OUTPUT_TYPE_HDMI == para->boot_info.type)?DISP_OUTPUT_TYPE_HDMI:DISP_OUTPUT_TYPE_LCD;
+		al_priv.output_mode[disp_device] = para->boot_info.mode;
+		al_priv.tcon_index[disp_device] = (DISP_OUTPUT_TYPE_HDMI == para->boot_info.type)?1:0;
 		de_rtmx_sync_hw(disp);
 		de_rtmx_get_display_size(disp, &al_priv.disp_size[disp].width, &al_priv.disp_size[disp].height);
 		for(chn=0; chn<chn_num; chn++) {
@@ -538,7 +574,8 @@ int disp_init_al(disp_bsp_init_para * para)
 			al_priv.logo_info[disp].fb.crop.width = ((long long)win.width)<<32;
 			al_priv.logo_info[disp].fb.crop.height = ((long long)win.height)<<32;
 		}
-		al_priv.connection[disp] = de_rtmx_get_mux(disp);
+		al_priv.output_fps[disp_device] = 60;
+		de_update_device_fps(disp, al_priv.output_fps[disp_device]);
 	}
 
 	return 0;

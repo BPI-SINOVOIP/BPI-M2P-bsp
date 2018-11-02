@@ -581,10 +581,9 @@ static int ss_sha512_init(struct ahash_request *req)
 #define DECLARE_SS_DH_ALG(type, bitwidth)	DECLARE_SS_RSA_ALG(type, bitwidth)
 #define DECLARE_SS_ECC_ALG					DECLARE_SS_ASYM_ALG
 
-#define ss_prng_get_random		ss_rng_get_random
 #define DECLARE_SS_RNG_ALG(ltype) \
 { \
-	.cra_name = "prng", \
+	.cra_name = #ltype, \
 	.cra_driver_name = "ss-"#ltype, \
 	.cra_flags = CRYPTO_ALG_TYPE_RNG, \
 	.cra_type = &crypto_rng_type, \
@@ -657,9 +656,9 @@ static struct crypto_alg sunxi_ss_algs[] =
 #endif
 #ifdef SS_TRNG_ENABLE
 	DECLARE_SS_RNG_ALG(trng),
-#else
-	DECLARE_SS_RNG_ALG(prng),
 #endif
+	DECLARE_SS_RNG_ALG(prng),
+
 #ifdef SS_HMAC_SHA1_ENABLE
 	{
 		.cra_name		 = "hmac-sha1",
@@ -1004,21 +1003,10 @@ static int __devinit sunxi_ss_probe(struct platform_device *pdev)
 		goto err1;
 	}
 
-	spin_lock_init(&sss->lock);
-	INIT_WORK(&sss->work, sunxi_ss_work);
-	crypto_init_queue(&sss->queue, 16);
-
-	sss->workqueue = create_singlethread_workqueue(sss->dev_name);
-	if (sss->workqueue == NULL) {
-		SS_ERR("Unable to create workqueue\n");
-		ret = -EPERM;
-		goto err2;
-	}
-
 	ret = sunxi_ss_alg_register();
 	if (ret != 0) {
 		SS_ERR("sunxi_ss_alg_register() failed! return %d \n", ret);
-		goto err3;
+		goto err2;
 	}
 
 	sunxi_ss_sysfs_create(pdev);
@@ -1027,8 +1015,6 @@ static int __devinit sunxi_ss_probe(struct platform_device *pdev)
 	SS_DBG("SS driver probe succeed, base 0x%p, irq %d!\n", sss->base_addr, sss->irq);
 	return 0;
 
-err3:
-	destroy_workqueue(sss->workqueue);
 err2:
 	sunxi_ss_hw_exit(sss);
 err1:
@@ -1044,10 +1030,6 @@ static int __devexit sunxi_ss_remove(struct platform_device *pdev)
 
 	ss_wait_idle();
 	sunxi_ss_sysfs_remove(pdev);
-
-	cancel_work_sync(&sss->work);
-	flush_workqueue(sss->workqueue);
-	destroy_workqueue(sss->workqueue);
 
 	sunxi_ss_alg_unregister();
 	sunxi_ss_hw_exit(sss);

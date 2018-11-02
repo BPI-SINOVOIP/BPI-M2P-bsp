@@ -112,33 +112,31 @@ static void LCD_cfg_panel_info(panel_extend_para * info)
 
 static s32 LCD_open_flow(u32 sel)
 {
-	LCD_OPEN_FUNC(sel, sunxi_lcd_tcon_enable, 0);     //open lcd controller, and delay 100ms
-	LCD_OPEN_FUNC(sel, LCD_power_on, 100);   //open lcd power, and delay 50ms
-	LCD_OPEN_FUNC(sel, LCD_panel_init, 0);   //open lcd power, than delay 200ms
-	LCD_OPEN_FUNC(sel, LCD_bl_open, 0);     //open lcd backlight, and delay 0ms
-
+	LCD_OPEN_FUNC(sel, LCD_power_on, 200);
+	LCD_OPEN_FUNC(sel, LCD_panel_init, 100);
+	LCD_OPEN_FUNC(sel, sunxi_lcd_tcon_enable, 50);
+	LCD_OPEN_FUNC(sel, LCD_bl_open, 0);
 	return 0;
 }
 
 static s32 LCD_close_flow(u32 sel)
 {
-	LCD_CLOSE_FUNC(sel, LCD_bl_close, 0);       //close lcd backlight, and delay 0ms
-	LCD_CLOSE_FUNC(sel, LCD_panel_exit, 0);   //open lcd power, than delay 200ms
-	LCD_CLOSE_FUNC(sel, LCD_power_off, 100);   //close lcd power, and delay 500ms
-	LCD_CLOSE_FUNC(sel, sunxi_lcd_tcon_disable, 0);         //close lcd controller, and delay 0ms
-
+	LCD_CLOSE_FUNC(sel, LCD_bl_close, 50);
+	LCD_CLOSE_FUNC(sel, sunxi_lcd_tcon_disable, 50);
+	LCD_CLOSE_FUNC(sel, LCD_panel_exit, 0);
+	LCD_CLOSE_FUNC(sel, LCD_power_off, 500);
 	return 0;
 }
 
 static void LCD_power_on(u32 sel)
 {
+	sunxi_lcd_gpio_set_value(sel, 0, 0);
 	gm7121_tv_power_on(1);
 	sunxi_lcd_pin_cfg(sel, 1);
 }
 
 static void LCD_power_off(u32 sel)
 {
-	sunxi_lcd_pin_cfg(sel, 0);
 	gm7121_tv_power_on(0);
 }
 
@@ -149,17 +147,18 @@ static void LCD_bl_open(u32 sel)
 
 static void LCD_bl_close(u32 sel)
 {
-	gm7121_tv_close();
+	sunxi_lcd_gpio_set_value(sel, 0, 0);
 }
 
 static void LCD_panel_init(u32 sel)
 {
-
+	sunxi_lcd_gpio_set_value(sel, 0, 1);
 	return;
 }
 
 static void LCD_panel_exit(u32 sel)
 {
+	sunxi_lcd_pin_cfg(sel, 0);
 	return ;
 }
 

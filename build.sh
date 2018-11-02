@@ -87,11 +87,11 @@ T="$TOPDIR"
 if [[ $BOARD =~ "BPI-M2P" ]]
 then
         board="bpi-m2p"
-        kernel="3.4.39-BPI-M2P-Kernel"
+        kernel="3.4.113-BPI-M2P-Kernel"
         BOOT_PACK_P=$T/sunxi-pack/chips/${MACH}/configs/default/linux
 else
         board=$(echo $BOARD | tr '[A-Z]' '[a-z]')
-        kernel="3.4.39-${BOARD}-Kernel"
+        kernel="3.4.113-${BOARD}-Kernel"
         BOOT_PACK_P=$T/sunxi-pack/chips/${MACH}/configs/${BOARD}/linux
 fi
 

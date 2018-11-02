@@ -44,6 +44,7 @@
 #define	OPCODE_WRSR		0x01	/* Write status register 1 byte */
 #define	OPCODE_NORM_READ	0x03	/* Read data bytes (low frequency) */
 #define	OPCODE_FAST_READ	0x0b	/* Read data bytes (high frequency) */
+#define	OPCODE_DUAL_MODE_READ 0x3B	/* Read data bytes in Dual Mode */
 #define	OPCODE_PP		0x02	/* Page program (up to 256 bytes) */
 #define	OPCODE_BE_4K		0x20	/* Erase 4KiB block */
 #define	OPCODE_BE_32K		0x52	/* Erase 32KiB block */
@@ -74,9 +75,12 @@
 
 /* Define max times to check status register before we give up. */
 #define	MAX_READY_WAIT_JIFFIES	(40 * HZ)	/* M25P16 specs 40s max chip erase */
-#define	MAX_CMD_SIZE		5
+#define	MAX_CMD_SIZE		6
 
-#ifdef CONFIG_M25PXX_USE_FAST_READ
+#if defined(CONFIG_M25PXX_USE_DUAL_MODE_READ)
+#define OPCODE_READ 	OPCODE_DUAL_MODE_READ
+#define FAST_READ_DUMMY_BYTE 0
+#elif defined(CONFIG_M25PXX_USE_FAST_READ)
 #define OPCODE_READ 	OPCODE_FAST_READ
 #define FAST_READ_DUMMY_BYTE 1
 #else
@@ -134,6 +138,16 @@ typedef struct
 	PARTITION           array[MBR_MAX_PART_COUNT];	//
 	unsigned  char      res[MBR_RESERVED];
 }__attribute__ ((packed)) MBR;
+
+#ifdef CONFIG_M25PXX_USE_DUAL_MODE_READ
+/* spi device data, used in dual spi mode */
+struct sunxi_dual_mode_dev_data {
+	int dual_mode;	//dual SPI mode, 0-single mode, 1-dual mode
+	int single_cnt;	//single mode transmit counter
+	int dummy_cnt;	//dummy counter should be sent before receive in dual mode
+};
+struct sunxi_dual_mode_dev_data dual_mode_cfg = {1, 0, 1};
+#endif
 
 static inline struct m25p *mtd_to_m25p(struct mtd_info *mtd)
 {
@@ -293,8 +307,10 @@ static int erase_sector(struct m25p *flash, u32 offset)
 			__func__, flash->mtd.erasesize / 1024, offset);
 
 	/* Wait until finished previous write command. */
-	if (wait_till_ready(flash))
+	if (wait_till_ready(flash)) {
+		printk("erase_sector fail \n");
 		return 1;
+	}
 
 	/* Send write enable, then erase commands. */
 	write_enable(flash);
@@ -328,9 +344,14 @@ static int m25p80_erase(struct mtd_info *mtd, struct erase_info *instr)
 			__func__, (long long)instr->addr,
 			(long long)instr->len);
 
+//			__func__, (long long)instr->addr,
+//			(long long)instr->len);
+
 	div_u64_rem(instr->len, mtd->erasesize, &rem);
-	if (rem)
+	if (rem) {
+		printk("m25p80_erase EINVAL fail:\n");
 		return -EINVAL;
+	}
 
 	addr = instr->addr;
 	len = instr->len;
@@ -342,6 +363,7 @@ static int m25p80_erase(struct mtd_info *mtd, struct erase_info *instr)
 		if (erase_chip(flash)) {
 			instr->state = MTD_ERASE_FAILED;
 			mutex_unlock(&flash->lock);
+			printk("m25p80_erase erase_chip warning fail:\n");
 			return -EIO;
 		}
 
@@ -356,6 +378,7 @@ static int m25p80_erase(struct mtd_info *mtd, struct erase_info *instr)
 			if (erase_sector(flash, addr)) {
 				instr->state = MTD_ERASE_FAILED;
 				mutex_unlock(&flash->lock);
+				printk("m25p80_erase erase_sector warning: fail \n");
 				return -EIO;
 			}
 
@@ -687,6 +710,8 @@ static const struct spi_device_id m25p_ids[] = {
 	{ "gd25q16", INFO(0xc84015, 0, 64 * 1024,  32, SECT_4K) },
 	{ "gd25q32", INFO(0xc84016, 0, 64 * 1024,  64, SECT_4K) },
 	{ "gd25q64", INFO(0xc84017, 0, 64 * 1024, 128, SECT_4K) },
+	
+	{ "gd25q128", INFO(0xc84018, 0, 64 * 1024, 256, 0) },  // v3   
 
 	/* Intel/Numonyx -- xxxs33b */
 	{ "160s33b",  INFO(0x898911, 0, 64 * 1024,  32, 0) },
@@ -777,6 +802,8 @@ static const struct spi_device_id m25p_ids[] = {
 	{ "w25q32", INFO(0xef4016, 0, 64 * 1024,  64, SECT_4K) },
 	{ "w25x64", INFO(0xef3017, 0, 64 * 1024, 128, SECT_4K) },
 	{ "w25q64", INFO(0xef4017, 0, 64 * 1024, 128, SECT_4K) },
+	{ "W25q128", INFO(0xef4018, 0, 64 * 1024, 256, 0) },
+	
 
 	/* Catalyst / On Semiconductor -- non-JEDEC */
 	{ "cat25c11", CAT25_INFO(  16, 8, 16, 1) },
@@ -787,6 +814,19 @@ static const struct spi_device_id m25p_ids[] = {
 	{ },
 };
 MODULE_DEVICE_TABLE(spi, m25p_ids);
+
+/* Register the whole NorFlash as a partition. */
+static int partition_register(struct mtd_info *mtd, struct mtd_part_parser_data *ppdata)
+{
+	struct mtd_partition partitions[] = {
+		{
+		.name = "NorFlash part0",
+		.offset = 0,
+		.size = MTDPART_SIZ_FULL
+		}};
+
+	return mtd_device_parse_register(mtd, NULL, ppdata, partitions, 1);
+}
 
 #ifdef CONFIG_ARCH_SUN8IW8
 static int partitions_register(struct mtd_info *mtd, struct mtd_part_parser_data *ppdata)
@@ -802,31 +842,47 @@ static int partitions_register(struct mtd_info *mtd, struct mtd_part_parser_data
 		M25_ERR("Failed to kzalloc(%d)\n", MBR_SIZE);
 		return -ENOMEM;
 	}
-
 	ret = m25p80_read(mtd, MBR_OFFSET, MBR_SIZE, &retlen, (u_char *)sunxi_mbr);
 	M25_DBG("m25p80_read() ret= %d, retlen = %d\n", ret, retlen);
-	if (ret != 0) {
+	if ((ret != 0) || (sunxi_mbr->PartCount == 0)) {
 		kfree(sunxi_mbr);
-		M25_ERR("m25p80_read() ret= %d\n", ret);
+		M25_ERR("m25p80_read() ret %d, PartCnt: %d\n", ret, sunxi_mbr->PartCount);
 		return -EINVAL;
 	}
+	if ((sunxi_mbr->PartCount == 0) || (sunxi_mbr->PartCount > MBR_MAX_PART_COUNT)) {
+		M25_ERR("Invalid partitions count: %d\n",  sunxi_mbr->PartCount);
+		kfree(sunxi_mbr);
+		return partition_register(mtd, ppdata);
+	}
 
-	partitions = kzalloc(sizeof(struct mtd_partition)*sunxi_mbr->PartCount, GFP_KERNEL);
+	sunxi_mbr->PartCount += 1;
+    partitions = kzalloc(sizeof(struct mtd_partition)*sunxi_mbr->PartCount, GFP_KERNEL);
 	if (partitions == NULL) {
 		M25_ERR("Failed to kzalloc(%d patition)\n", sunxi_mbr->PartCount);
 		kfree(sunxi_mbr);
 		return -ENOMEM;
 	}
 
+	printk("@@@[debug_jaosn]: Invalid partitions count: 4 %d\n",sunxi_mbr->PartCount);
+
 	for (i=0; i<sunxi_mbr->PartCount-1; i++) {
-		partitions[i].name   = sunxi_mbr->array[i].name;
-		partitions[i].offset = sunxi_mbr->array[i].addrlo*NOR_BLK_SIZE + MBR_OFFSET;
-		partitions[i].size   = sunxi_mbr->array[i].lenlo*NOR_BLK_SIZE;
-		printk("NorFlash partition %d: name=%s, offset=0x%llx, size=0x%llx\n", i,
+		
+		partitions[0].name   = "uboot";
+		partitions[0].offset = 0;
+		partitions[0].size   = 256 * 1024;
+			
+		partitions[i+1].name   = sunxi_mbr->array[i].name;
+		partitions[i+1].offset = sunxi_mbr->array[i].addrlo*NOR_BLK_SIZE + MBR_OFFSET;
+		partitions[i+1].size   = sunxi_mbr->array[i].lenlo*NOR_BLK_SIZE;
+		if(i == 0) {
+			M25_DBG("NorFlash partition %d: name=%s, offset=0x%llx, size=0x%llx\n", i,
 			partitions[i].name, partitions[i].offset, partitions[i].size);
+		}
+		M25_DBG("NorFlash partition %d: name=%s, offset=0x%llx, size=0x%llx\n", i+1,
+			partitions[i+1].name, partitions[i+1].offset, partitions[i+1].size);
 	}
 
-	ret = mtd_device_parse_register(mtd, NULL, ppdata, partitions, sunxi_mbr->PartCount-1);
+    ret = mtd_device_parse_register(mtd, NULL, ppdata, partitions, sunxi_mbr->PartCount-1);
 
 	kfree(partitions);
 	kfree(sunxi_mbr);
@@ -835,14 +891,7 @@ static int partitions_register(struct mtd_info *mtd, struct mtd_part_parser_data
 #else
 static int partitions_register(struct mtd_info *mtd, struct mtd_part_parser_data *ppdata)
 {
-	struct mtd_partition partitions[] = {
-		{
-		.name = "NorFlash part0",
-		.offset = 0,
-		.size = MTDPART_SIZ_FULL
-		}};
-
-	return mtd_device_parse_register(mtd, NULL, ppdata, partitions, 1);
+	return partition_register(mtd, ppdata);
 }
 #endif
 
@@ -872,12 +921,13 @@ static const struct spi_device_id *__devinit jedec_probe(struct spi_device *spi)
 	jedec |= id[2];
 
 	ext_jedec = id[3] << 8 | id[4];
-
+	printk("NorFlash ID: %#x - %#x\n", jedec, ext_jedec);
 	for (tmp = 0; tmp < ARRAY_SIZE(m25p_ids) - 1; tmp++) {
 		info = (void *)m25p_ids[tmp].driver_data;
 		if (info->jedec_id == jedec) {
 			if (info->ext_id != 0 && info->ext_id != ext_jedec)
 				continue;
+			M25_DBG("Found the type: %s\n", m25p_ids[tmp].name);
 			return &m25p_ids[tmp];
 		}
 	}
@@ -894,7 +944,9 @@ static const struct spi_device_id *__devinit jedec_probe(struct spi_device *spi)
 static int __devinit m25p_probe(struct spi_device *spi)
 {
 	const struct spi_device_id	*id = spi_get_device_id(spi);
-	struct flash_platform_data	*data;
+#ifndef CONFIG_M25PXX_USE_DUAL_MODE_READ
+	struct flash_platform_data	*data = NULL;
+#endif
 	struct m25p			*flash;
 	struct flash_info		*info;
 	unsigned			i;
@@ -910,6 +962,10 @@ static int __devinit m25p_probe(struct spi_device *spi)
 	 * a chip ID, try the JEDEC id commands; they'll work for most
 	 * newer chips, even if we don't recognize the particular chip.
 	 */
+#ifdef CONFIG_M25PXX_USE_DUAL_MODE_READ
+	M25_ERR("Use the Dual Mode Read.\n");
+	spi->dev.platform_data = &dual_mode_cfg;
+#else
 	data = spi->dev.platform_data;
 	if (data && data->type) {
 		const struct spi_device_id *plat_id;
@@ -926,17 +982,19 @@ static int __devinit m25p_probe(struct spi_device *spi)
 		else
 			dev_warn(&spi->dev, "unrecognized id %s\n", data->type);
 	}
+#endif
 
 	info = (void *)id->driver_data;
-	M25_DBG("info->jedec_id = %#x \n", info->jedec_id);
+	pr_debug("info->jedec_id = %#x \n", info->jedec_id);
 
 	if (info->jedec_id) {
 		const struct spi_device_id *jid;
 
 		jid = jedec_probe(spi);
-		M25_DBG("jid = %p\n", jid);
+		pr_debug("jid = %p\n", jid);
 
 		if (IS_ERR(jid)) {
+			pr_debug("IS_ERR(jid)\n");
 			return PTR_ERR(jid);
 		} else if (jid != id) {
 			/*
@@ -953,14 +1011,13 @@ static int __devinit m25p_probe(struct spi_device *spi)
 		}
 	}
 
-	flash = kzalloc(sizeof *flash, GFP_KERNEL);
+	flash = devm_kzalloc(&spi->dev, sizeof(*flash), GFP_KERNEL);
 	if (!flash)
 		return -ENOMEM;
-	flash->command = kmalloc(MAX_CMD_SIZE + FAST_READ_DUMMY_BYTE, GFP_KERNEL);
-	if (!flash->command) {
-		kfree(flash);
+
+	flash->command = devm_kzalloc(&spi->dev, MAX_CMD_SIZE, GFP_KERNEL);
+	if (!flash->command)
 		return -ENOMEM;
-	}
 
 	flash->spi = spi;
 	mutex_init(&flash->lock);
@@ -978,10 +1035,13 @@ static int __devinit m25p_probe(struct spi_device *spi)
 		write_sr(flash, 0);
 	}
 
+#ifndef CONFIG_M25PXX_USE_DUAL_MODE_READ
 	if (data && data->name)
 		flash->mtd.name = data->name;
 	else
+#else
 		flash->mtd.name = dev_name(&spi->dev);
+#endif
 
 	flash->mtd.type = MTD_NORFLASH;
 	flash->mtd.writesize = 1;
@@ -1061,14 +1121,9 @@ static int __devinit m25p_probe(struct spi_device *spi)
 static int __devexit m25p_remove(struct spi_device *spi)
 {
 	struct m25p	*flash = dev_get_drvdata(&spi->dev);
-	int		status;
 
 	/* Clean up MTD stuff. */
-	status = mtd_device_unregister(&flash->mtd);
-	if (status == 0) {
-		kfree(flash->command);
-		kfree(flash);
-	}
+	mtd_device_unregister(&flash->mtd);
 	return 0;
 }
 

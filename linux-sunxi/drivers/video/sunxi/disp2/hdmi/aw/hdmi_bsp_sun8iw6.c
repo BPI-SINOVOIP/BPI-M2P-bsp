@@ -365,10 +365,8 @@ int bsp_hdmi_video(struct video_para *video)
 	switch(glb_video.vic)
 	{
 		case 2:
-		case 4:
 		case 6:
 		case 17:
-		case 19:
 		case 21:
 			video->csc = BT601;
 			break;
@@ -447,7 +445,7 @@ int bsp_hdmi_video(struct video_para *video)
 		else
 			hdmi_write(0xC044, (video->csc << 6) | 0x08);
 
-		hdmi_write(0xC045, 0x00);
+		hdmi_write(0xC045, video->is_yuv ? 0x00 : 0x08);
 		hdmi_write(0x4046, ptbl[id].para[0]&0x7f);
 	}
 
@@ -527,6 +525,8 @@ int bsp_hdmi_audio(struct audio_para *audio)
 
 	hdmi_write(0x0251, audio->sample_bit);
 
+
+
 	n = 6272;
 	//cts = 0;
 	for(i = 0; i < 21; i += 3)
@@ -588,8 +588,28 @@ int bsp_hdmi_ddc_read(char cmd,char pointer,char offset,int nbyte,char * pbuf)
 	unsigned int to_cnt;
 	int ret = 0;
 
+	hdmi_write(0x10010,0x45);
+	hdmi_write(0x10011,0x45);
+	hdmi_write(0x10012,0x52);
+	hdmi_write(0x10013,0x54);
+	hdmi_write(0x4EE1, 0x00);
+
+	to_cnt = 50;
+	while((hdmi_read(0x4EE1)&0x01)!=0x01)
+	{
+		hdmi_udelay(10);
+		to_cnt--;	//wait for 500us for timeout
+		if(to_cnt == 0)
+		{
+			pr_warn("ddc rst timeout\n");
+			break;
+		}
+	}
+
 	hdmi_write(0x8EE3, 0x05);
 	hdmi_write(0x0EE3, 0x08);
+	hdmi_write(0x4EE2, 0xd8);
+	hdmi_write(0xCEE2, 0xfe);
 
 	to_cnt = 10;
 	while(nbyte > 0)
@@ -600,16 +620,15 @@ int bsp_hdmi_ddc_read(char cmd,char pointer,char offset,int nbyte,char * pbuf)
 		hdmi_write(0x4EE0, 0x60 >> 1);
 		hdmi_write(0xCEE0, pointer);
 		hdmi_write(0x0EE2, 0x02);
-		hdmi_write(0x10010,0x45);
-		hdmi_write(0x10011,0x45);
-		hdmi_write(0x10012,0x52);
-		hdmi_write(0x10013,0x54);
+
 		while(1)
 	  {
 			to_cnt--;	//wait for 10ms for timeout
 			if(to_cnt == 0)
+			{
+				pr_warn("ddc read timeout, byte cnt = %d\n",nbyte);
 				break;
-
+			}
 			if( (hdmi_read(0x0013) & 0x02) == 0x02)
 			{
 				hdmi_write(0x0013, hdmi_read(0x0013) & 0x02);
@@ -672,4 +691,18 @@ void bsp_hdmi_hrst()
 void bsp_hdmi_hdl()
 {
 
+}
+
+void bsp_hdmi_hdcp_err_check(void)
+{
+	hdmi_write(0x10010,0x45);
+	hdmi_write(0x10011,0x45);
+	hdmi_write(0x10012,0x52);
+	hdmi_write(0x10013,0x54);
+	if( (hdmi_read(0x80c0) & 0xfe) != 0x40)
+		hdmi_write(0x00c1, hdmi_read(0x00c1) & 0xfe);
+	hdmi_write(0x10010,0x52);
+	hdmi_write(0x10011,0x54);
+	hdmi_write(0x10012,0x41);
+	hdmi_write(0x10013,0x57);
 }

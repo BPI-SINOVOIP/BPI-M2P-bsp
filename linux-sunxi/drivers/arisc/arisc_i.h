@@ -63,14 +63,14 @@
 #error "please select a platform\n"
 #endif
 
-extern unsigned int arisc_debug_dram_crc_en;
-extern unsigned int arisc_debug_dram_crc_srcaddr;
-extern unsigned int arisc_debug_dram_crc_len;
-extern unsigned int arisc_debug_dram_crc_error;
-extern unsigned int arisc_debug_dram_crc_total_count;
-extern unsigned int arisc_debug_dram_crc_error_count;
+#define ARRY_SIZE(A) (sizeof(A)/sizeof(A[0]))
+
 extern unsigned int arisc_debug_level;
+extern unsigned int arisc_debug_dram_crc_en;
 extern struct standby_info_para arisc_powchk_back;
+
+extern void *arisc_version_store(const void *src, size_t count);
+extern void sunxi_arisc_sysfs(struct platform_device *pdev);
 
 //local functions
 extern int arisc_config_dram_paras(void);

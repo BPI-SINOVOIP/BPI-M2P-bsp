@@ -12,7 +12,7 @@
 #include "../axp-cfg.h"
 #include "axp81x-sply.h"
 
-void axp81x_power_off(int power_start)
+void axp81x_power_off(void)
 {
 	uint8_t val;
 	struct axp_dev *axp;
@@ -45,7 +45,7 @@ void axp81x_power_off(int power_start)
 
 	mdelay(20);
 
-	if(power_start != 1){
+	if(axp81x_config.power_start != 1){
 		axp_read(axp->dev, AXP81X_STATUS, &val);
 		if(val & 0xF0){
 			axp_read(axp->dev, AXP81X_MODE_CHGSTATUS, &val);

@@ -70,6 +70,7 @@ static int sndhdmi_hw_params(struct snd_pcm_substream *substream,
 		pr_err("error:%s,line:%d\n", __func__, __LINE__);
 		return -EAGAIN;
 	}
+	if(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 	hdmi_para.sample_rate = params_rate(params);
 	hdmi_para.channel_num = params_channels(params);
 #ifdef CONFIG_SND_SUNXI_SOC_SUPPORT_AUDIO_RAW
@@ -120,7 +121,7 @@ static int sndhdmi_hw_params(struct snd_pcm_substream *substream,
 	} else {
 		hdmi_para.ca = 0x0;
 	}
-
+	}
 	return 0;
 }
 
@@ -136,6 +137,7 @@ static int sndhdmi_perpare(struct snd_pcm_substream *substream,
 #ifdef CONFIG_ARCH_SUN9I
 	int is_play = 0, i = 0;
 #endif
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 #if defined CONFIG_ARCH_SUN9I || defined CONFIG_ARCH_SUN8IW6
 	/*Global Enable Digital Audio Interface*/
 	reg_val = readl(SUNXI_I2S1_VBASE + SUNXI_I2S1CTL);
@@ -193,6 +195,7 @@ static int sndhdmi_perpare(struct snd_pcm_substream *substream,
 	}
 	is_play = g_hdmi_func.hdmi_is_playback();
 #endif
+	}
 	return 0;
 }
 static int sndhdmi_trigger(struct snd_pcm_substream *substream,
@@ -235,8 +238,10 @@ static int sunxi_sndhdmi_resume(struct snd_soc_codec *dai)
 static void sndhdmi_shutdown(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
-	if (g_hdmi_func.hdmi_audio_enable) {
-		g_hdmi_func.hdmi_audio_enable(0, 1);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		if (g_hdmi_func.hdmi_audio_enable) {
+			g_hdmi_func.hdmi_audio_enable(0, 1);
+		}
 	}
 }
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -284,6 +289,13 @@ static struct snd_soc_dai_driver sndhdmi_dai = {
 		.channels_max 	= 8,
 		.rates 			= SNDHDMI_RATES,
 		.formats 		= SNDHDMI_FORMATS,
+	},
+	.capture = {
+		.stream_name = "Capture",
+		.channels_min = 1,
+		.channels_max = 2,
+		.rates = SNDHDMI_RATES,
+		.formats = SNDHDMI_FORMATS,
 	},
 	/* pcm operations */
 	.ops 		= &sndhdmi_dai_ops,

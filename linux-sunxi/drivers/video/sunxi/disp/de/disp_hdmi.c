@@ -173,17 +173,7 @@ static s32 disp_hdmi_set_func(struct disp_hdmi*  hdmi, disp_hdmi_func * func)
 		return DIS_FAIL;
 	}
 
-	hdmip->hdmi_func.hdmi_open = func->hdmi_open;
-	hdmip->hdmi_func.hdmi_close= func->hdmi_close;
-	hdmip->hdmi_func.hdmi_set_mode= func->hdmi_set_mode;
-	hdmip->hdmi_func.hdmi_mode_support= func->hdmi_mode_support;
-	hdmip->hdmi_func.hdmi_get_input_csc= func->hdmi_get_input_csc;
-	hdmip->hdmi_func.hdmi_set_pll = func->hdmi_set_pll;
-	hdmip->hdmi_func.hdmi_get_video_timing_info = func->hdmi_get_video_timing_info;
-	hdmip->hdmi_func.hdmi_get_video_info_index = func->hdmi_get_video_info_index;
-	hdmip->hdmi_func.hdmi_suspend = func->hdmi_suspend;
-	hdmip->hdmi_func.hdmi_resume = func->hdmi_resume;
-	hdmip->hdmi_func.hdmi_get_HPD_status = func->hdmi_get_HPD_status;
+	memcpy(&hdmip->hdmi_func, func, sizeof(disp_hdmi_func));
 
 	return 0;
 }
@@ -273,9 +263,11 @@ static s32 disp_hdmi_enable(struct disp_hdmi* hdmi)
 	hdmip->video_info = hdmip->video_info + index;
 	if((NULL != hdmi->p_sw_init_flag) && (0 != *(hdmi->p_sw_init_flag))) {
 		disp_al_hdmi_init_sw(hdmi->channel_id, hdmip->support_4k);
+#if defined(CONFIG_HOMLET_PLATFORM)
 		//hdmi_clk_enable(hdmi);
 		disp_al_hdmi_cfg_sw(hdmi->channel_id, hdmip->video_info);
 		disp_al_hdmi_enable_sw(hdmi->channel_id);
+#endif
 	} else {
 		hdmi_clk_enable(hdmi);
 		disp_al_hdmi_init(hdmi->channel_id, hdmip->support_4k);
@@ -370,6 +362,7 @@ static s32 disp_hdmi_set_mode(struct disp_hdmi* hdmi, disp_tv_mode mode)
 
 	if(ret == 0) {
 		hdmip->mode = mode;
+#if defined(CONFIG_ARCH_SUN9IW1P1)
 		switch(mode) {
 		case DISP_TV_MOD_480I:
 		case DISP_TV_MOD_576I:
@@ -380,6 +373,7 @@ static s32 disp_hdmi_set_mode(struct disp_hdmi* hdmi, disp_tv_mode mode)
 		default:
 			disp_al_cfg_itl(hdmi->channel_id, 0);
 		}
+#endif
 	}
 	return ret;
 }

@@ -26,7 +26,7 @@ disp_sw_init_para g_sw_init_para;
 
 static u32 suspend_output_type[3] = {0,0,0};
 static u32 suspend_status = 0;//0:normal; suspend_status&1 != 0:in early_suspend; suspend_status&2 != 0:in suspend;
-static u32 suspend_prestep = 0; //0:after early suspend; 1:after suspend; 2:after resume; 3 :after late resume
+static u32 suspend_prestep = 3; //0:after early suspend; 1:after suspend; 2:after resume; 3 :after late resume
 
 #if defined(CONFIG_ARCH_SUN9IW1P1)
 static unsigned int gbuffer[4096];
@@ -342,7 +342,7 @@ s32 drv_lcd_enable(u32 sel)
 	if(bsp_disp_lcd_is_used(sel) && (g_disp_drv.b_lcd_enabled[sel] == 0))	{
 		bsp_disp_lcd_pre_enable(sel);
 
-		if(NULL == (g_sw_init_para.sw_init_flag & (1 << sel))) {
+		if(0 == (g_sw_init_para.sw_init_flag & (1 << sel))) {
 			flow = bsp_disp_lcd_get_open_flow(sel);
 			for(i=0; i<flow->func_num; i++)	{
 				flow->func[i].func(sel);
@@ -522,6 +522,7 @@ static void start_work(struct work_struct *work)
 				__inf("hdmi register\n");
 				  if(g_sw_init_para.sw_init_flag && (g_sw_init_para.output_channel == screen_id)) {
 					bsp_disp_shadow_protect(screen_id, 1);
+					bsp_disp_hdmi_set_mode(screen_id, g_fbi.disp_init.output_mode[screen_id]);
 					bsp_disp_hdmi_enable(screen_id);
 					g_sw_init_para.sw_init_flag &= ~(1 << screen_id);
 					bsp_disp_shadow_protect(screen_id, 0);
@@ -585,6 +586,7 @@ s32 get_para_from_cmdline(const char *cmdline, const char *name, char *value)
                 while(*p != 0 && *p != ' '){
                     *value_p++ = *p++;
                 }
+                *value_p = '\0';
                 return value_p - value;
             }
         }
@@ -595,7 +597,7 @@ s32 get_para_from_cmdline(const char *cmdline, const char *name, char *value)
 
 static u32 disp_parse_cmdline(__disp_bsp_init_para *para)
 {
-    char val[16];
+    char val[16] = {0};
     u32 value;
 
     //get the parameters of display_resolution from cmdline passed by boot
@@ -604,6 +606,9 @@ static u32 disp_parse_cmdline(__disp_bsp_init_para *para)
     } else {
         value = 0x0;
     }
+#if !defined(CONFIG_HOMLET_PLATFORM)
+		value = 0x0;
+#endif
     para->sw_init_para = &g_sw_init_para;
     g_sw_init_para.disp_rsl = value;
     g_sw_init_para.closed = (value >> 24) & 0xFF;
@@ -1127,6 +1132,7 @@ void resume(){
 void backlight_early_suspend(struct early_suspend *h)
 {
 	pr_info("backlight_early_suspend\n");
+	msleep(300);
 	suspend();
 	suspend_status |= DISPLAY_LIGHT_SLEEP;
 	suspend_prestep = 0;
@@ -1156,6 +1162,7 @@ int disp_suspend(struct platform_device *pdev, pm_message_t state)
 
 	//if not define CONFIG_HAS_EARLYSUSPEND, we must run suspend() again.
 #if !defined(CONFIG_HAS_EARLYSUSPEND)
+	msleep(300);
 	suspend();
 #endif
 	//clear the display data.
@@ -1206,7 +1213,7 @@ long disp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	unsigned long karg[4];
 	unsigned long ubuffer[4] = {0};
-	s32 ret = 0;
+	int ret = 0;
 	int num_screens = 2;
 
 	num_screens = bsp_disp_feat_get_num_screens();
@@ -1250,15 +1257,29 @@ long disp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	}
 
+	case DISP_CMD_SET_COLORKEY:
+	{
+		disp_colorkey para;
+
+		if(copy_from_user(&para, (void __user *)ubuffer[1],sizeof(disp_colorkey)))	{
+			__wrn("copy_from_user fail\n");
+			return  -EFAULT;
+		}
+		ret = bsp_disp_set_color_key(ubuffer[0], &para);
+		break;
+	}
+
 	case DISP_CMD_GET_OUTPUT_TYPE:
 		if(DISPLAY_NORMAL == suspend_status)	{
 			ret =  bsp_disp_get_output_type(ubuffer[0]);
 		}	else {
 			ret = suspend_output_type[ubuffer[0]];
 		}
+#if defined(CONFIG_HOMLET_PLATFORM)
 		if(DISP_OUTPUT_TYPE_LCD == ret) {
 			ret = bsp_disp_get_lcd_output_type(ubuffer[0]);
 		}
+#endif
 		break;
 
 	case DISP_CMD_GET_SCN_WIDTH:

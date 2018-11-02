@@ -57,7 +57,7 @@ static u32 usbd_port_no = 0;
 static sunxi_udc_io_t g_sunxi_udc_io;
 static u32 usb_connect = 0;
 static u32 is_controller_alive = 0;
-static u8 is_udc_enable = 0;   /* is udc enable by gadget? */
+static u8 is_udc_enable = 1;   /* is udc enable by gadget? */
 
 #ifdef CONFIG_USB_SUNXI_USB0_OTG
 static struct platform_device *g_udc_pdev = NULL;
@@ -1040,6 +1040,16 @@ static void sunxi_udc_handle_ep0_idle(struct sunxi_udc *dev,
 		}
 	}else{
 		USBC_Dev_ReadDataStatus(g_sunxi_udc_io.usb_bsp_hdle, USBC_EP_TYPE_EP0, 0);
+#if defined (CONFIG_ARCH_SUN8IW8)
+		/* getinfo request about exposure time asolute, iris absolute, brightness of webcam. */
+		if (crq->bRequest == 0x86 && crq->bRequestType == 0xa1 && crq->wLength == 0x1
+			&& ((crq->wValue == 0x400 && crq->wIndex == 0x100)
+				|| (crq->wValue == 0x900 && crq->wIndex == 0x100)
+				|| (crq->wValue == 0x200 && crq->wIndex == 0x200))) {
+			USBC_Dev_EpSendStall(g_sunxi_udc_io.usb_bsp_hdle, USBC_EP_TYPE_EP0);
+			return;
+		}
+#endif
 	}
 
 	if(crq->bRequestType & USB_DIR_IN){
@@ -2076,9 +2086,14 @@ static int sunxi_udc_queue(struct usb_ep *_ep, struct usb_request *_req, gfp_t g
 				}
 				break;
 			case EP0_OUT_DATA_PHASE:
+#if defined (CONFIG_ARCH_SUN8IW8)
+				if ((!_req->length)
+					|| sunxi_udc_read_fifo(ep, req)) {
+#else
 				if ((!_req->length)
 					|| (USBC_Dev_IsReadDataReady(g_sunxi_udc_io.usb_bsp_hdle, USBC_EP_TYPE_RX)
 					&& sunxi_udc_read_fifo(ep, req))) {
+#endif
 					dev->ep0state = EP0_IDLE;
 					req = NULL;
 				}
@@ -2762,7 +2777,7 @@ static struct sunxi_udc sunxi_udc = {
 		.ep = {
 			.name		= ep3_iso_name,
 			.ops		= &sunxi_udc_ep_ops,
-			.maxpacket	= SW_UDC_EP_FIFO_SIZE,
+			.maxpacket	= SW_UDC_EP_ISO_FIFO_SIZE,
 		},
 		.dev		        = &sunxi_udc,
 		//.fifo_size	        = SW_UDC_EP_FIFO_SIZE,

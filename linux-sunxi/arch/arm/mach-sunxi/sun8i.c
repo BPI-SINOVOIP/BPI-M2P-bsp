@@ -117,6 +117,40 @@ static struct i2c_board_info i2c_ina219_devs[] __initdata = {
 };
 #endif
 
+/*------------------------------------------------------------------------------
+ * Matrix device
+ */
+#if defined(CONFIG_INPUT_ADXL34X_I2C_MODULE)
+#define ADXL34X_I2C_BUS     (0)
+static struct i2c_board_info __initdata adxl34x_i2c_bdi = {
+	I2C_BOARD_INFO("adxl34x", 0x1d),
+	.irq	= -1,
+};
+#endif
+
+#if defined(CONFIG_BMP085_MODULE)
+#define BMP085_I2C_BUS (0)
+static struct i2c_board_info __initdata bmp085_i2c_bdi = {
+	I2C_BOARD_INFO("bmp085", 0x77),
+	.irq	= -1,
+};
+#endif
+
+#if defined(CONFIG_RTC_DRV_DS1307_MODULE)
+#define DS1307_I2C_BUS (0)
+static struct i2c_board_info __initdata ds1307_i2c_bdi = {
+	I2C_BOARD_INFO("ds1307", 0X68),
+	.irq	= -1,
+};
+#endif
+
+#if defined(CONFIG_SENSORS_PCF8591_MODULE)
+#define PCF8591_I2C_BUS (0)
+static struct i2c_board_info __initdata pcf8591_i2c_bdi = {
+        I2C_BOARD_INFO("pcf8591", 0x48),
+};
+#endif
+
 #if defined(CONFIG_ION) || defined(CONFIG_ION_MODULE)
 #define DEFAULT_SUNXI_ION_RESERVE_SIZE	96
 #define ION_CARVEOUT_INIT_MAX	4
@@ -133,11 +167,14 @@ static int ion_reserve_select(void)
 {
 #ifdef CONFIG_ARCH_SUN8IW7P1
 	u32 chipid = sunxi_smc_readl(SUNXI_SID_VBASE + 0x200);
+early_printk("%s: ion chipid  [0x%x!\n", __func__, chipid);
 	switch (chipid & 0x0ff) {
-		case 0x24:	/* H2 */
-			return 2;
-		case 0x42:	/* H3s */
+		case 0x42:	/* H2+ */
+		case 0x83:
 			return 1;
+		case 0x00:      /* H3 */
+		case 0x81:
+			return 0;
 		default:	/* H3 */
 			return 0;
 		}
@@ -191,25 +228,13 @@ static int __init ion_reserve_common(char *p, int is_cma,int force)
 	if((IS_ENABLED(CONFIG_CMA) && is_cma) || ((!IS_ENABLED(CONFIG_CMA) || force) && !is_cma))
 	{
 		select = ion_reserve_select();
-		for(i=0;i<ion_init_max;i++)
+		i = (mem_size<=SZ_512M)?0:1;
+		if(ion_reserve[select][i])
 		{
-		       if(ion_reserve[select][i])
-		       {
-			    ion_mem.size = ion_reserve[select][i];
-			    ion_mem.start = mem_start + mem_size - ion_mem.size;
-		       }
-		       else
-		       {
-		            early_printk("%s: ion reserve: [0x%x, 0x%x]!\n", __func__, (int)ion_mem.start, (int)(ion_mem.start + ion_mem.size));
-			    break;
-		       }
-
-		       if (mem_size <= (SZ_512M <<i))
-		       {
-		            early_printk("%s: ion reserve: [0x%x, 0x%x]!\n", __func__, (int)ion_mem.start, (int)(ion_mem.start + ion_mem.size));
-			    break;
-		       }
+			ion_mem.size = ion_reserve[select][i];
+			ion_mem.start = (mem_size==SZ_1G)?(mem_start + SZ_512M - ion_mem.size):(mem_start + mem_size - ion_mem.size);
 		}
+		early_printk("%s: ion reserve: [0x%x, 0x%x]!\n", __func__, (int)ion_mem.start, (int)(ion_mem.start + ion_mem.size));
 	}
        return 0;
 }
@@ -252,7 +277,7 @@ static struct platform_device serial_dev = {
 
 #if defined(CONFIG_CPU_HAS_PMU)
 /* cpu performance support */
-#if defined(CONFIG_ARCH_SUN8IW6) && defined(CONFIG_EVB_PLATFORM)
+#if (defined(CONFIG_ARCH_SUN8IW6) || defined(CONFIG_ARCH_SUN8IW9)) && defined(CONFIG_EVB_PLATFORM)
 static struct resource sunxi_pmu_res[] = {
 	{
 		.start		= SUNXI_IRQ_C0PMU0,
@@ -266,7 +291,8 @@ static struct resource sunxi_pmu_res[] = {
 	}
 };
 #else
-static struct resource sunxi_pmu_res = {
+static struct resource sunxi_pmu_res[] = {
+	{
 #if defined(CONFIG_ARCH_SUN8I) && defined(CONFIG_EVB_PLATFORM)
 	.start  = SUNXI_IRQ_PMU0,
 	.end    = SUNXI_IRQ_PMU3,
@@ -275,18 +301,19 @@ static struct resource sunxi_pmu_res = {
 	.end    = SUNXI_IRQ_PMU,
 #endif
 	.flags  = IORESOURCE_IRQ,
+	}
 };
 #endif
 
 static struct platform_device sunxi_pmu_dev = {
 	.name   = "arm-pmu",
 	.id     = ARM_PMU_DEVICE_CPU,
-#if defined(CONFIG_ARCH_SUN8IW6)
+#if defined(CONFIG_ARCH_SUN8IW6) || defined(CONFIG_ARCH_SUN8IW9)
 	.num_resources = 2,
 	.resource = sunxi_pmu_res,
 #else
 	.num_resources = 1,
-	.resource = &sunxi_pmu_res,
+	.resource = sunxi_pmu_res,
 #endif
 };
 #endif
@@ -358,6 +385,13 @@ static void __init sun8i_fixup(struct tag *tags, char **from,
 
 	for (t = tags; t->hdr.size; t = tag_next(t)) {
 		if (t->hdr.tag == ATAG_MEM && t->u.mem.size) {
+#ifdef CONFIG_MEM_512M_DEBUG
+#warning "THIS IS JUST FOR TEST/DEBUG!!!"
+#warning "DO NOT ENABLE THIS CONFIG IN RELEASE VERSION!!!"
+			early_printk("[%s]: actual mem size %dMB, force to 512MB\n",
+					__func__, t->u.mem.size >> 20);
+			t->u.mem.size = 512 << 20;
+#endif
 			early_printk("[%s]: From boot, get meminfo:\n"
 					"\tStart:\t0x%08x\n"
 					"\tSize:\t%dMB\n",
@@ -461,6 +495,27 @@ static void __init sunxi_dev_init(void)
 	}
 	printk("ina219 device registered\n");
 #endif
+
+#if defined(CONFIG_INPUT_ADXL34X_I2C_MODULE)
+	printk("plat: add adxl34x device\n");
+	i2c_register_board_info(ADXL34X_I2C_BUS, &adxl34x_i2c_bdi, 1);
+#endif
+
+#if defined(CONFIG_BMP085_MODULE)
+	printk("plat: add bmp085 device\n");
+	i2c_register_board_info(BMP085_I2C_BUS, &bmp085_i2c_bdi, 1);
+#endif
+
+#if defined(CONFIG_RTC_DRV_DS1307_MODULE)
+	printk("plat: add ds1307 device\n");
+	i2c_register_board_info(DS1307_I2C_BUS, &ds1307_i2c_bdi, 1);
+#endif
+
+#if defined(CONFIG_SENSORS_PCF8591_MODULE)
+	printk("plat: add pcf8591 device\n");
+	i2c_register_board_info(PCF8591_I2C_BUS, &pcf8591_i2c_bdi, 1);
+#endif	
+
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 	/*	ram console	platform device initialize*/
 	ram_console_device_init();

@@ -169,7 +169,6 @@
 #define SS_FLOW_NUM				1
 #endif
 
-#define SS_PRNG_ENABLE			1
 #define SS_PRNG_SEED_LEN		(192/8) /* 192 bits */
 #define SS_RNG_MAX_LEN			SZ_8K
 
@@ -321,11 +320,7 @@ typedef struct {
 	u32 irq;
 	s8  dev_name[8];
 
-	struct workqueue_struct *workqueue;
-	struct work_struct work;
-	struct crypto_queue queue;
 	spinlock_t lock;
-
 	s32 suspend;
 } sunxi_ss_t;
 

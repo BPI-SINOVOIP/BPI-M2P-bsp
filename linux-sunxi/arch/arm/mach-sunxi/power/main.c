@@ -56,7 +56,9 @@
 #include <linux/power/scenelock.h>
 #include <mach/hardware.h>
 #include <mach/platform.h>
-#include <mach/cpuidle-sunxi.h>
+#include <mach/sunxi-smc.h>
+
+#include "./brom/resumes.h"
 
 #define SUNXI_PM_DBG   1
 #ifdef PM_DBG
@@ -67,17 +69,6 @@
 #else
     #define PM_DBG(format,args...)   do{}while(0)
 #endif
-
-#define BEFORE_EARLY_SUSPEND    (0x00)
-#define SUSPEND_BEGIN           (0x20)
-#define SUSPEND_ENTER           (0x40)
-#define BEFORE_LATE_RESUME      (0x60)
-#define LATE_RESUME_START       (0x80)
-#define CLK_RESUME_START        (0xA0)
-#define AFTER_LATE_RESUME       (0xC0)
-#define RESUME_COMPLETE_FLAG    (0xE0)
-#define SUSPEND_FAIL_FLAG       (0xFF)
-#define FIRST_BOOT_FLAG         (0x00)
 
 standby_type_e standby_type = NON_STANDBY;
 EXPORT_SYMBOL(standby_type);
@@ -90,8 +81,8 @@ module_param_named(debug_mask, debug_mask, ulong, S_IRUGO | S_IWUSR);
 static unsigned long time_to_wakeup = 0;
 module_param_named(time_to_wakeup, time_to_wakeup, ulong, S_IRUGO | S_IWUSR);
 
-static unsigned long wakeup_events = 0;
-module_param_named(wakeup_events, wakeup_events, ulong, S_IRUGO);
+static unsigned int wakeup_events = 0;
+module_param_named(wakeup_events, wakeup_events, uint, S_IRUGO);
 
 extern char sunxi_bromjump_start;
 extern char sunxi_bromjump_end;
@@ -101,12 +92,12 @@ extern unsigned long cpu_brom_addr[2];
 
 static inline int sunxi_mem_get_status(void)
 {
-	return readl(IO_ADDRESS(SUNXI_RTC_PBASE + 0x104));
+	return sunxi_smc_readl(IO_ADDRESS(SUNXI_RTC_PBASE + 0x104));
 }
 
 static inline void sunxi_mem_set_status(int val)
 {
-	writel(val, IO_ADDRESS(SUNXI_RTC_PBASE + 0x104));
+	sunxi_smc_writel(val, IO_ADDRESS(SUNXI_RTC_PBASE + 0x104));
 	asm volatile ("dsb");
 	asm volatile ("isb");
 }
@@ -210,6 +201,50 @@ static int sunxi_pm_prepare_late(void)
 	return 0;
 }
 
+static inline int sunxi_suspend_cpu_die(void)
+{
+	unsigned long actlr;
+
+	gic_cpu_exit(0);
+	/* step1: disable cache */
+	asm("mrc    p15, 0, %0, c1, c0, 0" : "=r" (actlr) );
+	actlr &= ~(1<<2);
+	asm("mcr    p15, 0, %0, c1, c0, 0\n" : : "r" (actlr));
+
+	/* step2: clean and ivalidate L1 cache */
+	flush_cache_all();
+	outer_flush_all();
+
+	/* step3: execute a CLREX instruction */
+	asm("clrex" : : : "memory", "cc");
+
+	/* step4: switch cpu from SMP mode to AMP mode,
+	 * aim is to disable cache coherency */
+	asm("mrc    p15, 0, %0, c1, c0, 1" : "=r" (actlr) );
+	actlr &= ~(1<<6);
+	asm("mcr    p15, 0, %0, c1, c0, 1\n" : : "r" (actlr));
+
+	/* step5: execute an ISB instruction */
+	isb();
+	/* step6: execute a DSB instruction  */
+	dsb();
+
+	/*
+	 * step7: if define trustzone, switch to secure os
+	 * and then enter to wfi mode
+	 */
+#ifdef CONFIG_SUNXI_TRUSTZONE
+	call_firmware_op(suspend);
+#else
+	/* step7: execute a WFI instruction */
+	asm("wfi" : : : "memory", "cc");
+#endif
+
+    return 0;
+}
+
+static struct sram_para st_sram_para;
+
 /**
  * sunxi_suspend_enter() - enter suspend state
  *
@@ -218,6 +253,7 @@ static int sunxi_pm_prepare_late(void)
  */
 static int sunxi_suspend_enter(unsigned long val)
 {
+	int i;
 	super_standby_para_t st_para;
 
 	sunxi_mem_set_status(SUSPEND_ENTER | 0x03);
@@ -237,7 +273,6 @@ static int sunxi_suspend_enter(unsigned long val)
 	st_para.gpio_enable_bitmap = 0;
 	st_para.cpux_gpiog_bitmap = 0;
 	st_para.pextended_standby = NULL;
-	st_para.resume_code_length = 0;
 	/* the wakeup src is independent of the scene_lock. the developer only
 	 * need to care about: the scene support the wakeup src
 	 */
@@ -257,12 +292,15 @@ static int sunxi_suspend_enter(unsigned long val)
 	mcpm_set_entry_vector(0, 0, cpu_resume);
 	st_para.resume_entry = virt_to_phys(&sunxi_bromjump_start);
 	st_para.resume_code_src = virt_to_phys(mcpm_entry_point);
+	st_para.resume_code_length = sizeof(unsigned long);
 	PM_DBG("cpu resume:%x, mcpm enter:%x\n",
 	       cpu_resume, virt_to_phys(mcpm_entry_point));
 #else
 	//cpu_brom_addr[0] = cpu_resume;
 	st_para.resume_entry = virt_to_phys(&sunxi_bromjump_start);
-	st_para.resume_code_src = virt_to_phys(cpu_resume);
+	st_sram_para.resume_code_src = virt_to_phys(cpu_resume);
+	st_para.resume_code_src = virt_to_phys(&st_sram_para);
+	st_para.resume_code_length = sizeof(struct sram_para);
 	PM_DBG("cpu resume:%x\n", virt_to_phys(cpu_resume));
 #endif
 	if (unlikely(debug_mask)) {
@@ -284,21 +322,49 @@ static int sunxi_suspend_enter(unsigned long val)
 #ifdef CONFIG_SCENELOCK
 		extended_standby_show_state();
 #endif
-	}
-
-	if (unlikely(debug_mask)) {
-		printk(KERN_INFO "system environment\n");
+		printk(KERN_INFO "system environment paras:\n");
+		for (i = 0; i < st_para.resume_code_length; i += 4)
+			printk(KERN_INFO "[%03d],%08x\n", i, \
+			       readl((int *)((u32)&st_sram_para + i)));
 	}
 
 #ifdef CONFIG_SUNXI_ARISC
 	arisc_standby_super(&st_para, NULL, NULL);
-	sunxi_idle_cluster_die(A7_CLUSTER);
+	sunxi_suspend_cpu_die();
 #else
 	asm("wfe" : : : "memory", "cc");
 #endif
 
 	return 0;
 }
+
+#ifdef CONFIG_SUNXI_TRUSTZONE
+static unsigned long sunxi_back_gic_secure(struct regs_restore *regback)
+{
+	int i, num = 0;
+
+	/* back GICC_CTLR & GICC_PMR */
+	for (i = 0; i < 0x08; i += 4, regback++) {
+		regback->addr = SUNXI_GIC_CPU_PBASE + i;
+		regback->value = sunxi_smc_readl(SUNXI_GIC_CPU_VBASE + 0x0 + i);
+		num++;
+	}
+
+	/* back GICD_CTLR */
+	regback->addr = SUNXI_GIC_DIST_PBASE;
+	regback->value = sunxi_smc_readl(SUNXI_GIC_DIST_VBASE);
+	regback++;
+
+	/* back GICD_IGROUPRn(0~5, the max irq number is 156, 156/32=5 ) */
+	for (i = 0; i < 0x18; i += 4, regback++) {
+		regback->addr = SUNXI_GIC_DIST_PBASE + 0x80 + i;
+		regback->value = sunxi_smc_readl(SUNXI_GIC_DIST_VBASE + 0x80 + i);
+		num++;
+	}
+
+	return num * sizeof(unsigned int);
+}
+#endif
 
 /**
  * sunxi_pm_enter() - Enter the system sleep state
@@ -310,8 +376,23 @@ static int sunxi_suspend_enter(unsigned long val)
 static int sunxi_pm_enter(suspend_state_t state)
 {
 	sunxi_mem_set_status(SUSPEND_ENTER | 0x01);
+	memset(&st_sram_para, 0, sizeof(struct sram_para));
+#ifdef CONFIG_SUNXI_TRUSTZONE
+	/* note: switch to secureos and save monitor vector to mem_para_info. */
+	st_sram_para.monitor_vector = call_firmware_op(suspend_prepare);
+	printk("hsr: monitor_vector %lx\n", st_sram_para.monitor_vector);
+	call_firmware_op(get_cp15_status, (void *)virt_to_phys((void *)&( \
+	                 st_sram_para.saved_secure_mmu_state)));
+	st_sram_para.regs_num = sunxi_back_gic_secure(st_sram_para.regs_back);
+#endif
 
-	return cpu_suspend(0, sunxi_suspend_enter);
+	cpu_pm_enter();
+	//cpu_cluster_pm_enter();
+	cpu_suspend(0, sunxi_suspend_enter);
+	//cpu_cluster_pm_enter();
+	cpu_pm_exit();
+
+	return 0;
 }
 
 /**
@@ -387,8 +468,8 @@ static int sunxi_pm_syscore_suspend(void)
 	struct clk *pll_cpu = NULL;
 
 	/* back CPU AHB1/APB1 Configuration Register */
-	cpuclk_config = readl(IO_ADDRESS(SUNXI_CCM_PBASE + 0x50));
-	ahbclk_config = readl(IO_ADDRESS(SUNXI_CCM_PBASE + 0x54));
+	cpuclk_config = sunxi_smc_readl(IO_ADDRESS(SUNXI_CCM_PBASE + 0x50));
+	ahbclk_config = sunxi_smc_readl(IO_ADDRESS(SUNXI_CCM_PBASE + 0x54));
 
 	pll_cpu = clk_get(NULL, PLL_CPU_CLK);
 	if(IS_ERR(pll_cpu)){
@@ -413,46 +494,46 @@ static void sunxi_pm_syscore_resume(void)
 
 	sunxi_mem_set_status(CLK_RESUME_START);
 	/* restore CPU Configuration Register form low to high frequency */
-	value = readl(IO_ADDRESS(SUNXI_CCM_PBASE + 0x50));
+	value = sunxi_smc_readl(IO_ADDRESS(SUNXI_CCM_PBASE + 0x50));
 	/* set CPU_APB_CLK_DIV, bit8~9 */
 	value &= ~(0x03 << 8);
 	value |= (cpuclk_config & (0x03 << 8));
-	writel(value, IO_ADDRESS(SUNXI_CCM_PBASE + 0x50));
+	sunxi_smc_writel(value, IO_ADDRESS(SUNXI_CCM_PBASE + 0x50));
 	udelay(10);
 	sunxi_mem_set_status(CLK_RESUME_START | 1);
 	/* set AXI_CLK_DIV_RATIO, bit0~1 */
 	value &= ~(0x03 << 0);
 	value |= (cpuclk_config & (0x03 << 0));
-	writel(value, IO_ADDRESS(SUNXI_CCM_PBASE + 0x50));
+	sunxi_smc_writel(value, IO_ADDRESS(SUNXI_CCM_PBASE + 0x50));
 	mdelay(1);
 	sunxi_mem_set_status(CLK_RESUME_START | 2);
 	/* set APB1_CLK_SRC_SEL, bit16~13 */
-	writel(cpuclk_config, IO_ADDRESS(SUNXI_CCM_PBASE + 0x50));
+	sunxi_smc_writel(cpuclk_config, IO_ADDRESS(SUNXI_CCM_PBASE + 0x50));
 	mdelay(1);
 	sunxi_mem_set_status(CLK_RESUME_START | 3);
 
 	/* restore AHB1/APB1 Configuration Register form low to high frequency */
-	value = readl(IO_ADDRESS(SUNXI_CCM_PBASE + 0x54));
+	value = sunxi_smc_readl(IO_ADDRESS(SUNXI_CCM_PBASE + 0x54));
 	/* set AHB1_PRE_DIV, bit6~7 */
 	value &= ~(0x03 << 6);
 	value |= (ahbclk_config & (0x03 << 6));
-	writel(value, IO_ADDRESS(SUNXI_CCM_PBASE + 0x54));
+	sunxi_smc_writel(value, IO_ADDRESS(SUNXI_CCM_PBASE + 0x54));
 	udelay(10);
 	sunxi_mem_set_status(CLK_RESUME_START | 4);
 	/* set AHB1_CLK_DIV_RATIO, bit4~5 */
 	value &= ~(0x03 << 4);
 	value |= (ahbclk_config & (0x03 << 4));
-	writel(value, IO_ADDRESS(SUNXI_CCM_PBASE + 0x54));
+	sunxi_smc_writel(value, IO_ADDRESS(SUNXI_CCM_PBASE + 0x54));
 	udelay(10);
 	sunxi_mem_set_status(CLK_RESUME_START | 5);
 	/* set APB1_CLK_RATIO, bit8~9 */
 	value &= ~(0x03 << 8);
 	value |= (ahbclk_config & (0x03 << 8));
-	writel(value, IO_ADDRESS(SUNXI_CCM_PBASE + 0x54));
+	sunxi_smc_writel(value, IO_ADDRESS(SUNXI_CCM_PBASE + 0x54));
 	udelay(10);
 	sunxi_mem_set_status(CLK_RESUME_START | 7);
 	/* set APB1_CLK_SRC_SEL, bit12~13 */
-	writel(ahbclk_config, IO_ADDRESS(SUNXI_CCM_PBASE + 0x54));
+	sunxi_smc_writel(ahbclk_config, IO_ADDRESS(SUNXI_CCM_PBASE + 0x54));
 	mdelay(2);
 	sunxi_mem_set_status(CLK_RESUME_START | 9);
 

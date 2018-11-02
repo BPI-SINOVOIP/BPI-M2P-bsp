@@ -3002,6 +3002,9 @@ static int sndpcm_soc_probe(struct snd_soc_codec *codec)
 
 static int sndpcm_suspend(struct snd_soc_codec *codec)
 {
+	unsigned long config;
+	char pin_name[SUNXI_PIN_NAME_MAX_LEN];
+
 	pr_debug("[audio codec]:suspend start\n");
 	/* check if called in talking standby */
 	if (check_scene_locked(SCENE_TALKING_STANDBY) == 0) {
@@ -3009,6 +3012,10 @@ static int sndpcm_suspend(struct snd_soc_codec *codec)
 		return 0;
 	}
 	gpio_set_value(item.gpio.gpio, 0);
+
+	sunxi_gpio_to_name(item.gpio.gpio, pin_name);
+	config = SUNXI_PINCFG_PACK(SUNXI_PINCFG_TYPE_FUNC, 7);
+	pin_config_set(SUNXI_PINCTRL, pin_name, config);
 	/*mute l_pa and r_pa*/
 	codec_wr_prcm_control(DAC_PA_SRC, 0x1, LHPPAMUTE, 0x0);
 	codec_wr_prcm_control(DAC_PA_SRC, 0x1, RHPPAMUTE, 0x0);
@@ -3112,6 +3119,8 @@ static int sndpcm_resume(struct snd_soc_codec *codec)
 		* DRQ Requeest will be de-asserted.
 		*/
 	}
+	gpio_direction_output(item.gpio.gpio, 1);
+	gpio_set_value(item.gpio.gpio, 0);
 	pr_debug("[audio codec]:resume end\n");
 	return 0;
 }

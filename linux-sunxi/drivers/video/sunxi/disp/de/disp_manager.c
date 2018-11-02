@@ -248,9 +248,11 @@ static s32 disp_mgr_init(struct disp_manager *mgr)
 	}
 
 	if((NULL != mgr->p_sw_init_flag) && (0 != *(mgr->p_sw_init_flag))) {
+#if defined(CONFIG_HOMLET_PLATFORM)
 		disp_mgr_clk_enable_sw(mgr);
 		disp_al_manager_init_sw(mgr->channel_id); //disable irq of imageloadfinish
 		disp_mgr_clk_disable_sw(mgr);
+#endif
 	} else {
 		disp_mgr_clk_init(mgr);
 		disp_mgr_clk_enable(mgr);
@@ -308,6 +310,7 @@ static s32 disp_mgr_set_back_color(struct disp_manager *mgr, disp_color_info *ba
 		spin_unlock_irqrestore(&mgr_data_lock, flags);
 	}
 #endif
+	mgr->apply(mgr);
 
 	return DIS_SUCCESS;
 }
@@ -353,6 +356,7 @@ static s32 disp_mgr_set_color_key(struct disp_manager *mgr, disp_colorkey *ck)
 		spin_unlock_irqrestore(&mgr_data_lock, flags);
 	}
 #endif
+	mgr->apply(mgr);
 
 	return DIS_SUCCESS;
 }
@@ -651,8 +655,10 @@ static s32 disp_mgr_enable(struct disp_manager *mgr)
 	DE_INF("mgr %d enable\n", mgr->channel_id);
 
 	if((NULL != mgr->p_sw_init_flag) && (0 != *(mgr->p_sw_init_flag))) {
+#if defined(CONFIG_HOMLET_PLATFORM)
 		disp_mgr_clk_enable_sw(mgr);
 		disp_al_manager_enable_sw(mgr->channel_id, 1);
+#endif
 	} else {
 		disp_mgr_clk_enable(mgr);
 		disp_al_manager_enable(mgr->channel_id, 1);

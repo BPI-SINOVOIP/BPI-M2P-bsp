@@ -50,8 +50,3 @@ TARGET_ROOT := $(OUT_DIR)/debug/target
 else
 TARGET_ROOT := $(OUT_DIR)/target
 endif
-
-TOOLCHAIN ?= $(TARGET_ROOT)/product/$(TARGET_DEVICE)/obj
-TOOLCHAIN2 ?= $(TARGET_ROOT)/product/$(TARGET_DEVICE)/system
-
-LIBGCC := $(shell $(CROSS_COMPILE)gcc -print-libgcc-file-name)

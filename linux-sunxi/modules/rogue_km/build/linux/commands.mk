@@ -49,70 +49,70 @@
 
 define host-o-from-one-c
 $(if $(V),,@echo "  HOST_CC " $(call relative-to-top,$<))
-$(HOST_CC) -MD -c $(MODULE_HOST_CFLAGS) $(MODULE_INCLUDE_FLAGS) \
-	-include $(CONFIG_H) $< -o $@
+$(MODULE_CC) -MD -MF $(patsubst %.o,%.d,$@) -c $(MODULE_CFLAGS) \
+	$(MODULE_INCLUDE_FLAGS) -include $(CONFIG_H) $< -o $@
 endef
 
 define target-o-from-one-c
 $(if $(V),,@echo "  CC      " $(call relative-to-top,$<))
-$(CC) -MD -c $(MODULE_CFLAGS) $(MODULE_INCLUDE_FLAGS) \
-	 -include $(CONFIG_H) $< -o $@
+$(MODULE_CC) -MD -MF $(patsubst %.o,%.d,$@) -c $(MODULE_CFLAGS) \
+	$(MODULE_INCLUDE_FLAGS) -include $(CONFIG_H) $< -o $@
 endef
 
 define host-o-from-one-cxx
 $(if $(V),,@echo "  HOST_CXX" $(call relative-to-top,$<))
-$(HOST_CXX) -MD -c $(MODULE_HOST_CXXFLAGS) $(MODULE_INCLUDE_FLAGS) \
-	 -include $(CONFIG_H) $< -o $@
+$(MODULE_CXX) -MD -MF $(patsubst %.o,%.d,$@) -c $(MODULE_CXXFLAGS) \
+	$(MODULE_INCLUDE_FLAGS) -include $(CONFIG_H) $< -o $@
 endef
 
 define target-o-from-one-cxx
 $(if $(V),,@echo "  CXX     " $(call relative-to-top,$<))
-$(CXX) -MD -c $(MODULE_CXXFLAGS) $(MODULE_INCLUDE_FLAGS) \
-	 -include $(CONFIG_H) $< -o $@
+$(MODULE_CXX) -MD -MF $(patsubst %.o,%.d,$@) -c $(MODULE_CXXFLAGS) \
+	$(MODULE_INCLUDE_FLAGS) -include $(CONFIG_H) $< -o $@
 endef
 
 define host-executable-from-o
 $(if $(V),,@echo "  HOST_LD " $(call relative-to-top,$@))
-$(HOST_CC) $(MODULE_HOST_LDFLAGS) \
+$(MODULE_CC) $(MODULE_LDFLAGS) \
 	-o $@ $(sort $(MODULE_ALL_OBJECTS)) $(MODULE_LIBRARY_DIR_FLAGS) \
 	$(MODULE_LIBRARY_FLAGS)
 endef
 
 define host-executable-cxx-from-o
 $(if $(V),,@echo "  HOST_LD " $(call relative-to-top,$@))
-$(HOST_CXX) $(MODULE_HOST_LDFLAGS) \
+$(MODULE_CXX) $(MODULE_LDFLAGS) \
 	-o $@ $(sort $(MODULE_ALL_OBJECTS)) $(MODULE_LIBRARY_DIR_FLAGS) \
 	$(MODULE_LIBRARY_FLAGS)
 endef
 
 define target-executable-from-o
 $(if $(V),,@echo "  LD      " $(call relative-to-top,$@))
-$(CC) \
-	$(SYS_EXE_LDFLAGS) $(MODULE_LDFLAGS) -o $@ \
-	$(SYS_EXE_CRTBEGIN) $(sort $(MODULE_ALL_OBJECTS)) $(SYS_EXE_CRTEND) \
-	$(MODULE_LIBRARY_DIR_FLAGS) $(MODULE_LIBRARY_FLAGS) $(LIBGCC)
+$(MODULE_CC) \
+	$(MODULE_EXE_LDFLAGS) $(MODULE_LDFLAGS) -o $@ \
+	$(MODULE_EXE_CRTBEGIN) $(MODULE_ALL_OBJECTS) $(MODULE_EXE_CRTEND) \
+	$(MODULE_LIBRARY_DIR_FLAGS) $(MODULE_LIBRARY_FLAGS) $(MODULE_LIBGCC)
 endef
 
 define target-executable-cxx-from-o
 $(if $(V),,@echo "  LD      " $(call relative-to-top,$@))
-$(CXX) \
-	$(SYS_EXE_LDFLAGS) $(MODULE_LDFLAGS) -o $@ \
-	$(SYS_EXE_CRTBEGIN) $(sort $(MODULE_ALL_OBJECTS)) $(SYS_EXE_CRTEND) \
-	$(MODULE_LIBRARY_DIR_FLAGS) $(MODULE_LIBRARY_FLAGS) $(LIBGCC)
+$(MODULE_CXX) \
+	$(MODULE_EXE_LDFLAGS) $(MODULE_LDFLAGS) -o $@ \
+	$(MODULE_EXE_CRTBEGIN) $(MODULE_ALL_OBJECTS) $(MODULE_EXE_CRTEND) \
+	$(MODULE_LIBRARY_DIR_FLAGS) $(MODULE_LIBRARY_FLAGS) $(MODULE_LIBGCC)
 endef
 
 define target-shared-library-from-o
 $(if $(V),,@echo "  LD      " $(call relative-to-top,$@))
-$(CC) -shared -Wl,-Bsymbolic \
-	$(SYS_LIB_LDFLAGS) $(MODULE_LDFLAGS) -o $@ \
-	$(SYS_LIB_CRTBEGIN) $(sort $(MODULE_ALL_OBJECTS)) $(SYS_LIB_CRTEND) \
-	$(MODULE_LIBRARY_DIR_FLAGS) $(MODULE_LIBRARY_FLAGS) $(LIBGCC)
+$(MODULE_CC) -shared -Wl,-Bsymbolic \
+	$(MODULE_LIB_LDFLAGS) $(MODULE_LDFLAGS) -o $@ \
+	$(MODULE_LIB_CRTBEGIN) $(MODULE_ALL_OBJECTS) $(MODULE_LIB_CRTEND) \
+	$(MODULE_LIBRARY_DIR_FLAGS) $(MODULE_LIBRARY_FLAGS) $(MODULE_LIBGCC)
 endef
 
 define host-shared-library-from-o
 $(if $(V),,@echo "  HOST_LD " $(call relative-to-top,$@))
-$(HOST_CC) -shared -Wl,-Bsymbolic \
-	$(MODULE_HOST_LDFLAGS) -o $@ \
+$(MODULE_CC) -shared -Wl,-Bsymbolic \
+	$(MODULE_LDFLAGS) -o $@ \
 	$(sort $(MODULE_ALL_OBJECTS)) \
 	$(MODULE_LIBRARY_DIR_FLAGS) $(MODULE_LIBRARY_FLAGS)
 endef
@@ -121,16 +121,16 @@ endef
 # these recipes, which run the C++ compiler to link the final library
 define target-shared-library-cxx-from-o
 $(if $(V),,@echo "  LD      " $(call relative-to-top,$@))
-$(CXX) -shared -Wl,-Bsymbolic \
-	$(SYS_LIB_LDFLAGS) $(MODULE_LDFLAGS) -o $@ \
-	$(SYS_LIB_CRTBEGIN) $(sort $(MODULE_ALL_OBJECTS)) $(SYS_LIB_CRTEND) \
-	$(MODULE_LIBRARY_DIR_FLAGS) $(MODULE_LIBRARY_FLAGS) $(LIBGCC)
+$(MODULE_CXX) -shared -Wl,-Bsymbolic \
+	$(MODULE_LIB_LDFLAGS) $(MODULE_LDFLAGS) -o $@ \
+	$(MODULE_LIB_CRTBEGIN) $(MODULE_ALL_OBJECTS) $(MODULE_LIB_CRTEND) \
+	$(MODULE_LIBRARY_DIR_FLAGS) $(MODULE_LIBRARY_FLAGS) $(MODULE_LIBGCC)
 endef
 
 define host-shared-library-cxx-from-o
 $(if $(V),,@echo "  HOST_LD " $(call relative-to-top,$@))
-$(HOST_CXX) -shared -Wl,-Bsymbolic \
-	$(MODULE_HOST_LDFLAGS) -o $@ \
+$(MODULE_CXX) -shared -Wl,-Bsymbolic \
+	$(MODULE_LDFLAGS) -o $@ \
 	$(sort $(MODULE_ALL_OBJECTS)) \
 	$(MODULE_LIBRARY_DIR_FLAGS) $(MODULE_LIBRARY_FLAGS)
 endef
@@ -195,8 +195,13 @@ define make-directory
 $(MKDIR) -p $@
 endef
 
+ifeq ($(DISABLE_CHECK_EXPORTS),)
 define check-exports
 endef
+else
+define check-exports
+endef
+endif
 
 # Check a source file with the program specified in $(CHECK).
 # If $(CHECK) is empty, don't do anything.
@@ -207,7 +212,7 @@ define check-src-1
 $(if $(V),,@echo "  CHECK   " $(call relative-to-top,$<))
 $(if $(IGNORE_CHECK_ERRORS),-,)$(CHECK) $(MODULE_INCLUDE_FLAGS) \
 	$(if $(CHECK_NO_CONFIG_H),,-include $(CONFIG_H)) \
-	$(filter -D%,$(if $(MODULE_HOST_BUILD),$(MODULE_HOST_CFLAGS),$(MODULE_CFLAGS))) \
+	$(filter -D%,$(MODULE_CFLAGS)) \
 	$(CHECKFLAGS) $<
 endef
 # If CHECK_ONLY is set, only check files matching a Make pattern.
@@ -222,7 +227,10 @@ endif
 
 BISON ?= bison
 CC ?= gcc
+CC_SECONDARY ?= $(CC)
+CROSS_COMPILE_SECONDARY ?= $(CROSS_COMPILE)
 CXX ?= g++
+CXX_SECONDARY ?= $(CXX)
 HOST_CC ?= gcc
 HOST_CXX ?= g++
 JAR ?= jar
@@ -234,6 +242,9 @@ ZIP ?= zip
 ifeq ($(USE_CCACHE),1)
 CCACHE ?= ccache
 endif
+ifeq ($(USE_DISTCC),1)
+DISTCC ?= distcc
+endif
 
 # Define CHMOD and CC_CHECK first so we can use cc-is-clang
 #
@@ -244,22 +255,63 @@ override CC_CHECK	:= $(if $(V),,@)$(MAKE_TOP)/tools/cc-check.sh
 # is reflected in the use of -target. For GCC this is always encoded into
 # the binary. If CROSS_COMPILE is not set we can skip this.
 #
+# If we're doing a build with multiple target architectures, we might need
+# two separate compilers to build binaries for each architecture. In this
+# case, CROSS_COMPILE and CROSS_COMPILE_SECONDARY are the cross compiler
+# prefix for the two compilers - $(CC) and $(CC_SECONDARY).
+#
+# Set the secondary compiler first before we overwrite $(CC).
+#
+
+ifneq ($(CROSS_COMPILE_SECONDARY),)
+ ifeq ($(cc-is-clang),true)
+  override CC_SECONDARY   := \
+   $(CC_SECONDARY) \
+   -target $(patsubst %-,%,$(CROSS_COMPILE_SECONDARY)) \
+   -B$(dir $(shell which $(CROSS_COMPILE_SECONDARY)gcc))
+  override CXX_SECONDARY  := \
+   $(CXX_SECONDARY) \
+   -target $(patsubst %-,%,$(CROSS_COMPILE_SECONDARY)) \
+   -B$(dir $(shell which $(CROSS_COMPILE_SECONDARY)gcc))
+ else
+  ifeq ($(origin CC_SECONDARY),file)
+   override CC_SECONDARY  := $(CROSS_COMPILE_SECONDARY)$(CC_SECONDARY)
+  endif
+  ifeq ($(origin CXX_SECONDARY),file)
+   override CXX_SECONDARY := $(CROSS_COMPILE_SECONDARY)$(CXX_SECONDARY)
+  endif
+ endif
+endif
+
+# Apply compiler wrappers and V=1 handling
+override CC_SECONDARY     := $(if $(V),,@)$(CCACHE)$(DISTCC) $(CC_SECONDARY)
+override CXX_SECONDARY    := $(if $(V),,@)$(CCACHE)$(DISTCC) $(CXX_SECONDARY)
+
 ifneq ($(CROSS_COMPILE),)
-ifeq ($(cc-is-clang),true)
-override CC  := $(if $(V),,@)$(CCACHE) $(CC) \
- -target $(patsubst %-,%,$(CROSS_COMPILE)) \
- -B$(dir $(shell which $(CROSS_COMPILE)gcc))
-override CXX := $(if $(V),,@)$(CCACHE) $(CXX) \
- -target $(patsubst %-,%,$(CROSS_COMPILE)) \
- -B$(dir $(shell which $(CROSS_COMPILE)gcc))
+ ifeq ($(cc-is-clang),true)
+  override CC   := \
+   $(CC) \
+   -target $(patsubst %-,%,$(CROSS_COMPILE)) \
+   -B$(dir $(shell which $(CROSS_COMPILE)gcc))
+  override CXX  := \
+   $(CXX) \
+   -target $(patsubst %-,%,$(CROSS_COMPILE)) \
+   -B$(dir $(shell which $(CROSS_COMPILE)gcc))
+ else
+  ifeq ($(origin CC),file)
+   override CC  := $(CROSS_COMPILE)$(CC)
+  endif
+  ifeq ($(origin CXX),file)
+   override CXX := $(CROSS_COMPILE)$(CXX)
+  endif
+ endif
 else
-override CC  := $(if $(V),,@)$(CCACHE) $(CROSS_COMPILE)$(CC)
-override CXX := $(if $(V),,@)$(CCACHE) $(CROSS_COMPILE)$(CXX)
+ $(if $(CROSS_COMPILE_SECONDARY),$(error CROSS_COMPILE_SECONDARY is set but CROSS_COMPILE is empty))
 endif
-else
-override CC  := $(if $(V),,@)$(CCACHE) $(CC)
-override CXX := $(if $(V),,@)$(CCACHE) $(CXX)
-endif
+
+# Apply compiler wrappers and V=1 handling
+override CC     := $(if $(V),,@)$(CCACHE)$(DISTCC) $(CC)
+override CXX    := $(if $(V),,@)$(CCACHE)$(DISTCC) $(CXX)
 
 override AR				:= $(if $(V),,@)$(CROSS_COMPILE)ar
 override BISON			:= $(if $(V),,@)$(BISON)
@@ -286,6 +338,7 @@ override MKDIR			:= $(if $(V),,@)mkdir
 override MV				:= $(if $(V),,@)mv
 override OBJCOPY		:= $(if $(V),,@)$(CROSS_COMPILE)objcopy
 override PERL			:= $(if $(V),,@)perl
+override PSC			:= $(if $(V),,@)$(HOST_OUT)/psc_standalone
 override PYTHON			:= $(if $(V),,@)$(PYTHON)
 override RANLIB			:= $(if $(V),,@)$(CROSS_COMPILE)ranlib
 override RM				:= $(if $(V),,@)rm -f
@@ -296,6 +349,7 @@ override TAR			:= $(if $(V),,@)tar
 override TOUCH			:= $(if $(V),,@)touch
 override TEST			:= $(if $(V),,@)test
 override VHD2INC		:= $(if $(V),,@)$(HOST_OUT)/vhd2inc
+override XXD            := $(if $(V),,@)xxd
 override ZIP			:= $(if $(V),,@)$(ZIP)
 
 ifeq ($(SUPPORT_NEUTRINO_PLATFORM),1)

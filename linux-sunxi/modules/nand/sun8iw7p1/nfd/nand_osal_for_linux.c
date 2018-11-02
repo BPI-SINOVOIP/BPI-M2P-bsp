@@ -56,6 +56,11 @@
 #endif
 
 
+#define  NAND_DRV_VERSION_0		0x2
+#define  NAND_DRV_VERSION_1		0x23
+#define  NAND_DRV_DATE			0x20150521
+#define  NAND_DRV_TIME			0x0929
+
 struct clk *pll6;
 struct clk *nand0_clk;
 struct clk *ahb_nand0;
@@ -1286,6 +1291,18 @@ void NAND_ShowEnv(__u32 type, char *name, __u32 len, __u32 *val)
     return ;
 }
 
+void NAND_Print_Version(void)
+{
+	__u32 val[4] = {0};
+	
+	val[0] = NAND_DRV_VERSION_0;
+	val[1] = NAND_DRV_VERSION_1;
+	val[2] = NAND_DRV_DATE;
+	val[3] = NAND_DRV_TIME;
+	NAND_ShowEnv(0, "nand version", 4, val);
+
+}
+
 int NAND_get_storagetype(void)
 {
 #if 1
@@ -1383,7 +1400,7 @@ int NAND_ReleaseVoltage(void)
 
 int NAND_IS_Secure_sys(void)
 {
-	if(sunxi_soc_is_secure())
+	if(sunxi_boot_is_secure())
 		return 0;
 	else
 		return -1;

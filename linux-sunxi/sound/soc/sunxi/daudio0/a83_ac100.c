@@ -28,6 +28,7 @@
 
 static bool daudio_pcm_select 	= 0;
 static int daudio_used 			= 0;
+static int ac100_used 	= 0;
 static int daudio_master 		= 0;
 static int audio_format 		= 0;
 static int signal_inversion 	= 0;
@@ -42,7 +43,7 @@ static int sunxi_snddaudio_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	unsigned long sample_rate = params_rate(params);
+	int sample_rate = params_rate(params);
 
 	switch (sample_rate) {
 		case 8000:
@@ -127,8 +128,7 @@ static int bb_voice_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	int ret = 0;
 	int freq_in = 24576000;
-	if (params_rate(params) != 8000)
-		return -EINVAL;
+
 	if (analog_bb){
 		sunxi_daudio0_set_rate(freq_in);
 		/* set the codec FLL */
@@ -156,7 +156,11 @@ static int bb_voice_hw_params(struct snd_pcm_substream *substream,
 		ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_DSP_A | SND_SOC_DAIFMT_IB_NF | SND_SOC_DAIFMT_CBS_CFS);
 		if (ret < 0)
 			return ret;
-
+	} else {
+		/* set codec DAI configuration */
+		ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBM_CFM);
+		if (ret < 0)
+			return ret;
 	}
 	return 0;
 }
@@ -322,8 +326,13 @@ static struct snd_soc_dai_link sunxi_snddaudio_dai_link[] = {
 		.name = "VIR",
 		.cpu_dai_name 	= "sec_dai",
 		.stream_name 	= "vir-dai",
+#ifdef 	CONFIG_SND_SOC_TAS5731_CODEC
+		.codec_dai_name = "tas5731_audio",
+		.codec_name 	= "tas5731-codec.1-001b",
+#else
 		.codec_dai_name = "ac100-aif1",
 		.codec_name 	= "ac100-codec",
+#endif
 		.platform_name 	= "sunxi-daudio-pcm-audio.0",
 		.ops 			= &phone_system_voice_ops,
 	} , {/*bt*/
@@ -344,7 +353,7 @@ static struct snd_soc_dai_link sunxi_snddaudio_dai_link[] = {
 };
 
 static struct snd_soc_card snd_soc_sunxi_snddaudio = {
-	.name 		= "snddaudio",
+	.name 		= "sndac100",
 	.owner 		= THIS_MODULE,
 	.dai_link 	= sunxi_snddaudio_dai_link,
 	.num_links 	= ARRAY_SIZE(sunxi_snddaudio_dai_link),
@@ -392,19 +401,18 @@ static int __devinit sunxi_snddaudio0_dev_probe(struct platform_device *pdev)
 	}
 	signal_inversion = val.val;
 
-	type = script_get_item("audio0", "analog_bb", &val);
+	type = script_get_item("ac100_audio0", "analog_bb", &val);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-		pr_err("[audio0] analog_bb type err!\n");
+		pr_err("[ac100_audio0] analog_bb type err!\n");
 	}
 	analog_bb = val.val;
 
-	type = script_get_item("audio0", "digital_bb", &val);
+	type = script_get_item("ac100_audio0", "digital_bb", &val);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-		pr_err("[audio0] digital_bb type err!\n");
+		pr_err("[ac100_audio0] digital_bb type err!\n");
 	}
 	digital_bb = val.val;
-	pr_debug("%s, line:%d, daudio_used:%d,daudio_pcm_select:%d,daudio_master:%d,audio_format:%d,signal_inversion:%d,analog_bb:%d,digital_bb:%d\n", __func__,
-			__LINE__, daudio_used,daudio_pcm_select,daudio_master,audio_format,signal_inversion,analog_bb,digital_bb);
+
 	if (daudio_used) {
 		card->dev = &pdev->dev;
 	
@@ -414,7 +422,7 @@ static int __devinit sunxi_snddaudio0_dev_probe(struct platform_device *pdev)
 				ret);
 		}
 	} else {
-		pr_err("[daudio0]sunxi_snddaudio0 cannot find any using configuration for controllers, return directly!\n");
+		pr_err("[daudio0]a83_ac100 cannot find any using configuration for controllers, return directly!\n");
         return 0;
 	}
 		
@@ -451,12 +459,21 @@ static struct platform_driver sunxi_daudio_driver = {
 static int __init sunxi_snddaudio0_init(void)
 {
 	int err = 0;
-	if((err = platform_device_register(&sunxi_daudio_device)) < 0)
-		return err;
+	script_item_u val;
+	script_item_value_type_e  type;
 
-	if ((err = platform_driver_register(&sunxi_daudio_driver)) < 0)
-		return err;	
+	type = script_get_item("acx0", "ac100_used", &val);
+	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
+		pr_err("[acx0] ac100_used type err!\n");
+	}
+	ac100_used = val.val;
+	if (ac100_used) {
+		if((err = platform_device_register(&sunxi_daudio_device)) < 0)
+			return err;
 
+		if ((err = platform_driver_register(&sunxi_daudio_driver)) < 0)
+			return err;
+	}
 	return 0;
 }
 module_init(sunxi_snddaudio0_init);

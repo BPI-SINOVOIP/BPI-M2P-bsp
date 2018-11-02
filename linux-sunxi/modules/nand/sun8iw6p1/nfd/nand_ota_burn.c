@@ -411,7 +411,7 @@ __s32  burn_boot0_1k_mode_secure( __u32 read_retry_type, __u32 length, __u32 Boo
 			if( PHY_SimpleErase( &para ) <0 )
 			{
 			    debug("Fail in erasing block %d.\n", i );
-	    		continue;
+	    		//continue;
 	    	}
 	    }
 		blocks_per_copy = NAND_BOOT0_PAGE_CNT_PER_COPY/pages_per_block;
@@ -454,7 +454,7 @@ __s32  burn_boot0_1k_mode_secure( __u32 read_retry_type, __u32 length, __u32 Boo
 			if( PHY_SimpleErase( &para ) <0 )
 			{
 			    debug("Fail in erasing block %d.\n", i );
-	    		continue;
+	    		//continue;
 	    	}
 			debug("after erase.\n" );
 
@@ -577,7 +577,7 @@ __s32  burn_boot0_lsb_mode_secure(__u32 read_retry_type,  __u32 length, __u32 Bo
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		for(j=0;j<copies_per_block;j++)
 		{
@@ -729,7 +729,7 @@ __s32  burn_boot0_lsb_FF_mode_secure(__u32 read_retry_type,  __u32 length, __u32
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		for(j=0;j<copies_per_block;j++)
 		{
@@ -880,7 +880,7 @@ __s32  burn_boot0_1k_lsb_mode_secure(__u32 read_retry_type,  __u32 length, __u32
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		for(j=0;j<copies_per_block;j++)
 		{
@@ -1086,7 +1086,7 @@ __s32  burn_boot0_lsb_FF_mode_8K(__u32 read_retry_type,  __u32 length, __u32 Boo
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		for(j=0;j<copies_per_block;j++)
 		{
@@ -1216,7 +1216,7 @@ __s32  burn_boot0_lsb_FF_mode(__u32 read_retry_type, __u32 Boot0_buf )
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 
         /* ÔÚ¿éÖÐÉÕÐ´boot0±¸·Ý, lsb modeÏÂ£¬Ã¿¸ö¿éÖ»ÄÜÐ´Ç°2¸öpage */
@@ -1361,7 +1361,7 @@ __s32  burn_boot0_lsb_mode(__u32 read_retry_type, __u32 Boot0_buf )
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		debug("after erase.\n" );
         /* �ڿ�����дboot0����, lsb mode�£�ÿ����ֻ��дǰ4��page */
@@ -1470,7 +1470,7 @@ __s32  burn_boot0_1k_mode( __u32 read_retry_type, __u32 Boot0_buf )
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		debug("after erase.\n" );
 
@@ -1567,7 +1567,7 @@ __s32  burn_boot0_1k_lsb_mode(__u32 read_retry_type,  __u32 length, __u32 Boot0_
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		for(j=0;j<copies_per_block;j++)
 		{
@@ -2592,7 +2592,7 @@ __s32 burn_uboot_in_one_blk_lsb_mode(__u32 BOOT1_buf, __u32 length)
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		count = 0;
         /* ï¿½Ú¿ï¿½ï¿½ï¿½ï¿½ï¿½Ð´boot0ï¿½ï¿½ï¿½ï¿½, lsb modeï¿½Â£ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½Ð´Ç°4ï¿½ï¿½page */
@@ -2908,4 +2908,95 @@ __u32  PHY_erase_chip(void)
 	
 	return 0;
 
+}
+
+__s32 NAND_DragonboardTest(void)
+{
+	__u32 i, k,blk_ok;
+	__u8  oob_buf[32];
+	__u32 page_size, pages_per_block;
+	struct boot_physical_param para;
+	void * main_buf;
+	__s32 ret;
+	struct _nand_info* local_nand_info = NULL;
+
+	debug("dragon board test start!\n");
+	
+	local_nand_info = NandHwInit();
+	if(local_nand_info == NULL)
+	{
+		debug("dragonboard test fail\n");
+		return -1;
+	}
+	main_buf =(void *)kmalloc(1024*32,GFP_KERNEL);
+	if (main_buf == NULL)
+	{
+		debug("no memory!\n");
+		return -1;
+	}
+
+	for (i=0; i<32; i++)
+		oob_buf[i] = 0xff&i;
+
+	page_size = NAND_GetPageSize();
+
+	pages_per_block = NAND_GetPageCntPerBlk();
+	blk_ok = 0;
+	for (i=10; i<15; i++)
+	{
+		debug("test blk %x \n", i);
+
+		ret = 0;
+		para.chip  = 0;
+		para.block = i;
+		if( PHY_SimpleErase( &para ) < 0 )
+		{
+			debug("Fail in erasing block %d.\n", i );
+			continue;
+		}
+	
+		for (k=0; k<pages_per_block; k++)
+		{
+			para.chip  = 0;
+			para.block = i;
+			para.page  = k;
+			para.mainbuf = main_buf;
+			para.oobbuf = oob_buf;
+			if ( PHY_SimpleWrite( &para ) <0 )
+			{
+				debug("Warning. Fail in write page %d in block %d.\n", k, i);
+			}
+		}
+		for (k=0; k<pages_per_block; k++)
+		{
+			para.chip  = 0;
+			para.block = i;
+			para.page  = k;
+			para.mainbuf = main_buf;
+			para.oobbuf = oob_buf;
+			if ( PHY_SimpleRead( &para ) <0 )
+			{ 
+				debug("Warning. Fail in read page %d in block %d.\n", k, i);
+				ret = -1;
+				break;
+			}
+			if((oob_buf[0]!=0)||(oob_buf[1]!=0x1)||(oob_buf[2]!=0x2)||(oob_buf[3]!=0x3))
+			{
+				debug("Warning. Fail in verify data:%x %x %x %x \n",oob_buf[0],oob_buf[1],oob_buf[2],oob_buf[3]);
+				ret = -1;
+				break;
+			}
+		}
+		if(ret==0)
+			blk_ok++;
+			
+	}
+	if(blk_ok < 3)
+	{
+		debug("dragon board test fail\n");	
+		kfree(main_buf);
+		return -1;
+	}
+	kfree(main_buf);
+	return 0;
 }

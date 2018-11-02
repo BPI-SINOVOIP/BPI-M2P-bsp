@@ -69,6 +69,7 @@ unsigned int bsp_hdmi_get_hpd(void);
 void bsp_hdmi_standby(void);
 void bsp_hdmi_hrst(void);
 void bsp_hdmi_hdl(void);
+void bsp_hdmi_hdcp_err_check(void);
 //@version: 0:A, 1:B, 2:C, 3:D
 void bsp_hdmi_set_version(unsigned int version);
 

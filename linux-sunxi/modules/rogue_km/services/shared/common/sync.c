@@ -54,7 +54,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "sync_internal.h"
 #include "lock.h"
 #include "pvr_debug.h"
-/* FIXME */
+
 #if defined(__KERNEL__)
 #include "pvrsrv.h"
 #endif
@@ -300,10 +300,7 @@ static INLINE IMG_UINT32 SyncPrimGetOffset(SYNC_PRIM *psSyncInt)
 	
 	PVR_ASSERT(psSyncInt->eType == SYNC_PRIM_TYPE_LOCAL);
 
-	/* FIXME: Subtracting a 64-bit address from another and then implicit
-	 * cast to 32-bit number. Need to review all call sequences that use this
-	 * function, added explicit casting for now.
-	 */
+	
 	ui64Temp =  psSyncInt->u.sLocal.uiSpanAddr - psSyncInt->u.sLocal.psSyncBlock->uiSpanBase;
 	PVR_ASSERT(ui64Temp<IMG_UINT32_MAX);
 	return (IMG_UINT32)ui64Temp;
@@ -587,14 +584,9 @@ SyncPrimContextCreate(SYNC_BRIDGE_HANDLE hBridge,
 	*/
 
 	psContext->psSubAllocRA = RA_Create(psContext->azName,
-										/* Params for initial import */
-										0,
-										0,
-										0,
-										IMG_NULL,
-
 										/* Params for imports */
 										_Log2(sizeof(IMG_UINT32)),
+										RA_LOCKCLASS_2,
 										SyncPrimBlockImport,
 										SyncPrimBlockUnimport,
 										psContext);
@@ -615,19 +607,21 @@ SyncPrimContextCreate(SYNC_BRIDGE_HANDLE hBridge,
 		fashion
 	*/
 	psContext->psSpanRA = RA_Create(psContext->azSpanName,
-									/* Params for initial import */
-									0,
-									MAX_SYNC_MEM,
-									0,
-									IMG_NULL,
-
 									/* Params for imports */
 									0,
+									RA_LOCKCLASS_1,
 									IMG_NULL,
 									IMG_NULL,
 									IMG_NULL);
 	if (psContext->psSpanRA == IMG_NULL)
 	{
+		eError = PVRSRV_ERROR_OUT_OF_MEMORY;
+		goto fail_span;
+	}
+
+	if (!RA_Add(psContext->psSpanRA, 0, MAX_SYNC_MEM, 0, IMG_NULL))
+	{
+		RA_Delete(psContext->psSpanRA);
 		eError = PVRSRV_ERROR_OUT_OF_MEMORY;
 		goto fail_span;
 	}
@@ -651,7 +645,7 @@ IMG_INTERNAL IMG_VOID SyncPrimContextDestroy(PSYNC_PRIM_CONTEXT hSyncPrimContext
 	SYNC_PRIM_CONTEXT *psContext = hSyncPrimContext;
 	IMG_BOOL bDoRefCheck = IMG_TRUE;
 
-/* FIXME */
+
 #if defined(__KERNEL__)
 	PVRSRV_DATA *psPVRSRVData = PVRSRVGetPVRSRVData();
 	if (psPVRSRVData->eServicesState != PVRSRV_SERVICES_STATE_OK)
@@ -686,7 +680,8 @@ IMG_INTERNAL IMG_VOID SyncPrimContextDestroy(PSYNC_PRIM_CONTEXT hSyncPrimContext
 }
 
 IMG_INTERNAL PVRSRV_ERROR SyncPrimAlloc(PSYNC_PRIM_CONTEXT hSyncPrimContext,
-										PVRSRV_CLIENT_SYNC_PRIM **ppsSync)
+										PVRSRV_CLIENT_SYNC_PRIM **ppsSync,
+										const IMG_CHAR *pszClassName)
 {
 	SYNC_PRIM_CONTEXT *psContext = hSyncPrimContext;
 	SYNC_PRIM_BLOCK *psSyncBlock;
@@ -718,6 +713,38 @@ IMG_INTERNAL PVRSRV_ERROR SyncPrimAlloc(PSYNC_PRIM_CONTEXT hSyncPrimContext,
 	SyncPrimGetCPULinAddr(psNewSync);
 	*ppsSync = &psNewSync->sCommon;
 
+#if defined(PVRSRV_ENABLE_FULL_SYNC_TRACKING)
+	{
+		IMG_CHAR szClassName[SYNC_MAX_CLASS_NAME_LEN];
+		if(pszClassName)
+		{
+			/* Copy the class name annotation into a fixed-size array */
+			OSStringNCopy(szClassName, pszClassName, SYNC_MAX_CLASS_NAME_LEN - 1);
+			szClassName[SYNC_MAX_CLASS_NAME_LEN - 1] = 0;
+		}
+		else
+		{
+			/* No class name annotation */
+			szClassName[0] = 0;
+		}
+		/* record this sync */
+		eError = BridgeSyncRecordAdd(
+					psSyncBlock->psContext->hBridge,
+					&psNewSync->u.sLocal.hRecord,
+					psSyncBlock->hServerSyncPrimBlock,
+					psSyncBlock->ui32FirmwareAddr,
+					SyncPrimGetOffset(psNewSync),
+#if defined(__KERNEL__)
+					IMG_TRUE,
+#else
+					IMG_FALSE,
+#endif
+					OSStringNLength(szClassName, SYNC_MAX_CLASS_NAME_LEN),
+					szClassName);
+	}
+#else
+	PVR_UNREFERENCED_PARAMETER(pszClassName);
+#endif /* if defined(PVRSRV_ENABLE_FULL_SYNC_TRACKING) */
 
 	return PVRSRV_OK;
 
@@ -738,6 +765,14 @@ IMG_INTERNAL IMG_VOID SyncPrimFree(PVRSRV_CLIENT_SYNC_PRIM *psSync)
 
 	if (psSyncInt->eType == SYNC_PRIM_TYPE_LOCAL)
 	{
+#if defined(PVRSRV_ENABLE_FULL_SYNC_TRACKING)
+		PVRSRV_ERROR eError;
+		/* remove this sync record */
+		eError = BridgeSyncRecordRemoveByHandle(
+						psSyncInt->u.sLocal.psSyncBlock->psContext->hBridge,
+						psSyncInt->u.sLocal.hRecord);
+		PVR_ASSERT(PVRSRV_OK == eError);
+#endif
 		SyncPrimLocalFree(psSyncInt);
 	}
 	else if (psSyncInt->eType == SYNC_PRIM_TYPE_SERVER)
@@ -1361,9 +1396,11 @@ PVRSRV_ERROR SyncPrimOpResolve(PSYNC_OP_COOKIE psCookie,
 IMG_INTERNAL
 PVRSRV_ERROR SyncPrimServerAlloc(SYNC_BRIDGE_HANDLE hBridge,
 								 IMG_HANDLE hDeviceNode,
-								 PVRSRV_CLIENT_SYNC_PRIM **ppsSync
-								PVR_DBG_FILELINE_PARAM)
+								 PVRSRV_CLIENT_SYNC_PRIM **ppsSync,
+								 const IMG_CHAR *pszClassName
+								 PVR_DBG_FILELINE_PARAM)
 {
+	IMG_CHAR szClassName[SYNC_MAX_CLASS_NAME_LEN];
 	SYNC_PRIM *psNewSync;
 	PVRSRV_ERROR eError;
 
@@ -1378,10 +1415,24 @@ PVRSRV_ERROR SyncPrimServerAlloc(SYNC_BRIDGE_HANDLE hBridge,
 	}
 	OSMemSet(psNewSync, 0, sizeof(SYNC_PRIM));
 
+	if(pszClassName)
+	{
+		/* Copy the class name annotation into a fixed-size array */
+		OSStringNCopy(szClassName, pszClassName, SYNC_MAX_CLASS_NAME_LEN - 1);
+		szClassName[SYNC_MAX_CLASS_NAME_LEN - 1] = 0;
+	}
+	else
+	{
+		/* No class name annotation */
+		szClassName[0] = 0;
+	}
+
 	eError = BridgeServerSyncAlloc(hBridge,
 								   hDeviceNode,
 								   &psNewSync->u.sServer.hServerSync,
-								   &psNewSync->u.sServer.ui32FirmwareAddr);
+								   &psNewSync->u.sServer.ui32FirmwareAddr,
+								   OSStringNLength(szClassName, SYNC_MAX_CLASS_NAME_LEN),
+								   szClassName);
 
 	if (eError != PVRSRV_OK)
 	{
@@ -1455,9 +1506,11 @@ PVRSRV_ERROR SyncPrimServerGetStatus(IMG_UINT32 ui32SyncCount,
 									   pui32FWAddr,
 									   pui32CurrentOp,
 									   pui32NextOp);
+	OSFreeMem(pahServerHandle);
+
 	if (eError != PVRSRV_OK)
 	{
-		goto e1;
+		goto e0;
 	}
 	return PVRSRV_OK;
 
@@ -1683,12 +1736,7 @@ IMG_INTERNAL IMG_VOID SyncPrimPDumpCBP(PVRSRV_CLIENT_SYNC_PRIM *psSync,
 	psSyncBlock = psSyncInt->u.sLocal.psSyncBlock;
 	psContext = psSyncBlock->psContext;
 
-	/* FIXME: uiWriteOffset, uiPacketSize, uiBufferSize were changed to
-	 * 64-bit quantities to resolve WDDM compiler warnings.
-	 * However the bridge is only 32-bit hence compiler warnings
-	 * of implicit cast and loss of data.
-	 * Added explicit cast and assert to remove warning.
-	 */
+	
 #if (defined(_WIN32) && !defined(_WIN64)) || (defined(LINUX) && defined(__i386__))
 	PVR_ASSERT(uiWriteOffset<IMG_UINT32_MAX);
 	PVR_ASSERT(uiPacketSize<IMG_UINT32_MAX);

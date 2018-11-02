@@ -15,25 +15,10 @@
 * Update  : date                auther      ver     notes
 *********************************************************************************************************
 */
-#ifndef __SUPER_I_H__
-#define __SUPER_I_H__
+#ifndef __PM_RESUMES_H__
+#define __PM_RESUMES_H__
 
-//------------------------------------------------------------------------------
-//return value defines
-//------------------------------------------------------------------------------
-#define	OK		(0)
-#define	FAIL	(-1)
-#define TRUE	(1)
-#define	FALSE	(0)
-
-#define NULL	(0)
-
-#define readb(addr)     (*((volatile unsigned char  *)(addr)))
-#define readw(addr)     (*((volatile unsigned short *)(addr)))
-#define readl(addr)     (*((volatile unsigned long  *)(addr)))
-#define writeb(v, addr) (*((volatile unsigned char  *)(addr)) = (unsigned char)(v))
-#define writew(v, addr) (*((volatile unsigned short *)(addr)) = (unsigned short)(v))
-#define writel(v, addr) (*((volatile unsigned long  *)(addr)) = (unsigned long)(v))
+#include "resumes_assembler.h"
 
 typedef signed char           __s8;
 typedef unsigned char         __u8;
@@ -41,7 +26,6 @@ typedef short int             __s16;
 typedef unsigned short        __u16;
 typedef int                   __s32;
 typedef unsigned int          __u32;
-
 
 #define RESUMEX_MAGIC               "eGON.BT0"
 #define STAMP_VALUE                 0x5F0A6C39
@@ -57,7 +41,7 @@ typedef unsigned int          __u32;
 #define EGON_VERSION                "1100"    // X.X.XX
 
 /******************************************************************************/
-/*                              file head of Resume                             */
+/*                              file head of Resume                           */
 /******************************************************************************/
 typedef struct _Resume_file_head
 {
@@ -75,5 +59,44 @@ typedef struct _Resume_file_head
 
 extern const resume_file_head_t  resume_head;
 
-#endif  //__SUPER_I_H__
+#define BEFORE_EARLY_SUSPEND    (0x00)
+#define SUSPEND_BEGIN           (0x20)
+#define SUSPEND_ENTER           (0x40)
+#define BEFORE_LATE_RESUME      (0x60)
+#define LATE_RESUME_START       (0x80)
+#define CLK_RESUME_START        (0xA0)
+#define AFTER_LATE_RESUME       (0xC0)
+#define RESUME_COMPLETE_FLAG    (0xE0)
+#define SUSPEND_FAIL_FLAG       (0xFF)
+#define FIRST_BOOT_FLAG         (0x00)
+
+/** NOTE: the resumes_assembler.h should be adjusted cressponding,
+ * if these structs changed!
+ */
+struct mmu_state {
+	__u32 cssr;     /* 00, CR0: Cache Size Selection            */
+	__u32 cr;       /* 04, CR1: Control                         */
+	__u32 cacr;     /* 08, Coprocessor Access Control           */
+	__u32 ttb_0r;   /* 12, CR2: Translation Table Base 0        */
+	__u32 ttb_1r;   /* 16, Translation Table Base 1             */
+	__u32 ttbcr;    /* 20, Translation Talbe Base Control       */
+	__u32 dacr;     /* 24, CR3: Domain Access Control           */
+	__u32 prrr;	    /* 28, cr10: Primary Region Remap Register  */
+	__u32 nrrr;	    /* 32, Normal Memory Remap Register         */
+};
+
+struct regs_restore {
+	__u32 addr;     /* 00, CR0: Cache Size Selection            */
+	__u32 value;    /* 04, CR1: Control                         */
+};
+
+struct sram_para {
+	unsigned long resume_code_src;
+	unsigned long monitor_vector;
+	struct mmu_state saved_secure_mmu_state;
+	unsigned long regs_num;
+	struct regs_restore regs_back[20];
+};
+
+#endif  /* __PM_RESUMES_H__ */
 

@@ -732,6 +732,14 @@ config USB_SUNXI_HSIC
 	help
 	    SoftWinner SUNXI USB HSIC.
 
+#ifdef CONFIG_ARCH_SUN8IW8
+config USB_SUNXI_V3_UVC
+	tristate "SoftWinner V3 USB UVC"
+	depends on USB_SUNXI_HCI && ARCH_SUN8IW8
+		help
+		SoftWinner V3 USB UVC.
+#endif
+
 config SW_USB_3G
 	tristate "support usb 3G modem"
 	depends on USB

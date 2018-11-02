@@ -142,26 +142,18 @@
 #define SPI_BCC_DUAL_MOD_RX_EN	(0x1	  << 28)	/* master dual mode RX enable */
 
 
-/* ����config��bitλ */
-/***************�����linux��spi��������һ��***************
- * ����ģʽ������4�֣�
- * 0: ����ģʽ0��POL=0,PAL=0;
- * 1: ����ģʽ1��POL=0,PAL=1;
- * 2: ����ģʽ2��POL=1,PAL=0;
- * 3: ����ģʽ3��POL=1,PAL=1;
- */
 #define SPI_PHA_ACTIVE_		    (0x01)
 #define SPI_POL_ACTIVE_		    (0x02)
 
 #define SPI_MODE_0_ACTIVE_		(0|0)
 #define SPI_MODE_1_ACTIVE_		(0|SPI_PHA_ACTIVE_)
 #define SPI_MODE_2_ACTIVE_		(SPI_POL_ACTIVE_|0)
-#define SPI_MODE_3_ACTIVE_		(SPI_POL_ACTIVE_|SPI_PHA_ACTIVE_) /*Ĭ��Ϊģʽ3*/
-/* ������������ */
-#define SPI_CS_HIGH_ACTIVE_		    (0x04)  /*Ĭ��ΪƬѡ�͵�ƽ��Ч�����͵�ƽѡ��Ƭѡ*/
-#define SPI_LSB_FIRST_ACTIVE_		(0x08)  /*Ĭ��Ϊ�ȷ���MSB�����ȷ������λ*/
-#define SPI_DUMMY_ONE_ACTIVE_        (0x10)  /*Ĭ��Ϊ����ʱspi�������Զ����0����txFIFO */
-#define SPI_RECEIVE_ALL_ACTIVE_      (0x20)  /*Ĭ��Ϊ�������õ�burst�������͵�ʱ�����rxFIFO���յ����� */
+#define SPI_MODE_3_ACTIVE_		(SPI_POL_ACTIVE_|SPI_PHA_ACTIVE_)
+
+#define SPI_CS_HIGH_ACTIVE_		(0x04)
+#define SPI_LSB_FIRST_ACTIVE_		(0x08)
+#define SPI_DUMMY_ONE_ACTIVE_        (0x10)
+#define SPI_RECEIVE_ALL_ACTIVE_      (0x20)
 
 /* The global infor of SPI channel. */
 

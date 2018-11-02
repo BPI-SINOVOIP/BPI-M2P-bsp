@@ -7,10 +7,12 @@ static spinlock_t al_data_lock;
 static struct mutex clk_mutex;
 #endif
 
+#if defined(CONFIG_HOMLET_PLATFORM)
 static __u32 maf_flag_mem_len = 2048*2/8*544;
 static void *maf_flag_mem[2][2];//2048*2/8 *544
 static interlace_para_t g_interlace[2];
 static u32 wb_buffer = 0; //for using maf with wb in deinterlace
+#endif
 
 static s32 scaler_set_para(u32 scaler_id, disp_scaler_info *scaler_info);
 static s32 disp_al_deu_is_support(u32 screen_id, disp_pixel_format format);
@@ -411,6 +413,7 @@ static s32 disp_al_fe_notifier_callback(struct disp_notifier_block *self,
 		u32 scaler_id;
 
 		num_scalers = bsp_disp_feat_get_num_scalers();
+#if defined(CONFIG_HOMLET_PLATFORM)
         //fixme: modify only for homlet.
         //       Set fe's b_out_interlace whatever be to be out (FE --> BE).
         //       But it will be error when some special scence, such as dual-display.
@@ -422,6 +425,20 @@ static s32 disp_al_fe_notifier_callback(struct disp_notifier_block *self,
 			ptr = (u32*)data;
 			al_priv->fe_info.b_out_interlace = ptr[0];
 		}
+#else
+		for(scaler_id=0; scaler_id<num_scalers; scaler_id++) {
+			u32 screen_id;
+			al_priv = disp_al_get_priv(scaler_id);
+			if(NULL == al_priv)
+				continue;
+
+			screen_id = al_priv->fe_info.out_select;
+			if(sel == screen_id) {
+				ptr = (u32*)data;
+				al_priv->fe_info.b_out_interlace = ptr[0];
+			}
+		}
+#endif
 		break;
 		//fixme: modify only for homlet.
 	}
@@ -875,6 +892,7 @@ s32 disp_al_lcd_enable(u32 screen_id, u32 enable, disp_panel_para * panel)
 	interlace[0] = al_priv->lcd_info.b_out_interlace;
 	interlace[1] = 0;
 	disp_al_notifier_call_chain(DISP_EVENT_INTERLACE, screen_id, &interlace);
+	al_priv->output_type = DISP_OUTPUT_TYPE_LCD;
 
 	return 0;
 }
@@ -2313,6 +2331,7 @@ s32 disp_al_format_to_bpp(disp_pixel_format fmt)
 	}
 }
 
+#if defined(CONFIG_HOMLET_PLATFORM)
 extern void *disp_malloc(u32 num_bytes,u32 * phys_addr);
 extern void disp_free(void * virt_addr,void * phys_addr,u32 num_bytes);
 u32 disp_al_interlace_init(void)
@@ -2326,7 +2345,7 @@ u32 disp_al_interlace_init(void)
 	disp_malloc(3840 * 2160 * 4, (u32 *)(&wb_buffer));
 	if((maf_flag_mem[0][0] == NULL) || (maf_flag_mem[0][1] == NULL) ||
 		(maf_flag_mem[1][0] == NULL) || (maf_flag_mem[1][1] == NULL) ||
-		(wb_buffer == NULL))
+		(wb_buffer == 0))
 	{
 		DE_WRN("disp_video_init, maf memory request fail\n");
 	}
@@ -2350,7 +2369,9 @@ u32 disp_al_interlace_exit(void)
 
 	return 0;
 }
+#endif
 
+#if defined(CONFIG_HOMLET_PLATFORM)
 s32 disp_al_set_interlace_info(u32 scaler_id, disp_scaler_info *scaler)
 {
 	unsigned long flags;
@@ -2542,6 +2563,7 @@ s32 disp_al_deinterlace_cfg(u32 scaler_id, disp_scaler_info *scaler)
 	}
 	return 0;
 }
+#endif
 
 s32 disp_al_layer_set_pipe(u32 screen_id, u32 layer_id, u32 pipe)
 {
@@ -2633,21 +2655,23 @@ s32 disp_al_layer_set_extra_info(u32 screen_id, u32 layer_id, disp_layer_info *i
 	disp_scaler_info scaler_info;
 	u32 scaler_id = extra_info->scaler_id;
 	__disp_al_private_data *al_priv;
-	u32 request_scaler;
+	u32 request_scaler = 0xff;
 
 	memset(&scaler_info, 0, sizeof(disp_scaler_info));
 	if(DISP_LAYER_WORK_MODE_SCALER == info->mode) {
+#if defined(CONFIG_HOMLET_PLATFORM)
 		if(info->fb.format < DISP_FORMAT_YUV444_I_AYUV) {
 			request_scaler = 0x2;
 		} else {
 			request_scaler = 0x1;
 		}
+#endif
 		if(extra_info->b_scaler_mode) {
 			/* scaler --> scaler */
 			al_priv = disp_al_get_priv(scaler_id);
 			if(NULL == al_priv)
 				return -1;
-			if(scaler_id != request_scaler) {
+			if((request_scaler != 0xff) && scaler_id != request_scaler) {
 				scaler_release(scaler_id, true);
 				scaler_id = scaler_request(request_scaler);
 				if(scaler_id < 0) {printk("%s,%d: no source!", __func__, __LINE__); return -1;}
@@ -2685,11 +2709,15 @@ s32 disp_al_layer_set_extra_info(u32 screen_id, u32 layer_id, disp_layer_info *i
 		scaler_info.out_fb.b_trd_src = info->b_trd_out;
 		scaler_info.out_fb.trd_mode = (disp_3d_src_mode)info->out_trd_mode;
 		scaler_set_para(scaler_id, &scaler_info);
+#if defined(CONFIG_HOMLET_PLATFORM)
 		disp_al_set_interlace_info(scaler_id, &scaler_info);
+#endif
 	} else {
 		if(extra_info->b_scaler_mode) {
 			/* scaler --> !scaler */
+#if defined(CONFIG_HOMLET_PLATFORM)
 			disp_al_set_interlace_info(scaler_id, &scaler_info);
+#endif
 			scaler_release(extra_info->scaler_id, true);
 			extra_info->b_scaler_mode = 0;
 			DE_BE_Layer_Video_Enable(screen_id, layer_id, false);
@@ -2784,7 +2812,7 @@ u32 disp_al_layer_get_addr(u32 sel, u32 hid)
 
 u32 disp_al_layer_set_addr(u32 sel, u32 hid, u32 addr)
 {
-    return DE_SCAL_Set_Fb_Addr0(sel, addr);
+    return DE_SCAL_Set_Fb_Addr0(sel, (u32*)addr);
 }
 
 u32 disp_al_layer_get_inWidth(u32 sel, u32 hid)
@@ -3675,7 +3703,9 @@ s32 disp_init_al(__disp_bsp_init_para * para)
 	//init pll
 	osal_init_clk_pll();
 	scaler_init(para);
+#if defined(CONFIG_HOMLET_PLATFORM)
 	disp_al_interlace_init();
+#endif
 	disp_al_deu_init(para);
 	dsi_para.delay_ms = bsp_disp_delay_ms;
 	dsi_para.delay_us = bsp_disp_delay_us;

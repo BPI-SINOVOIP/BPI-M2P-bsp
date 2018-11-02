@@ -181,6 +181,8 @@ extern __u32 Nand_Is_lsb_page(__u32 read_retry_type,__u32 page);
 extern __u32 NAND_GetLsbpagetype(void);
 extern __u32 NAND_GetLsbblksize(void);
 
+extern __s32 NAND_DragonboardTest(void);
+
 struct _nand_info* NandHwInit(void);
 __s32 NandHwExit(void);
 __s32 NandHwSuperStandby(void);

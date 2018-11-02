@@ -685,6 +685,8 @@ typedef struct
 	disp_pixel_format     format[3];
 	unsigned int          fb_width[3];
 	unsigned int          fb_height[3];
+
+	unsigned char         boot_sync;
 }disp_init_para;
 
 typedef enum tag_DISP_CMD

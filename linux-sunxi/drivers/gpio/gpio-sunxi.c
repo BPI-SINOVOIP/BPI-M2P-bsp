@@ -427,9 +427,16 @@ static int __devinit gpio_sw_probe(struct platform_device *dev)
         return -ENOMEM;
     sw_gpio_entry->class.item = \
         kzalloc(sizeof(script_item_u), GFP_KERNEL);
+	if(!sw_gpio_entry->class.item) {
+		kfree(sw_gpio_entry);
+		return -ENOMEM;
+	}
+
     type = script_get_item("gpio_para", pdata->name, sw_gpio_entry->class.item);
     if(SCIRPT_ITEM_VALUE_TYPE_PIO != type){
         printk(KERN_ERR "get config err!\n");
+		kfree(sw_gpio_entry->class.item);
+		kfree(sw_gpio_entry);
         return -ENOMEM;
     }
 
@@ -465,6 +472,7 @@ static int __devinit gpio_sw_probe(struct platform_device *dev)
     ret = gpio_sw_classdev_register(&dev->dev, &sw_gpio_entry->class);
     if(ret < 0){
         dev_err(&dev->dev, "gpio_sw_classdev_register failed\n");
+		kfree(sw_gpio_entry->class.item);
         kfree(sw_gpio_entry);
         return -1;
     }
@@ -576,6 +584,7 @@ static int __init gpio_sw_init(void)
         } else if (standby_led_pin.str && !strcmp(sw_pdata[i]->name, standby_led_pin.str)) {
             sprintf(sw_pdata[i]->link,"%s", "standby_led");
         }
+
         gpio_sw_dev[i]->name = "gpio_sw";
         gpio_sw_dev[i]->id   = i;
         gpio_sw_dev[i]->dev.platform_data   = sw_pdata[i];

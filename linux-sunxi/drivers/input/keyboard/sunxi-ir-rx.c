@@ -626,7 +626,7 @@ static void sunxi_ir_early_suspend(struct early_suspend *h)
 /* ���»��� */
 static void sunxi_ir_late_resume(struct early_suspend *h)
 {
-	unsigned long ir_event = 0;
+	unsigned int ir_event = 0;
 #ifdef CONFIG_SUNXI_ANYIR_SUPPORT
 	int code = sunxi_multi_ir_remap_code((cpus_wakeup.powerkey<<16)|cpus_wakeup.address);
 #else
@@ -636,7 +636,7 @@ static void sunxi_ir_late_resume(struct early_suspend *h)
 	dprintk(DEBUG_SUSPEND, "enter laterresume: sunxi_ir_rx_resume. \n");
 
 	arisc_query_wakeup_source(&ir_event);
-	dprintk(DEBUG_SUSPEND, "%s: event 0x%lx\n", __func__, ir_event);
+	dprintk(DEBUG_SUSPEND, "%s: event 0x%x\n", __func__, ir_event);
 	if (CPUS_WAKEUP_IR&ir_event) {
 		input_report_key(ir_dev, code, 1);
 		input_sync(ir_dev);
@@ -675,7 +675,7 @@ static int sunxi_ir_suspend(struct device *dev)
 /* ���»��� */
 static int sunxi_ir_resume(struct device *dev)
 {
-	unsigned long ir_event = 0;
+	unsigned int ir_event = 0;
 #ifdef CONFIG_SUNXI_ANYIR_SUPPORT
 	int code = sunxi_multi_ir_remap_code((cpus_wakeup.powerkey<<16)|cpus_wakeup.address);
 #else
@@ -685,7 +685,7 @@ static int sunxi_ir_resume(struct device *dev)
 	dprintk(DEBUG_SUSPEND, "enter: sunxi_ir_rx_resume. \n");
 
 	arisc_query_wakeup_source(&ir_event);
-	dprintk(DEBUG_SUSPEND, "%s: event 0x%lx\n", __func__, ir_event);
+	dprintk(DEBUG_SUSPEND, "%s: event 0x%x\n", __func__, ir_event);
 	if (CPUS_WAKEUP_IR&ir_event) {
 		input_report_key(ir_dev, code, 1);
 		input_sync(ir_dev);

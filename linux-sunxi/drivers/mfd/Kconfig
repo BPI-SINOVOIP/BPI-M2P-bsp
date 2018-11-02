@@ -568,25 +568,14 @@ config MFD_WM8994
 	  core support for the WM8994, in order to use the actual
 	  functionaltiy of the device other drivers must be enabled.
 
-config MFD_AC100
-	bool "Support Allwinnertech AC100"
+config MFD_ACX00
+	bool "Support Allwinnertech ACX00"
 	select MFD_CORE
 	select REGMAP_I2C
 	depends on I2C=y && GENERIC_HARDIRQS
 	help
-	  Say yes here if you have ac100 chip on your board.
-	  .This driver provides core support for the ac100, 
-	  in order to use the actual functionaltiy of the device
-	  other drivers must be enabled.
-
-config MFD_AC200
-	bool "Support Allwinnertech AC200"
-	select MFD_CORE
-	select REGMAP_I2C
-	depends on I2C=y && GENERIC_HARDIRQS
-	help
-	  Say yes here if you have ac200 chip on your board.
-	  .This driver provides core support for the ac200,
+	  Say yes here if you have ac100/ac200 chip on your board.
+	  .This driver provides core support for the ac100,ac200,
 	  in order to use the actual functionaltiy of the device
 	  other drivers must be enabled.
 

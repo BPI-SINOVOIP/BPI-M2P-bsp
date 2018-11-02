@@ -258,6 +258,10 @@ s32 disp_init_connections(disp_bsp_init_para * para)
 						dispdev->set_manager(dispdev, mgr);
 				}
 			}
+		} else if(0 == para->boot_info.sync) {
+			dispdev = disp_device_get(disp, DISP_OUTPUT_TYPE_LCD);
+			if((dispdev) && (dispdev->set_manager))
+				dispdev->set_manager(dispdev, mgr);
 		}
 
 		enhance = disp_get_enhance(disp);
@@ -747,6 +751,38 @@ s32 bsp_disp_get_screen_width_from_output_type(u32 disp, u32 output_type, u32 ou
 			width = 3840;
 			height = 2160;
 			break;
+		case DISP_TV_MOD_800_480P:
+			width = 800;
+			height = 480;
+			break;
+		case DISP_TV_MOD_1024_768P:
+			width = 1024;
+			height = 768;
+			break;
+		case DISP_TV_MOD_1280_1024P:
+			width = 1280;
+			height = 1024;
+			break;
+		case DISP_TV_MOD_1360_768P:
+			width = 1360;
+			height = 768;
+			break;
+		case DISP_TV_MOD_1440_900P:
+			width = 1440;
+			height = 900;
+			break;
+		case DISP_TV_MOD_1680_1050P:
+			width = 1680;
+			height = 1050;
+			break;
+		case DISP_TV_MOD_2048_1536P:
+			width = 2048;
+			height = 1536;
+			break;
+		case DISP_TV_MOD_1024_600P:
+			width = 1024;
+			height = 600;
+			break;
 		}
 	}
 	/* FIXME: add other output device res */
@@ -798,6 +834,38 @@ s32 bsp_disp_get_screen_height_from_output_type(u32 disp, u32 output_type, u32 o
 		case DISP_TV_MOD_3840_2160P_24HZ:
 			width = 3840;
 			height = 2160;
+			break;
+		case DISP_TV_MOD_800_480P:
+			width = 800;
+			height = 480;
+			break;
+		case DISP_TV_MOD_1024_768P:
+			width = 1024;
+			height = 768;
+			break;
+		case DISP_TV_MOD_1280_1024P:
+			width = 1280;
+			height = 1024;
+			break;
+		case DISP_TV_MOD_1360_768P:
+			width = 1360;
+			height = 768;
+			break;
+		case DISP_TV_MOD_1440_900P:
+			width = 1440;
+			height = 900;
+			break;
+		case DISP_TV_MOD_1680_1050P:
+			width = 1680;
+			height = 1050;
+			break;
+		case DISP_TV_MOD_2048_1536P:
+			width = 2048;
+			height = 1536;
+			break;
+		case DISP_TV_MOD_1024_600P:
+			width = 1024;
+			height = 600;
 			break;
 		}
 	}

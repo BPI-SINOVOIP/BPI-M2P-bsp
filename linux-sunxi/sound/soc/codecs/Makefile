@@ -99,10 +99,11 @@ snd-soc-wm9712-objs := wm9712.o
 snd-soc-wm9713-objs := wm9713.o
 snd-soc-wm-hubs-objs := wm_hubs.o
 
-# Amp
+snd-soc-rt3261-objs := rt3261/rt3261.o rt3261/rt_codec_ioctl.o rt3261/rt3261_ioctl.o rt3261/rt3261-dsp.o
 snd-soc-max9877-objs := max9877.o
 snd-soc-tpa6130a2-objs := tpa6130a2.o
-
+obj-$(CONFIG_SND_SOC_RT3261)	+= snd-soc-rt3261.o
+obj-$(CONFIG_SND_RT_EFFECT)		+=  rt3261/rt_effect.o
 obj-$(CONFIG_SND_SOC_88PM860X)	+= snd-soc-88pm860x.o
 obj-$(CONFIG_SND_SOC_AC97_CODEC)	+= snd-soc-ac97.o
 obj-$(CONFIG_SND_SOC_AD1836)	+= snd-soc-ad1836.o
@@ -210,5 +211,7 @@ obj-$(CONFIG_SND_SOC_TPA6130A2)	+= snd-soc-tpa6130a2.o
 
 #AC100
 obj-$(CONFIG_SND_SOC_AC100_CODEC) += ac100.o
-obj-$(CONFIG_SND_SOC_AC100DAPM_CODEC) += ac100_dapm.o#AC200
-obj-$(CONFIG_SND_SOC_AC200DAPM_CODEC) += acx00_dapm.o
+obj-$(CONFIG_SND_SOC_ACX00DAPM_CODEC) += ac100_dapm.o #AC200
+obj-$(CONFIG_SND_SOC_ACX00DAPM_CODEC) += acx00_dapm.o
+#tas5731
+obj-$(CONFIG_SND_SOC_TAS5731_CODEC) += tas5731.o

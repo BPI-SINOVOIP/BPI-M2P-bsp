@@ -26,10 +26,11 @@
 #include <mach/sys_config.h>
 #include <mach/platform.h>
 #include "../disp/disp_sys_intf.h"
-
 #include <video/sunxi_display2.h>
 
 static char modules_name[32] = "gm7121";
+static char key_name[20] = "tv_gm7121_para";
+
 #define GM7121_Config(sub_addr,data) tv_i2c_write(sub_addr, data)
 static void gm7121_init(disp_tv_mode tv_mode);
 static disp_tv_mode g_tv_mode = DISP_TV_MOD_PAL;
@@ -70,9 +71,8 @@ static int tv_parse_config(void)
 	for(i=0; i<28; i++) {
 		gpio_info = &(tv_io[i]);
 		sprintf(io_name, "tv_d%d", i);
-		ret = disp_sys_script_get_item("tv_para", io_name, (int *)gpio_info, sizeof(disp_gpio_set_t)/sizeof(int));
-		if(ret == 3)
-		{
+		ret = disp_sys_script_get_item(key_name, io_name, (int *)gpio_info, sizeof(disp_gpio_set_t)/sizeof(int));
+		if(ret == 3) {
 		  tv_io_used[i]= 1;
 		}
 	}
@@ -211,7 +211,7 @@ static s32 gm7121_tv_get_interface_para(void* para)
 //0:rgb;  1:yuv
 static s32 gm7121_tv_get_input_csc(void)
 {
-	return 0;
+	return 1;
 }
 
 static void gm7121_init(disp_tv_mode tv_mode)
@@ -378,16 +378,16 @@ static int  tv_i2c_init(void)
     int ret;
     int value;
 
-    ret = disp_sys_script_get_item("tv_para", "tv_twi_used", &value, 1);
+	ret = disp_sys_script_get_item(key_name, "tv_twi_used", &value, 1);
     if(1 == ret)
     {
         tv_i2c_used = value;
         if(tv_i2c_used == 1)
         {
-            ret = disp_sys_script_get_item("tv_para", "tv_twi_id", &value, 1);
+             ret = disp_sys_script_get_item(key_name, "tv_twi_id", &value, 1);
             tv_i2c_id = (ret == 1)? value:tv_i2c_id;
 
-            ret = disp_sys_script_get_item("tv_para", "tv_twi_addr", &value, 1);
+            ret = disp_sys_script_get_item(key_name, "tv_twi_addr", &value, 1);
             normal_i2c[0] = (ret == 1)? value:normal_i2c[0];
 
             return i2c_add_driver(&tv_i2c_driver);
@@ -455,13 +455,14 @@ static int __init gm7121_module_init(void)
 
 	pr_info("[TV]gm7121_module_init begin\n");
 
-	ret = disp_sys_script_get_item("tv_para", "tv_used", &value, 1);
+	ret = disp_sys_script_get_item(key_name, "tv_used", &value, 1);
 	if(1 == ret) {
 		tv_used = value;
 		if(tv_used)
 		{
 			unsigned int value, output_type0, output_mode0, output_type1, output_mode1;
-			ret = disp_sys_script_get_item("tv_para", "tv_power", (int*)tv_power, 32/sizeof(int));
+
+			ret = disp_sys_script_get_item(key_name, "tv_power", (int*)tv_power, 32/sizeof(int));
 			if(2 == ret) {
 				tv_power_used = 1;
 				printk("[TV] tv_power: %s\n", tv_power);

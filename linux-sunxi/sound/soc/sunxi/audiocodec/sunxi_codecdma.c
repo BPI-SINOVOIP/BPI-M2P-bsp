@@ -40,12 +40,21 @@ static const struct snd_pcm_hardware sunxi_pcm_play_hardware = {
 	.rate_max		= 192000,
 	.channels_min		= 1,
 	.channels_max		= 2,
+#ifndef CONFIG_ARCH_SUN8IW8
 	.buffer_bytes_max	= 1024*1024,    /* value must be (2^n)Kbyte size */
 	.period_bytes_min	= 256,
 	.period_bytes_max	= 1024*128,
 	.periods_min		= 2,
 	.periods_max		= 8,
 	.fifo_size		= 128,
+#else
+	.buffer_bytes_max	= 32*1024,    /* value must be (2^n)Kbyte size */
+	.period_bytes_min	= 256,
+	.period_bytes_max	= 1024*8,
+	.periods_min		= 2,
+	.periods_max		= 4,
+	.fifo_size		= 128,
+#endif
 };
 
 static const struct snd_pcm_hardware sunxi_pcm_capture_hardware = {
@@ -58,12 +67,21 @@ static const struct snd_pcm_hardware sunxi_pcm_capture_hardware = {
 	.rate_max		= 192000,
 	.channels_min		= 1,
 	.channels_max		= 2,
+#ifndef CONFIG_ARCH_SUN8IW8
 	.buffer_bytes_max	= 1024*1024,    /* value must be (2^n)Kbyte size */
 	.period_bytes_min	= 256,
 	.period_bytes_max	= 1024*128,
 	.periods_min		= 2,
 	.periods_max		= 8,
 	.fifo_size		= 128,
+#else
+	.buffer_bytes_max	= 32*1024,    /* value must be (2^n)Kbyte size */
+	.period_bytes_min	= 256,
+	.period_bytes_max	= 1024*8,
+	.periods_min		= 2,
+	.periods_max		= 4,
+	.fifo_size		= 128,
+#endif
 };
 
 static int sunxi_pcm_hw_params(struct snd_pcm_substream *substream,

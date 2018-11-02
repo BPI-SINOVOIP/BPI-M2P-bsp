@@ -23,10 +23,10 @@
  * the runtime footprint, and giving us at least some parts of what
  * a "gcc --combine ... part1.c part2.c part3.c ... " build would.
  */
-#include "composite.c"
-#include "usbstring.c"
-#include "config.c"
-#include "epautoconf.c"
+//#include "composite.c"
+//#include "usbstring.c"
+//#include "config.c"
+//#include "epautoconf.c"
 
 #include "uvc_queue.c"
 #include "uvc_video.c"
@@ -37,17 +37,17 @@
  * Device descriptor
  */
 
-#define WEBCAM_VENDOR_ID		0x1d6b	/* Linux Foundation */
-#define WEBCAM_PRODUCT_ID		0x0102	/* Webcam A/V gadget */
-#define WEBCAM_DEVICE_BCD		0x0010	/* 0.10 */
+//#define WEBCAM_VENDOR_ID		0x1d6b	/* Linux Foundation */
+//#define WEBCAM_PRODUCT_ID		0x0102	/* Webcam A/V gadget */
+//#define WEBCAM_DEVICE_BCD		0x0010	/* 0.10 */
 
-static char webcam_vendor_label[] = "Linux Foundation";
+/* static char webcam_vendor_label[] = "Linux Foundation";
 static char webcam_product_label[] = "Webcam gadget";
 static char webcam_config_label[] = "Video";
-
+*/
 /* string IDs are assigned dynamically */
 
-#define STRING_MANUFACTURER_IDX		0
+/* #define STRING_MANUFACTURER_IDX		0
 #define STRING_PRODUCT_IDX		1
 #define STRING_DESCRIPTION_IDX		2
 
@@ -56,34 +56,34 @@ static struct usb_string webcam_strings[] = {
 	[STRING_PRODUCT_IDX].s = webcam_product_label,
 	[STRING_DESCRIPTION_IDX].s = webcam_config_label,
 	{  }
-};
+}; */
 
-static struct usb_gadget_strings webcam_stringtab = {
-	.language = 0x0409,	/* en-us */
-	.strings = webcam_strings,
-};
+//static struct usb_gadget_strings webcam_stringtab = {
+//	.language = 0x0409,	/* en-us */
+//	.strings = webcam_strings,
+//};
 
-static struct usb_gadget_strings *webcam_device_strings[] = {
+/* static struct usb_gadget_strings *webcam_device_strings[] = {
 	&webcam_stringtab,
 	NULL,
-};
+}; */
 
-static struct usb_device_descriptor webcam_device_descriptor = {
+/* static struct usb_device_descriptor webcam_device_descriptor = {
 	.bLength		= USB_DT_DEVICE_SIZE,
 	.bDescriptorType	= USB_DT_DEVICE,
 	.bcdUSB			= cpu_to_le16(0x0200),
 	.bDeviceClass		= USB_CLASS_MISC,
 	.bDeviceSubClass	= 0x02,
-	.bDeviceProtocol	= 0x01,
-	.bMaxPacketSize0	= 0, /* dynamic */
-	.idVendor		= cpu_to_le16(WEBCAM_VENDOR_ID),
-	.idProduct		= cpu_to_le16(WEBCAM_PRODUCT_ID),
-	.bcdDevice		= cpu_to_le16(WEBCAM_DEVICE_BCD),
-	.iManufacturer		= 0, /* dynamic */
-	.iProduct		= 0, /* dynamic */
-	.iSerialNumber		= 0, /* dynamic */
-	.bNumConfigurations	= 0, /* dynamic */
-};
+	.bDeviceProtocol	= 0x01, */
+//	.bMaxPacketSize0	= 0, /* dynamic */
+//	.idVendor		= cpu_to_le16(WEBCAM_VENDOR_ID),
+//	.idProduct		= cpu_to_le16(WEBCAM_PRODUCT_ID),
+//	.bcdDevice		= cpu_to_le16(WEBCAM_DEVICE_BCD),
+//	.iManufacturer		= 0, /* dynamic */
+//	.iProduct		= 0, /* dynamic */
+//	.iSerialNumber		= 0, /* dynamic */
+//	.bNumConfigurations	= 0, /* dynamic */
+//};
 
 DECLARE_UVC_HEADER_DESCRIPTOR(1);
 
@@ -217,7 +217,7 @@ static const struct uvc_format_mjpeg uvc_format_mjpg = {
 	.bDescriptorType	= USB_DT_CS_INTERFACE,
 	.bDescriptorSubType	= UVC_VS_FORMAT_MJPEG,
 	.bFormatIndex		= 2,
-	.bNumFrameDescriptors	= 2,
+	.bNumFrameDescriptors	= 1,
 	.bmFlags		= 0,
 	.bDefaultFrameIndex	= 1,
 	.bAspectRatioX		= 0,
@@ -255,12 +255,12 @@ static const struct UVC_FRAME_MJPEG(1) uvc_frame_mjpg_720p = {
 	.bmCapabilities		= 0,
 	.wWidth			= cpu_to_le16(1280),
 	.wHeight		= cpu_to_le16(720),
-	.dwMinBitRate		= cpu_to_le32(29491200),
-	.dwMaxBitRate		= cpu_to_le32(29491200),
+	.dwMinBitRate		= cpu_to_le32(442368000),
+	.dwMaxBitRate		= cpu_to_le32(442368000),
 	.dwMaxVideoFrameBufferSize	= cpu_to_le32(1843200),
-	.dwDefaultFrameInterval	= cpu_to_le32(5000000),
+	.dwDefaultFrameInterval	= cpu_to_le32(333333),
 	.bFrameIntervalType	= 1,
-	.dwFrameInterval[0]	= cpu_to_le32(5000000),
+	.dwFrameInterval[0]	= cpu_to_le32(333333),
 };
 
 static const struct uvc_color_matching_descriptor uvc_color_matching = {
@@ -282,11 +282,11 @@ static const struct uvc_descriptor_header * const uvc_control_cls[] = {
 
 static const struct uvc_descriptor_header * const uvc_fs_streaming_cls[] = {
 	(const struct uvc_descriptor_header *) &uvc_input_header,
-	(const struct uvc_descriptor_header *) &uvc_format_yuv,
-	(const struct uvc_descriptor_header *) &uvc_frame_yuv_360p,
-	(const struct uvc_descriptor_header *) &uvc_frame_yuv_720p,
+	//(const struct uvc_descriptor_header *) &uvc_format_yuv,
+	//(const struct uvc_descriptor_header *) &uvc_frame_yuv_360p,
+	//(const struct uvc_descriptor_header *) &uvc_frame_yuv_720p,
 	(const struct uvc_descriptor_header *) &uvc_format_mjpg,
-	(const struct uvc_descriptor_header *) &uvc_frame_mjpg_360p,
+	//(const struct uvc_descriptor_header *) &uvc_frame_mjpg_360p,
 	(const struct uvc_descriptor_header *) &uvc_frame_mjpg_720p,
 	(const struct uvc_descriptor_header *) &uvc_color_matching,
 	NULL,
@@ -294,11 +294,11 @@ static const struct uvc_descriptor_header * const uvc_fs_streaming_cls[] = {
 
 static const struct uvc_descriptor_header * const uvc_hs_streaming_cls[] = {
 	(const struct uvc_descriptor_header *) &uvc_input_header,
-	(const struct uvc_descriptor_header *) &uvc_format_yuv,
-	(const struct uvc_descriptor_header *) &uvc_frame_yuv_360p,
-	(const struct uvc_descriptor_header *) &uvc_frame_yuv_720p,
+	//(const struct uvc_descriptor_header *) &uvc_format_yuv,
+	//(const struct uvc_descriptor_header *) &uvc_frame_yuv_360p,
+	//(const struct uvc_descriptor_header *) &uvc_frame_yuv_720p,
 	(const struct uvc_descriptor_header *) &uvc_format_mjpg,
-	(const struct uvc_descriptor_header *) &uvc_frame_mjpg_360p,
+	//(const struct uvc_descriptor_header *) &uvc_frame_mjpg_360p,
 	(const struct uvc_descriptor_header *) &uvc_frame_mjpg_720p,
 	(const struct uvc_descriptor_header *) &uvc_color_matching,
 	NULL,
@@ -307,37 +307,36 @@ static const struct uvc_descriptor_header * const uvc_hs_streaming_cls[] = {
 /* --------------------------------------------------------------------------
  * USB configuration
  */
-
-static int __init
+static int
 webcam_config_bind(struct usb_configuration *c)
 {
 	return uvc_bind_config(c, uvc_control_cls, uvc_fs_streaming_cls,
 			       uvc_hs_streaming_cls);
 }
 
-static struct usb_configuration webcam_config_driver = {
-	.label			= webcam_config_label,
-	.bConfigurationValue	= 1,
-	.iConfiguration		= 0, /* dynamic */
-	.bmAttributes		= USB_CONFIG_ATT_SELFPOWER,
-	.bMaxPower		= CONFIG_USB_GADGET_VBUS_DRAW / 2,
-};
+//static struct usb_configuration webcam_config_driver = {
+//	.label			= webcam_config_label,
+//	.bConfigurationValue	= 1,
+//	.iConfiguration		= 0, /* dynamic */
+//	.bmAttributes		= USB_CONFIG_ATT_SELFPOWER,
+//	.bMaxPower		= CONFIG_USB_GADGET_VBUS_DRAW / 2,
+//};
 
-static int /* __init_or_exit */
-webcam_unbind(struct usb_composite_dev *cdev)
+//static int /* __init_or_exit */
+/* webcam_unbind(struct usb_composite_dev *cdev)
 {
 	return 0;
 }
 
-static int __init
+static int
 webcam_bind(struct usb_composite_dev *cdev)
 {
 	int ret;
-
+*/
 	/* Allocate string descriptor numbers ... note that string contents
 	 * can be overridden by the composite_dev glue.
 	 */
-	if ((ret = usb_string_id(cdev)) < 0)
+/*	if ((ret = usb_string_id(cdev)) < 0)
 		goto error;
 	webcam_strings[STRING_MANUFACTURER_IDX].id = ret;
 	webcam_device_descriptor.iManufacturer = ret;
@@ -351,24 +350,25 @@ webcam_bind(struct usb_composite_dev *cdev)
 		goto error;
 	webcam_strings[STRING_DESCRIPTION_IDX].id = ret;
 	webcam_config_driver.iConfiguration = ret;
-
+*/
 	/* Register our configuration. */
-	if ((ret = usb_add_config(cdev, &webcam_config_driver,
+/*	if ((ret = usb_add_config(cdev, &webcam_config_driver,
 					webcam_config_bind)) < 0)
 		goto error;
 
-	INFO(cdev, "Webcam Video Gadget\n");
+	//INFO(cdev, "Webcam Video Gadget\n");
+	usb_gadget_connect(cdev->gadget);
 	return 0;
 
 error:
 	webcam_unbind(cdev);
 	return ret;
-}
+} */
 
 /* --------------------------------------------------------------------------
  * Driver
  */
-
+/*
 static struct usb_composite_driver webcam_driver = {
 	.name		= "g_webcam",
 	.dev		= &webcam_device_descriptor,
@@ -377,18 +377,19 @@ static struct usb_composite_driver webcam_driver = {
 	.unbind		= webcam_unbind,
 };
 
-static int __init
+static int
 webcam_init(void)
 {
 	return usb_composite_probe(&webcam_driver, webcam_bind);
 }
 
-static void __exit
+static void
 webcam_cleanup(void)
 {
 	usb_composite_unregister(&webcam_driver);
 }
-
+*/
+/*
 module_init(webcam_init);
 module_exit(webcam_cleanup);
 
@@ -396,4 +397,5 @@ MODULE_AUTHOR("Laurent Pinchart");
 MODULE_DESCRIPTION("Webcam Video Gadget");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("0.1.0");
+*/
 

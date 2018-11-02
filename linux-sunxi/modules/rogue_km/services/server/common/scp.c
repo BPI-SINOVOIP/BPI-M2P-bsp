@@ -352,7 +352,7 @@ PVRSRV_ERROR _SCPCommandReady(SCP_COMMAND *psCommand)
 		*/
 		if (psSCPSyncData->ui32Flags & SCP_SYNC_DATA_FENCE)
 		{
-			if (!ServerSyncFenceIsMeet(psSCPSyncData->psSync, psSCPSyncData->ui32Fence))
+			if (!ServerSyncFenceIsMet(psSCPSyncData->psSync, psSCPSyncData->ui32Fence))
 			{
 				return PVRSRV_ERROR_FAILED_DEPENDENCIES;
 			}
@@ -363,22 +363,20 @@ PVRSRV_ERROR _SCPCommandReady(SCP_COMMAND *psCommand)
 	/* Check for the provided acquire fence */
 	if (psCommand->psAcquireFence != IMG_NULL)
 	{
-/*			int err = sync_fence_wait(psCommand->psAcquireFence, 0);*/
-/*			if (!err)*/
-		/* 0 means active. In this case we will retry later again. If the
-		 * return value is an error or a positive number we will close this
-		 * fence and proceed. This makes sure that we are not getting stuck
-		 * here when a fence changes into an error state for whatever reason. */
-		smp_rmb();
-		if (psCommand->psAcquireFence->status == 0)
+		int err = sync_fence_wait(psCommand->psAcquireFence, 0);
+		/* -ETIME means active. In this case we will retry later again. If the
+		 * return value is an error or zero we will close this fence and
+		 * proceed. This makes sure that we are not getting stuck here when a
+		 * fence changes into an error state for whatever reason. */
+		if (err == -ETIME)
 		{
 			return PVRSRV_ERROR_FAILED_DEPENDENCIES;
 		}
 		else
 		{
-			if (psCommand->psAcquireFence->status < 0)
+			if (err)
 			{
-				PVR_LOG(("SCP: Fence wait failed with %d", psCommand->psAcquireFence->status));
+				PVR_LOG(("SCP: Fence wait failed with %d", err));
 				_SCPDumpFence("Acquire Fence", psCommand->psAcquireFence);
 			}
 			/* Put the fence. */
@@ -717,6 +715,8 @@ IMG_EXPORT
 PVRSRV_ERROR SCPRun(SCP_CONTEXT *psContext)
 {
 	SCP_COMMAND *psCommand;
+	PVRSRV_ERROR eError = PVRSRV_OK;
+
 
 	if (psContext == IMG_NULL)
 	{
@@ -726,8 +726,6 @@ PVRSRV_ERROR SCPRun(SCP_CONTEXT *psContext)
 	OSLockAcquire(psContext->hLock);
 	while (psContext->ui32DepOffset != psContext->ui32WriteOffset)
 	{
-		PVRSRV_ERROR eError;
-
 		psCommand = (SCP_COMMAND *)((IMG_UINT8 *)psContext->pvCCB +
 		            psContext->ui32DepOffset);
 
@@ -755,7 +753,7 @@ PVRSRV_ERROR SCPRun(SCP_CONTEXT *psContext)
 	}
 	OSLockRelease(psContext->hLock);
 
-	return PVRSRV_OK;
+	return eError;
 }
 
 IMG_EXPORT
@@ -853,11 +851,22 @@ IMG_VOID IMG_CALLCONV SCPDumpStatus(SCP_CONTEXT *psContext)
 	else
 	{
 		SCP_COMMAND *psCommand;
+		IMG_UINT32 ui32DepOffset = psContext->ui32DepOffset;
 
-		/* Dump the command we're pending on */
-		psCommand = (SCP_COMMAND *)((IMG_UINT8 *)psContext->pvCCB +
-		            psContext->ui32DepOffset);
-		_SCPDumpCommand(psCommand);
+		while (ui32DepOffset != psContext->ui32WriteOffset)
+		{
+		        /* Dump the command we're pending on */
+		        psCommand = (SCP_COMMAND *)((IMG_UINT8 *)psContext->pvCCB +
+		                ui32DepOffset);
+
+		        _SCPDumpCommand(psCommand);
+
+		        /* processed cmd so update queue */
+		        UPDATE_CCB_OFFSET(ui32DepOffset,
+		                                          psCommand->ui32CmdSize,
+		                                          psContext->ui32CCBSize);
+
+		}
 	}
 	
 	PVR_LOG(("Active command(s):"));

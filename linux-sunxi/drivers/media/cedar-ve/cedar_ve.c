@@ -285,11 +285,11 @@ static irqreturn_t VideoEngineInterupt(int irq, void *dev)
 		        val = readl(ve_int_ctrl_reg);
 		        writel(val & (~0xf), ve_int_ctrl_reg);
 		    }
-		
 		    cedar_devp->de_irq_value = 1;	//hx modify 2011-8-1 16:08:47
 		    cedar_devp->de_irq_flag = 1;
 		    //any interrupt will wake up wait queue
-		    wake_up_interruptible(&wait_ve);        //ioctl
+//		    wake_up_interruptible(&wait_ve);        //ioctl
+		    wake_up(&wait_ve);        //ioctl
 		}
 	}
 
@@ -518,6 +518,7 @@ long cedardev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	long   ret = 0;	
 	int ve_timeout = 0;
+	int wait_ret = 0;
 	//struct cedar_dev *devp;
 #ifdef USE_CEDAR_ENGINE
 	int rel_taskid = 0;
@@ -626,15 +627,15 @@ long cedardev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         case IOCTL_WAIT_VE_DE:            
             ve_timeout = (int)arg;
             cedar_devp->de_irq_value = 0;
-            
+
             spin_lock_irqsave(&cedar_spin_lock, flags);
             if(cedar_devp->de_irq_flag)
             	cedar_devp->de_irq_value = 1;
             spin_unlock_irqrestore(&cedar_spin_lock, flags);
             
-            wait_event_interruptible_timeout(wait_ve, cedar_devp->de_irq_flag, ve_timeout*HZ);            
-	        cedar_devp->de_irq_flag = 0;	
-
+			//wait_event_interruptible_timeout(wait_ve, cedar_devp->de_irq_flag, ve_timeout*HZ);
+			wait_ret = wait_event_timeout(wait_ve, cedar_devp->de_irq_flag, ve_timeout*HZ);
+			cedar_devp->de_irq_flag = 0;
 			return cedar_devp->de_irq_value;
 			
 		case IOCTL_WAIT_VE_EN:             
@@ -744,28 +745,7 @@ long cedardev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         case IOCTL_GET_IC_VER:
         {        	
 			return 0;
-        }        
-        case IOCTL_READ_REG:
-        {
-            struct cedarv_regop reg_para;
-			if(copy_from_user(&reg_para, (void __user*)arg, sizeof(struct cedarv_regop)))
-			{
-                return -EFAULT;
-			}
-            return readl(reg_para.addr);
         }
-
-        case IOCTL_WRITE_REG:
-        {
-            struct cedarv_regop reg_para;
-			if(copy_from_user(&reg_para, (void __user*)arg, sizeof(struct cedarv_regop)))
-			{
-	            return -EFAULT;
-			}
-            writel(reg_para.value, reg_para.addr);
-            break;
-        }
-        break;
         case IOCTL_SET_REFCOUNT:
         	cedar_devp->ref_count = (int)arg;
         break;

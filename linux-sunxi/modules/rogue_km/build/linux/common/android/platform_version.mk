@@ -38,95 +38,69 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ### ###########################################################################
 
-# Figure out the version of Android we're building against.
-#
-PLATFORM_VERSION := $(shell \
-	if [ -f $(TARGET_ROOT)/product/$(TARGET_DEVICE)/system/build.prop ]; then \
-		cat $(TARGET_ROOT)/product/$(TARGET_DEVICE)/system/build.prop | \
-			grep ^ro.build.version.release | cut -f2 -d'=' | cut -f1 -d'-'; \
-	else \
-		echo 4.4; \
-	fi)
+PLATFORM_CODENAME := REL
+PLATFORM_RELEASE := 4.4.2
 
-define version-starts-with
-$(shell echo $(PLATFORM_VERSION) | grep -q ^$(1); \
-	[ "$$?" = "0" ] && echo 1 || echo 0)
-endef
-
-# ro.build.version.release contains the version number for release builds, or
-# the version codename otherwise. In this case we need to assume that the
-# version of Android we're building against has the features that are in the
-# final release of that version, so we set PLATFORM_VERSION to the
-# corresponding release number.
-#
-# NOTE: It's the _string_ ordering that matters here, not the version number
-# ordering. You need to make sure that strings that are sub-strings of other
-# checked strings appear _later_ in this list.
-#
-# e.g. 'JellyBeanMR' starts with 'JellyBean', but it is not JellyBean.
-#
-ifeq ($(call version-starts-with,JellyBeanMR1),1)
-PLATFORM_VERSION := 4.2
-else ifeq ($(call version-starts-with,JellyBeanMR),1)
-PLATFORM_VERSION := 4.3
-else ifeq ($(call version-starts-with,JellyBean),1)
-PLATFORM_VERSION := 4.1
-else ifeq ($(call version-starts-with,KeyLimePie),1)
-PLATFORM_VERSION := 4.4
-else ifeq ($(call version-starts-with,KitKat),1)
-PLATFORM_VERSION := 4.4
-else ifeq ($(shell echo $(PLATFORM_VERSION) | grep -qE "[A-Za-z]+"; echo $$?),0)
-PLATFORM_VERSION := 5.0
-endif
-
-PLATFORM_VERSION_MAJ   := $(shell echo $(PLATFORM_VERSION) | cut -f1 -d'.')
-PLATFORM_VERSION_MIN   := $(shell echo $(PLATFORM_VERSION) | cut -f2 -d'.')
-PLATFORM_VERSION_PATCH := $(shell echo $(PLATFORM_VERSION) | cut -f3 -d'.')
+PLATFORM_RELEASE_MAJ   := $(shell echo $(PLATFORM_RELEASE) | cut -f1 -d'.')
+PLATFORM_RELEASE_MIN   := $(shell echo $(PLATFORM_RELEASE) | cut -f2 -d'.')
+PLATFORM_RELEASE_PATCH := $(shell echo $(PLATFORM_RELEASE) | cut -f3 -d'.')
 
 # Not all versions have a patchlevel; fix that up here
 #
-ifeq ($(PLATFORM_VERSION_PATCH),)
-PLATFORM_VERSION_PATCH := 0
+ifeq ($(PLATFORM_RELEASE_PATCH),)
+PLATFORM_RELEASE_PATCH := 0
 endif
 
 # Macros to help categorize support for features and API_LEVEL for tests.
 #
-is_at_least_jellybean := \
-	$(shell ( test $(PLATFORM_VERSION_MAJ) -gt 4 || \
-				( test $(PLATFORM_VERSION_MAJ) -eq 4 && \
-				  test $(PLATFORM_VERSION_MIN) -ge 1 ) ) && echo 1 || echo 0)
 is_at_least_jellybean_mr1 := \
-	$(shell ( test $(PLATFORM_VERSION_MAJ) -gt 4 || \
-				( test $(PLATFORM_VERSION_MAJ) -eq 4 && \
-				  test $(PLATFORM_VERSION_MIN) -ge 2 ) ) && echo 1 || echo 0)
+	$(shell ( test $(PLATFORM_RELEASE_MAJ) -gt 4 || \
+				( test $(PLATFORM_RELEASE_MAJ) -eq 4 && \
+				  test $(PLATFORM_RELEASE_MIN) -ge 2 ) ) && echo 1 || echo 0)
 is_at_least_jellybean_mr2 := \
-	$(shell ( test $(PLATFORM_VERSION_MAJ) -gt 4 || \
-				( test $(PLATFORM_VERSION_MAJ) -eq 4 && \
-				  test $(PLATFORM_VERSION_MIN) -ge 3 ) ) && echo 1 || echo 0)
+	$(shell ( test $(PLATFORM_RELEASE_MAJ) -gt 4 || \
+				( test $(PLATFORM_RELEASE_MAJ) -eq 4 && \
+				  test $(PLATFORM_RELEASE_MIN) -ge 3 ) ) && echo 1 || echo 0)
 is_at_least_kitkat := \
-	$(shell ( test $(PLATFORM_VERSION_MAJ) -gt 4 || \
-				( test $(PLATFORM_VERSION_MAJ) -eq 4 && \
-				  test $(PLATFORM_VERSION_MIN) -ge 4 ) ) && echo 1 || echo 0)
+	$(shell ( test $(PLATFORM_RELEASE_MAJ) -gt 4 || \
+				( test $(PLATFORM_RELEASE_MAJ) -eq 4 && \
+				  test $(PLATFORM_RELEASE_MIN) -ge 4 ) ) && echo 1 || echo 0)
+is_at_least_kitkat_mr1 := \
+	$(shell ( test $(PLATFORM_RELEASE_MAJ) -gt 4 || \
+				( test $(PLATFORM_RELEASE_MAJ) -eq 4 && \
+				  test $(PLATFORM_RELEASE_MIN) -gt 4 ) || \
+					( test $(PLATFORM_RELEASE_MAJ) -eq 4 && \
+					  test $(PLATFORM_RELEASE_MIN) -eq 4 && \
+					  test $(PLATFORM_RELEASE_PATCH) -ge 1 ) ) && echo 1 || echo 0)
 
 # Assume "future versions" are >=5.0, but we don't really know
 is_future_version := \
-	$(shell ( test $(PLATFORM_VERSION_MAJ) -ge 5 ) && echo 1 || echo 0)
+	$(shell ( test $(PLATFORM_RELEASE_MAJ) -ge 5 ) && echo 1 || echo 0)
+
+# Sometimes a feature is introduced in AOSP master that isn't on the current
+# PDK branch, but both versions are beyond our support level. This variable
+# can be used to differentiate those builds.
+#
+ifeq ($(PLATFORM_CODENAME)$(is_future_version),AOSP1)
+is_aosp_master := 1
+else
+is_aosp_master := 0
+endif
 
 # Picking an exact match of API_LEVEL for the platform we're building
 # against can avoid compatibility theming and affords better integration.
 #
 ifeq ($(is_future_version),1)
-API_LEVEL := 20
+# Temporarily pin to 19 until it is actually bumped to 20
+API_LEVEL := 19
 else ifeq ($(is_at_least_kitkat),1)
 API_LEVEL := 19
 else ifeq ($(is_at_least_jellybean_mr2),1)
 API_LEVEL := 18
 else ifeq ($(is_at_least_jellybean_mr1),1)
 API_LEVEL := 17
-else ifeq ($(is_at_least_jellybean),1)
-API_LEVEL := 16
 else
-$(error Must build against Android >= 4.1)
+$(error Must build against Android >= 4.2)
 endif
 
 # Each DDK is tested against only a single version of the platform.

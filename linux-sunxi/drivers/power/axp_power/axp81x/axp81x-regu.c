@@ -428,7 +428,7 @@ struct axp_funcdev_info *axp81x_regu_init(void)
 {
 	int ret = 0;
 
-	ret = axp_regu_fetch_sysconfig_para("pmu1_regu", (struct axp_reg_init *)(&axp_regl_init_data));
+	ret = axp_regu_fetch_sysconfig_para(pmu_type, (struct axp_reg_init *)(&axp_regl_init_data));
 	if (0 != ret)
 		return NULL;
 

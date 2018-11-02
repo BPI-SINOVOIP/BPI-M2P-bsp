@@ -49,8 +49,6 @@ static void LCD_cfg_panel_info(panel_extend_para * info)
 		},
 	};
 
-//	memset(info,0,sizeof(panel_extend_para));
-
 	items = sizeof(lcd_gamma_tbl)/2;
 	for(i=0; i<items-1; i++) {
 		u32 num = lcd_gamma_tbl[i+1][0] - lcd_gamma_tbl[i][0];
@@ -63,19 +61,6 @@ static void LCD_cfg_panel_info(panel_extend_para * info)
 		}
 	}
 	info->lcd_gamma_tbl[255] = (lcd_gamma_tbl[items-1][1]<<16) + (lcd_gamma_tbl[items-1][1]<<8) + lcd_gamma_tbl[items-1][1];
-
-//	items = sizeof(lcd_bright_curve_tbl)/2;
-//	for(i=0; i<items-1; i++) {
-//		u32 num = lcd_bright_curve_tbl[i+1][0] - lcd_bright_curve_tbl[i][0];
-//
-//		for(j=0; j<num; j++) {
-//			u32 value = 0;
-//
-//			value = lcd_bright_curve_tbl[i][1] + ((lcd_bright_curve_tbl[i+1][1] - lcd_bright_curve_tbl[i][1]) * j)/num;
-//			info->lcd_bright_curve_tbl[lcd_bright_curve_tbl[i][0] + j] = value;
-//		}
-//	}
-//	info->lcd_bright_curve_tbl[255] = lcd_bright_curve_tbl[items-1][1];
 
 	memcpy(info->lcd_cmap_tbl, lcd_cmap_tbl, sizeof(lcd_cmap_tbl));
 

@@ -8,6 +8,7 @@ extern struct _nand_info* p_nand_info;
 extern void NAND_Interrupt(__u32 nand_index);
 extern __u32 NAND_GetCurrentCH(void);
 extern int  init_blklayer(void);
+extern int init_blklayer_for_dragonboard(void);
 extern void   exit_blklayer(void);
 extern void set_cache_level(struct _nand_info*nand_info,unsigned short cache_level);
 extern int NAND_get_storagetype(void);
@@ -419,42 +420,36 @@ int __init nand_init(void)
         return 0;
     }
 
-
-    p_nand_info = NandHwInit();
-	if(p_nand_info == NULL){
-	    kfree(data);
-		return EAGAIN;
-	}
-
-    set_cache_level(p_nand_info,nand_cache_level.val);
-    set_capacity_level(p_nand_info,nand_capacity_level.val);
-
     storage_type = NAND_get_storagetype();
 	if((1 != storage_type)&&(2 != storage_type))
     {
+		p_nand_info = NandHwInit();
+		if(p_nand_info == NULL){
+		    kfree(data);
+			return EAGAIN;
+		}
+
+	    set_cache_level(p_nand_info,nand_cache_level.val);
+	    set_capacity_level(p_nand_info,nand_capacity_level.val);
+		
 		ret = nand_info_init(p_nand_info,0,8,NULL);
+		
+		kfree(data);
+	    if(ret != 0)
+	    {
+	        return ret;
+	    }
+
+		platform_device_register(&nand_device);
+	   	platform_driver_register(&nand_driver);
+
+	    init_blklayer();
     }
 	else
 	{
 		nand_dbg_err("storage_type=%d,run nand test for dragonboard\n",storage_type);
-		#if 0
-			PHY_erase_chip();
-		#endif
-		test_mbr(data);
-		ret = nand_info_init(p_nand_info,0,8,data);
+		init_blklayer_for_dragonboard();
 	}
-	kfree(data);
-    if(ret != 0)
-    {
-        return ret;
-    }
-
-	platform_device_register(&nand_device);
-   	platform_driver_register(&nand_driver);
-
-   
-
-    init_blklayer();
 
     nand_dbg_err("nand init end \n");
 

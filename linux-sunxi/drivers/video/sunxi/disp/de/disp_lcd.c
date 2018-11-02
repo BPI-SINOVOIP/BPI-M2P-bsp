@@ -1560,18 +1560,17 @@ static s32 disp_lcd_pre_enable(struct disp_lcd* lcd)
 	/* clk enable */
 	if((NULL == lcd->p_sw_init_flag) || (0 == *(lcd->p_sw_init_flag))) {
 		lcd_clk_enable(lcd);
-
 		disp_al_lcd_init(lcd->channel_id);
 		disp_al_lcd_cfg(lcd->channel_id, &lcdp->panel_info);
 		disp_al_lcd_set_clk_div(lcd->channel_id, lcdp->lcd_clk.clk_div);
 	} else {
+#if defined(CONFIG_HOMLET_PLATFORM)
 		lcd_clk_enable_sw(lcd);
 		disp_al_lcd_init_sw(lcd->channel_id);
 		disp_al_lcd_cfg(lcd->channel_id, &lcdp->panel_info);
 		//disp_al_lcd_set_clk_div(lcd->channel_id, lcdp->lcd_clk.clk_div);
+#endif
 	}
-	//disp_al_check_display_size(lcd->channel_id);
-	//disp_al_check_csc(lcd->channel_id);
 
 	//gpio init
 	disp_lcd_gpio_init(lcd);
@@ -2067,7 +2066,7 @@ s32 disp_lcd_get_tv_mode(struct disp_lcd *lcd)
 	}
 	channel_id = lcd->channel_id;
 	if(NULL != lcdp->lcd_panel_fun.lcd_user_defined_func) {
-		tv_mode = lcdp->lcd_panel_fun.lcd_user_defined_func(channel_id, 0, NULL, NULL);
+		tv_mode = lcdp->lcd_panel_fun.lcd_user_defined_func(channel_id, 0, 0, 0);
 	} else {
 		printk("lcd_user_defined_func for get cvbs mode is null!!!\n");
 	}
@@ -2103,11 +2102,13 @@ s32 disp_lcd_set_tv_mode(struct disp_lcd *lcd, disp_tv_mode tv_mode)
         info->lcd_hv_syuv_fdly = LCD_HV_SRGB_FDLY_3LINE;
         info->lcd_hv_syuv_seq = LCD_HV_SYUV_SEQ_UYUV;
 		if(NULL != lcdp->lcd_panel_fun.lcd_user_defined_func) {
-			lcdp->lcd_panel_fun.lcd_user_defined_func(channel_id, 1, tv_mode, NULL);
+			lcdp->lcd_panel_fun.lcd_user_defined_func(channel_id, 1, tv_mode, 0);
 		} else {
 			printk("lcd_user_defined_func for cvbs is null!!!\n");
 		}
+#if defined(CONFIG_ARCH_SUN9IW1P1)
 		disp_al_cfg_itl(channel_id, 1);
+#endif
         ret = 0;
 	} else if(DISP_TV_MOD_NTSC == tv_mode) {
         info->lcd_if = 0;
@@ -2124,11 +2125,13 @@ s32 disp_lcd_set_tv_mode(struct disp_lcd *lcd, disp_tv_mode tv_mode)
         info->lcd_hv_syuv_fdly = LCD_HV_SRGB_FDLY_2LINE;
         info->lcd_hv_syuv_seq = LCD_HV_SYUV_SEQ_UYUV;
 		if(NULL != lcdp->lcd_panel_fun.lcd_user_defined_func) {
-			lcdp->lcd_panel_fun.lcd_user_defined_func(channel_id, 1, tv_mode, NULL);
+			lcdp->lcd_panel_fun.lcd_user_defined_func(channel_id, 1, tv_mode, 0);
 		} else {
 			printk("lcd_user_defined_func for cvbs is null!!!\n");
 		}
+#if defined(CONFIG_ARCH_SUN9IW1P1)
 		disp_al_cfg_itl(channel_id, 1);
+#endif
         ret = 0;
 	}
 	return ret;
@@ -2378,10 +2381,12 @@ static s32 disp_lcd_init(struct disp_lcd* lcd)
 	lcdp->lcd_cfg.backlight_dimming = 256;
 
 	if((NULL != lcd->p_sw_init_flag) && (0 != *(lcd->p_sw_init_flag))) {
+#if defined(CONFIG_HOMLET_PLATFORM)
 		lcd_clk_init_sw(lcd);
 		lcd_clk_enable_sw(lcd);
 		disp_al_lcd_init_sw(lcd->channel_id);
 		lcd_clk_disable_sw(lcd);
+#endif
 	} else {
 		lcd_clk_init(lcd);
 		lcd_clk_enable(lcd);

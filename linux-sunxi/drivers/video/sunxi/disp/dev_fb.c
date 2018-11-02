@@ -19,10 +19,13 @@
 extern fb_info_t g_fbi;
 extern u32 fastboot;
 extern u32 disp_get_disp_rsl(void);
+extern s32 get_para_from_cmdline(const char *cmdline, const char *name, char *value);
 #define FBHANDTOID(handle)  ((handle) - 100)
 #define FBIDTOHAND(ID)  ((ID) + 100)
 
 static struct __fb_addr_para g_fb_addr;
+static phys_addr_t bootlogo_addr = 0;
+static int bootlogo_sz = 0;
 
 s32 sunxi_get_fb_addr_para(struct __fb_addr_para *fb_addr_para){
 	if(fb_addr_para){
@@ -426,14 +429,14 @@ static int Fb_map_boot_logo(__u32 sel, struct fb_info *info)
 	}
 
     bsp_disp_layer_get_size(2 , 0, &src_width, &src_height); //fixme
-    if((src_width > info->var.xres) || (src_height > info->var.yres))
+    src_phy_addr = bsp_disp_layer_get_addr(2, 0); //fixme
+    __wrn("[fb_map_boot_logo]w=%d,h=%d,addr=0x%x\n", src_width, src_height, src_phy_addr);
+    if((src_width > info->var.xres) || (src_height > info->var.yres) ||
+		(src_width < 5) || (src_height < 5) || (src_phy_addr < 0x600))
     {
-        __wrn("[FB]bootlogo size is larger than fb size!");
         return -EINVAL;
     }
     src_widthstep = src_width << 2;
-    src_phy_addr = bsp_disp_layer_get_addr(2, 0); //fixme
-    printk("[fb_map_boot_logo]w=%d,h=%d,addr=0x%x\n", src_width, src_height, src_phy_addr);
     src_vir_addr = (u32 *)Fb_map_kernel(src_phy_addr, src_widthstep * src_height);
     if(!src_vir_addr)
     {
@@ -1189,6 +1192,138 @@ static inline unsigned long RoundUpToMultiple(unsigned long x, unsigned long y)
 }
 #endif
 
+
+static int Fb_map_kernel_logo(__u32 sel, struct fb_info *info)
+{
+	void *vaddr = NULL;
+	unsigned int paddr =  0;
+	void *screen_offset = NULL, *image_offset = NULL;
+	char *tmp_buffer = NULL;
+	char *bmp_data =NULL;
+	sunxi_bmp_store_t s_bmp_info;
+	sunxi_bmp_store_t *bmp_info = &s_bmp_info;
+	bmp_image_t *bmp = NULL;
+	int zero_num = 0;
+	unsigned long x, y, bmp_bpix, fb_width, fb_height;
+	unsigned int effective_width, effective_height;
+	unsigned int offset;
+	int i = 0;
+
+	paddr = bootlogo_addr;
+	if(0 == paddr) {
+		__wrn("Fb_map_kernel_logo failed!");
+		return -1;
+	}
+
+	/* parser bmp header */
+	offset = paddr & ~PAGE_MASK;
+	vaddr = (void *)Fb_map_kernel(paddr, sizeof(bmp_header_t));
+	if(0 == vaddr) {
+		__wrn("fb_map_kernel failed, paddr=0x%x,size=0x%x\n", paddr, sizeof(bmp_header_t));
+		return -1;
+	}
+	bmp = (bmp_image_t *)vaddr + offset;
+	if((bmp->header.signature[0]!='B') || (bmp->header.signature[1] !='M')) {
+		__wrn("this is not a bmp picture\n");
+		return -1;
+	}
+
+	bmp_bpix = bmp->header.bit_count/8;
+
+	if((bmp_bpix != 3) && (bmp_bpix != 4)) {
+		return -1;
+	}
+
+	if(bmp_bpix ==3) {
+		zero_num = (4 - ((3*bmp->header.width) % 4))&3;
+	}
+
+	x = bmp->header.width;
+	y = (bmp->header.height & 0x80000000) ? (-bmp->header.height):(bmp->header.height);
+	fb_width = info->var.xres;
+	fb_height = info->var.yres;
+	if((paddr <= 0) || x <= 1 || y <= 1) {
+		__wrn("kernel logo para error!\n");
+		return -EINVAL;
+	}
+
+	bmp_info->x = x;
+	bmp_info->y = y;
+	bmp_info->bit = bmp->header.bit_count;
+	bmp_info->buffer = (void *)(info->screen_base);
+
+	if(bmp_bpix == 3)
+		info->var.bits_per_pixel = 24;
+	else if(bmp_bpix == 4)
+		info->var.bits_per_pixel = 32;
+	else
+		info->var.bits_per_pixel = 32;
+
+	Fb_unmap_kernel(vaddr);
+
+	/* map the total bmp buffer */
+	vaddr = (void *)Fb_map_kernel(paddr, x * y * bmp_bpix + sizeof(bmp_header_t));
+	if(0 == vaddr) {
+		__wrn("fb_map_kernel failed, paddr=0x%x,size=0x%x\n", paddr, (unsigned int)(x * y * bmp_bpix + sizeof(bmp_header_t)));
+		return -1;
+	}
+
+	bmp = (bmp_image_t *)vaddr + offset;
+
+	tmp_buffer = (char *)bmp_info->buffer;
+	screen_offset = (void *)bmp_info->buffer;
+	bmp_data = (char *)(vaddr + bmp->header.data_offset);
+	image_offset = (void *)bmp_data;
+	effective_width = (fb_width<x)?fb_width:x;
+	effective_height = (fb_height<y)?fb_height:y;
+
+	if(bmp->header.height & 0x80000000) {
+		screen_offset = (void *)((u32)info->screen_base + (fb_width * (abs(fb_height - y) / 2)
+				+ abs(fb_width - x) / 2) * (info->var.bits_per_pixel >> 3));
+//		image_offset = (void *)((u32)image_offset + (x * (abs(y - fb_height) / 2)
+//				+ abs(x - fb_width) / 2) * (info->var.bits_per_pixel >> 3));
+
+		for(i=0; i<effective_height; i++) {
+			memcpy((void*)screen_offset, image_offset, effective_width*(info->var.bits_per_pixel >> 3));
+			screen_offset = (void*)((u32)screen_offset + fb_width*(info->var.bits_per_pixel >> 3));
+			image_offset = (void *)image_offset + x *  (info->var.bits_per_pixel >> 3);
+		}
+	}
+	else {
+		screen_offset = (void *)((u32)info->screen_base + (fb_width * (abs(fb_height - y) / 2)
+				+ abs(fb_width - x) / 2) * (info->var.bits_per_pixel >> 3));
+		image_offset = (void *)((u32)image_offset + (x * (abs(y - fb_height) / 2)
+				+ abs(x - fb_width) / 2) * (info->var.bits_per_pixel >> 3));
+#if 0
+		if(3 == bmp_bpix) {
+			unsigned char* ptemp = NULL;
+			unsigned char temp = 0;
+			int h=0;
+
+			ptemp = (char *)image_offset;
+
+			for(h=0; h<effective_height; h++) {
+				for(i=0; i<=effective_width * (info->var.bits_per_pixel >> 3) - 3; i+=3) {
+					temp = ptemp[i];
+					ptemp[i] = ptemp[i+1];
+					ptemp[i+1] = temp;
+				}
+				ptemp = (char *)((void *)bmp_data + h * x *  (info->var.bits_per_pixel >> 3));
+			}
+		}
+#endif
+		image_offset = (void *)bmp_data + (effective_height-1) * x *  (info->var.bits_per_pixel >> 3);
+		for(i=effective_height-1; i>=0; i--) {
+			memcpy((void*)screen_offset, image_offset, effective_width*(info->var.bits_per_pixel >> 3));
+			screen_offset = (void*)((u32)screen_offset + fb_width*(info->var.bits_per_pixel >> 3));
+			image_offset = (void *)bmp_data + i * x *  (info->var.bits_per_pixel >> 3);
+		}
+    }
+
+	Fb_unmap_kernel(vaddr);
+	return 0;
+}
+
 s32 Display_Fb_Request(u32 fb_id, disp_fb_create_info *fb_para)
 {
 	struct fb_info *info = NULL;
@@ -1318,7 +1453,9 @@ s32 Display_Fb_Request(u32 fb_id, disp_fb_create_info *fb_para)
 			//  layer_para.fb.src_win.x,layer_para.fb.src_win.y,layer_para.fb.src_win.width,
 			//  layer_para.fb.src_win.height,layer_para.screen_win.x, layer_para.screen_win.y,
 			//  layer_para.screen_win.width, layer_para.screen_win.height);
-			Fb_map_boot_logo(sel, info);
+
+			Fb_map_kernel_logo(sel, info);
+
 			bsp_disp_layer_set_info(sel, hdl, &layer_para);
 
 			bsp_disp_layer_enable(sel, hdl);
@@ -1403,6 +1540,26 @@ s32 Display_set_fb_timming(u32 sel)
 	return 0;
 }
 
+#ifndef CONFIG_ARCH_SUN8IW8
+static s32 fb_parse_bootlogo_base(phys_addr_t *fb_base, int * fb_size)
+{
+	char val[32];
+	char *endp;
+
+	memset(val, 0, sizeof(char) * 16);
+	get_para_from_cmdline(saved_command_line, "fb_base", val);
+
+	*fb_base = 0x0;
+	*fb_base = memparse(val, &endp);
+	if (*endp == '@') {
+		*fb_size = *fb_base;
+		*fb_base = memparse(endp + 1, NULL);
+	}
+
+	return 0;
+}
+#endif
+
 s32 Fb_Init(void)
 {
 	disp_fb_create_info fb_para;
@@ -1413,6 +1570,10 @@ s32 Fb_Init(void)
 	num_screens = bsp_disp_feat_get_num_screens();
 
 	__inf("[DISP]%s\n", __func__);
+
+#ifndef CONFIG_ARCH_SUN8IW8
+       fb_parse_bootlogo_base(&bootlogo_addr, &bootlogo_sz);
+#endif
 
 #if defined(CONFIG_ARCH_SUN6I) || defined(CONFIG_ARCH_SUN8IW3P1) || defined(CONFIG_ARCH_SUN8IW5P1) || defined(CONFIG_ARCH_SUN9IW1P1) 
 	composer_init();

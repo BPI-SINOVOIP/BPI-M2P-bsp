@@ -49,6 +49,7 @@ extern  int remove_nand(struct nand_blk_ops *tr);
 extern  int nand_flush(struct nand_blk_dev *dev);
 extern struct _nand_phy_partition* get_head_phy_partition_from_nand_info(struct _nand_info*nand_info);
 extern struct _nand_phy_partition* get_next_phy_partition(struct _nand_phy_partition* phy_partition);
+extern int nftl_ioctl_flush_w_cache(struct nand_blk_dev *dev);
 
 /*****************************************************************************/
 
@@ -435,12 +436,18 @@ static int nand_ioctl(struct block_device *bdev, fmode_t mode, unsigned int cmd,
     burn_param = (struct burn_param_t *)arg;
 
     switch (cmd) {
+	#if 0	
     case BLKFLSBUF:
         //nand_dbg_err("BLKFLSBUF called!\n");
         if (nandr->flush)
             return nandr->flush(dev);
         // The core code did the work, we had nothing to do.
         return 0;
+	#else
+    case BLKFLSBUF:
+        nftl_ioctl_flush_w_cache(dev);
+        return 0;		
+	#endif
 
     case HDIO_GETGEO:
         if (nandr->getgeo) {

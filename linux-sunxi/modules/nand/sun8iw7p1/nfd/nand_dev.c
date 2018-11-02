@@ -9,6 +9,8 @@
 #define WEAR_LEVELING 0
 
 static int dev_num = 0;
+static unsigned int ioctl_flush_request_cnt = 0;
+static unsigned long last_ioctl_flush_time = 0;
 
 struct nand_kobject* s_nand_kobj;
 struct _nand_info* p_nand_info = NULL;
@@ -84,6 +86,17 @@ static int nftl_thread(void *arg)
     return 0;
 }
 */
+int nftl_ioctl_flush_w_cache(struct nand_blk_dev *dev)
+{
+	ioctl_flush_request_cnt++;
+	if(ioctl_flush_request_cnt==2)
+	{
+		mytr.flush(dev);
+		ioctl_flush_request_cnt = 0;
+		last_ioctl_flush_time = jiffies;
+	}
+	return 0;
+}
 /*****************************************************************************
 *Name         :
 *Description  :
@@ -123,10 +136,17 @@ static int nftl_thread(void *arg)
 //                nftl_blk->flush_write_cache(nftl_blk,8);
 //           }
 //        }
-        else
-        {
+        else{
            if (time_after((unsigned long)time,(unsigned long)(nftl_blk->time + nftl_blk->time_flush)) != 0){
                 nftl_blk->flush_write_cache(nftl_blk,8);
+           }
+        }
+		if(ioctl_flush_request_cnt)
+        {
+			if (time_after((unsigned long)time,(unsigned long)(last_ioctl_flush_time + (HZ/4))) != 0){
+                nftl_blk->flush_write_cache(nftl_blk,8);
+				 last_ioctl_flush_time = jiffies;
+				 ioctl_flush_request_cnt = 0;
            }
         }
 

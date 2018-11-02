@@ -130,8 +130,15 @@ typedef enum
 	DISP_TV_MOD_3840_2160P_30HZ     = 0x1c,
 	DISP_TV_MOD_3840_2160P_25HZ     = 0x1d,
 	DISP_TV_MOD_3840_2160P_24HZ     = 0x1e,
-        DISP_TV_MOD_800_480P            = 0x1f, // mode 31
-	DISP_TV_MODE_NUM                = 0x20,
+	DISP_TV_MOD_800_480P            = 0x1f,
+	DISP_TV_MOD_1024_768P           = 0x20,
+	DISP_TV_MOD_1280_1024P          = 0x21,
+	DISP_TV_MOD_1360_768P           = 0x22,
+	DISP_TV_MOD_1440_900P           = 0x23,
+	DISP_TV_MOD_1680_1050P          = 0x24,
+	DISP_TV_MOD_2048_1536P          = 0x25,
+	DISP_TV_MOD_1024_600P           = 0x26,
+	DISP_TV_MODE_NUM                = 0x27,
 }disp_tv_mode;
 
 
@@ -376,6 +383,8 @@ typedef struct
 {
 	int (*tcon_enable)(struct disp_device *dispdev);
 	int (*tcon_disable)(struct disp_device *dispdev);
+	int (*tcon_simple_enable)(struct disp_device *dispdev);
+	int (*tcon_simple_disable)(struct disp_device *dispdev);
 }disp_vdevice_source_ops;
 
 typedef struct

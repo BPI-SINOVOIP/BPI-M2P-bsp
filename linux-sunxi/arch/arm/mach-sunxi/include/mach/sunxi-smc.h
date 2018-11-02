@@ -36,6 +36,12 @@
 #define TE_SMC_STANDBY_STATUS_CLEAR	(0xFFFF0010)
 #define TE_SMC_STANDBY_STATUS_SET	(0xFFFF0011)
 #define TE_SMC_STANDBY_STATUS_GET	(0xFFFF0012)
+#define TE_SMC_CP15_STATUS_GET	(0xFFFF0013)
+
+#define TE_SMC_EFUSE_WRITE_REG         (0xFFFF000A)
+#define TE_SMC_EFUSE_READ_REG          (0xFFFF000B)
+#define TE_SMC_AES_BSSK_EN_TO_DRAM     (0xFFFF000C)
+#define TE_SMC_AES_BSSK_DE_TO_KEYSRAM  (0xFFFF000D)
 
 struct smc_param {
 	u32 a0;
@@ -43,8 +49,13 @@ struct smc_param {
 	u32 a2;
 	u32 a3;
 };
+/*raw smc all in asm*/
+u32 __sunxi_smc_call(struct smc_param *param); 
+u32 __sunxi_fast_smc_call(struct smc_param *param); 
 
+/*generic smc api cpu 0*/
 u32 sunxi_smc_call(struct smc_param *param);
+
 
 #if  defined(CONFIG_SUNXI_TRUSTZONE)
 static inline u32 sunxi_smc_readl(void __iomem *addr)

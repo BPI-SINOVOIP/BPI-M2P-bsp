@@ -75,6 +75,7 @@ typedef struct arisc_message
 #define ARISC_FAKE_POWER_OFF_REQ        (ARISC_MESSAGE_BASE + 0x09)  /* request to enter       (ac327 to arisc) */
 #define ARISC_CPUIDLE_ENTER_REQ         (ARISC_MESSAGE_BASE + 0x0a)  /* request to enter       (ac327 to arisc) */
 #define ARISC_STANDBY_INFO_REQ          (ARISC_MESSAGE_BASE + 0x10)  /* request sst info       (ac327 to arisc) */
+#define ARISC_CPUIDLE_CFG_REQ           (ARISC_MESSAGE_BASE + 0x11)  /* request to config      (ac327 to arisc) */
 
 /* dvfs commands */
 #define ARISC_CPUX_DVFS_REQ              (ARISC_MESSAGE_BASE + 0x20)  /* request dvfs           (ac327 to arisc) */

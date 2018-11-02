@@ -64,6 +64,7 @@ static int axp_set_voltage(struct regulator_dev *rdev,
 	}
 
 	val = (min_uV - info->min_uV + info->step1_uV - 1) / info->step1_uV;
+	*selector = val;
 	val <<= info->vol_shift;
 	mask = ((1 << info->vol_nbits) - 1)  << info->vol_shift;
 
@@ -153,7 +154,7 @@ static int axp_set_ldo4_voltage(struct regulator_dev *rdev,
 			break;
 		}
 	}
-	
+	*selector = val;
 	val <<= info->vol_shift;
 	mask = ((1 << info->vol_nbits) - 1)  << info->vol_shift;
 	return axp_update(axp_dev, info->vol_reg, val, mask);
@@ -531,10 +532,10 @@ struct axp_funcdev_info *axp20_regu_init(void)
 	int i = 0;
 	for(i = 0; i < ARRAY_SIZE(axp20_regulator_info); i ++)
 	{
-		if(axp20_regulator_info[i].desc.id == AXP20_ID_LDO4)
+		if(axp20_regulator_info[i].desc.id == AXP20_ID_LDO4){
 			axp20_regulator_info[i].desc.ops = &axp20_ldo4_ops;
-
-		else if(axp20_regulator_info[i].desc.id == AXP20_ID_LDOIO0)
+			axp20_regulator_info[i].desc.n_voltages = 16;
+		}else if(axp20_regulator_info[i].desc.id == AXP20_ID_LDOIO0)
 			axp20_regulator_info[i].desc.ops = &axp20_ldoio0_ops;
 		else
 			axp20_regulator_info[i].desc.ops = &axp20_ops;

@@ -56,7 +56,24 @@ config AW_AXP20
 	depends on AXP_TWI_USED
 	---help---
 	AXP20 driver
+	
+if AW_AXP20
+choice
+	prompt "AXP calculate type:"
+	default AW_AXP20_COU
 
+	config AW_AXP20_COU
+		bool "COULOMB"
+		---help---
+			AXP driver for coulomb
+	config AW_AXP20_OCV
+		bool "OCV"
+		---help---
+			AXP driver for ocv
+
+endchoice
+endif # !AW_AXP20
+	
 config AXP_CHARGEINIT
 	bool "AXP initial charging environment set"
 	default y

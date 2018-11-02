@@ -56,24 +56,7 @@ typedef struct _SERVER_SYNC_PRIMITIVE_ SERVER_SYNC_PRIMITIVE;
 typedef struct _SYNC_PRIMITIVE_BLOCK_ SYNC_PRIMITIVE_BLOCK;
 typedef struct _SERVER_SYNC_EXPORT_ SERVER_SYNC_EXPORT;
 typedef struct _SYNC_CONNECTION_DATA_ SYNC_CONNECTION_DATA;
-
-#define SYNC_MERGE_CLIENT_FENCES(fenceCountAll, fenceUFOAddrAll, fenceValueAll, \
-								 fenceCountA, fenceUFOAddrA, fenceValueA, \
-								 fenceCountB, fenceUFOAddrB, fenceValueB) \
-	PVR_ASSERT(fenceCountAll == (fenceCountA + fenceCountB)); \
-	OSMemCopy(fenceUFOAddrAll, fenceUFOAddrA, sizeof(PRGXFWIF_UFO_ADDR) * fenceCountA); \
-	OSMemCopy(((IMG_UINT8 *) fenceUFOAddrAll) + (sizeof(PRGXFWIF_UFO_ADDR) * fenceCountA), fenceUFOAddrB, sizeof(PRGXFWIF_UFO_ADDR) * fenceCountB); \
-	OSMemCopy(fenceValueAll, fenceValueA, sizeof(IMG_UINT32) * fenceCountA); \
-	OSMemCopy(((IMG_UINT8 *) fenceValueAll) + (sizeof(IMG_UINT32) * fenceCountA), fenceValueB, sizeof(IMG_UINT32) * fenceCountB)
-
-#define SYNC_MERGE_CLIENT_UPDATES(updateCountAll, updateUFOAddrAll, updateValueAll, \
-								  updateCountA, updateUFOAddrA, updateValueA, \
-								  updateCountB, updateUFOAddrB, updateValueB) \
-	PVR_ASSERT(updateCountAll == (updateCountA + updateCountB)); \
-	OSMemCopy(updateUFOAddrAll, updateUFOAddrA, sizeof(PRGXFWIF_UFO_ADDR) * updateCountA); \
-	OSMemCopy(((IMG_UINT8 *) updateUFOAddrAll) + (sizeof(PRGXFWIF_UFO_ADDR) * updateCountA), updateUFOAddrB, sizeof(PRGXFWIF_UFO_ADDR) * updateCountB); \
-	OSMemCopy(updateValueAll, updateValueA, sizeof(IMG_UINT32) * updateCountA); \
-	OSMemCopy(((IMG_UINT8 *) updateValueAll) + (sizeof(IMG_UINT32) * updateCountA), updateValueB, sizeof(IMG_UINT32) * updateCountB)
+typedef struct SYNC_RECORD* SYNC_RECORD_HANDLE;
 
 PVRSRV_ERROR
 PVRSRVAllocSyncPrimitiveBlockKM(CONNECTION_DATA *psConnection,
@@ -135,9 +118,24 @@ IMG_UINT32 PVRSRVServerSyncRequesterRegisterKM(IMG_UINT32 *pui32SyncRequesterID)
 IMG_VOID PVRSRVServerSyncRequesterUnregisterKM(IMG_UINT32 ui32SyncRequesterID);
 
 PVRSRV_ERROR
+PVRSRVSyncRecordAddKM(
+			SYNC_RECORD_HANDLE * phRecord,
+			SYNC_PRIMITIVE_BLOCK * hServerSyncPrimBlock,
+			IMG_UINT32 ui32FwBlockAddr,
+			IMG_UINT32 ui32SyncOffset,
+			IMG_BOOL bServerSync,
+			IMG_UINT32 ui32ClassNameSize,
+			const IMG_CHAR *pszClassName);
+PVRSRV_ERROR
+PVRSRVSyncRecordRemoveByHandleKM(
+			SYNC_RECORD_HANDLE hRecord);
+
+PVRSRV_ERROR
 PVRSRVServerSyncAllocKM(PVRSRV_DEVICE_NODE *psDevNode,
 						SERVER_SYNC_PRIMITIVE **ppsSync,
-						IMG_UINT32 *pui32SyncPrimVAddr);
+						IMG_UINT32 *pui32SyncPrimVAddr,
+						IMG_UINT32 ui32ClassNameSize,
+						const IMG_CHAR *szClassName);
 PVRSRV_ERROR
 PVRSRVServerSyncFreeKM(SERVER_SYNC_PRIMITIVE *psSync);
 
@@ -164,8 +162,8 @@ PVRSRVServerSyncQueueHWOpKM(SERVER_SYNC_PRIMITIVE *psSync,
 						       IMG_UINT32 *pui32UpdateValue);
 
 IMG_BOOL
-ServerSyncFenceIsMeet(SERVER_SYNC_PRIMITIVE *psSync,
-					  IMG_UINT32 ui32FenceValue);
+ServerSyncFenceIsMet(SERVER_SYNC_PRIMITIVE *psSync,
+					 IMG_UINT32 ui32FenceValue);
 
 IMG_VOID
 ServerSyncCompleteOp(SERVER_SYNC_PRIMITIVE *psSync,
@@ -202,9 +200,13 @@ PVRSRVSyncPrimOpCompleteKM(SERVER_OP_COOKIE *psServerCookie);
 PVRSRV_ERROR
 PVRSRVSyncPrimOpDestroyKM(SERVER_OP_COOKIE *psServerCookie);
 
+IMG_UINT32 ServerSyncGetId(SERVER_SYNC_PRIMITIVE *psSync);
+
 IMG_UINT32 ServerSyncGetFWAddr(SERVER_SYNC_PRIMITIVE *psSync);
 
 IMG_UINT32 ServerSyncGetValue(SERVER_SYNC_PRIMITIVE *psSync);
+
+IMG_UINT32 ServerSyncGetNextValue(SERVER_SYNC_PRIMITIVE *psSync);
 
 IMG_VOID ServerSyncDumpPending(IMG_VOID);
 

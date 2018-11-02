@@ -534,10 +534,8 @@ static void __exit pwm_module_exit(void)
     cdev_del(my_cdev);
 }
 
-
-module_init(pwm_module_init);
+subsys_initcall(pwm_module_init);
 module_exit(pwm_module_exit);
-
 
 MODULE_AUTHOR("jiatl");
 MODULE_DESCRIPTION("pwm driver");

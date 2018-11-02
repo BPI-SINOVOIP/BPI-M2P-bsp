@@ -123,7 +123,7 @@ static struct cpufreq_frequency_table sunxi_freq_table_ca15[] = {
  * the target_freq will never equal to the policy->min !!! Then, the timer
  * will wakeup the cpu frequently
 */
-#define SUNXI_CPUFREQ_L_MAX           (1536000000)    /* config the maximum frequency of sunxi core */
+#define SUNXI_CPUFREQ_L_MAX           (1200000000)    /* config the maximum frequency of sunxi core */
 #define SUNXI_CPUFREQ_L_MIN           (480000000)     /* config the minimum frequency of sunxi core */
 #define SUNXI_CPUFREQ_B_MAX           (1800000000)    /* config the maximum frequency of sunxi core */
 #define SUNXI_CPUFREQ_B_MIN           (600000000)     /* config the minimum frequency of sunxi core */

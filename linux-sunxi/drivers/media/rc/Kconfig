@@ -274,5 +274,15 @@ config IR_GPIO_CIR
 
 	   To compile this driver as a module, choose M here: the module will
 	   be called gpio-ir-recv.
+	   
+config IR_SUNXI
+	tristate "SUNXI IR remote control"
+	depends on RC_CORE && !IR_RX_SUNXI
+	depends on ARCH_SUNXI
+	---help---
+	   Say Y if you want to use sunXi internal IR Controller
+
+	   To compile this driver as a module, choose M here: the module will
+	   be called sunxi-cir.
 
 endif #RC_CORE

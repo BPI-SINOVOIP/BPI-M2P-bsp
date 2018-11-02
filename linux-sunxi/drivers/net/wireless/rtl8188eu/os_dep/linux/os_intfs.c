@@ -215,6 +215,7 @@ module_param(if2name, charp, 0644);
 MODULE_PARM_DESC(if2name, "The default name to allocate for second interface");
 
 char* rtw_initmac = 0;  // temp mac address if users want to use instead of the mac address in Efuse
+char* rtw_custom_default_mac = 0;  // use rtw_custom_default_mac if the mac address in Efuse is not set
 
 #ifdef CONFIG_MULTI_VIR_IFACES
 int rtw_ext_iface_num  = 1;//primary/secondary iface is excluded
@@ -222,6 +223,7 @@ module_param(rtw_ext_iface_num, int, 0644);
 #endif //CONFIG_MULTI_VIR_IFACES
 
 module_param(rtw_initmac, charp, 0644);
+module_param(rtw_custom_default_mac, charp, 0644);
 module_param(rtw_channel_plan, int, 0644);
 module_param(rtw_chip_version, int, 0644);
 module_param(rtw_rfintfs, int, 0644);
@@ -1992,6 +1994,7 @@ _adapter *rtw_drv_if2_init(_adapter *primary_padapter,
 		//If the BIT1 is 0, the address is universally administered.
 		//If it is 1, the address is locally administered
 		mac[0] |= BIT(1); // locally administered
+		mac[0] ^= BIT(2); // the mac addr of if2 should be different with the mac of if1
 
 	}
 

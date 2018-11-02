@@ -280,11 +280,11 @@ static void sunxi_keypad_early_suspend(struct early_suspend *h)
 /* ���»��� */
 static void sunxi_keypad_late_resume(struct early_suspend *h)
 {
-	unsigned long keypad_event = 0;
+	unsigned int keypad_event = 0;
 	dprintk(DEBUG_SUSPEND, "enter laterresume: sunxi_ir_rx_resume. \n");
 
 	arisc_query_wakeup_source(&keypad_event);
-	dprintk(DEBUG_SUSPEND, "%s: event 0x%lx\n", __func__, keypad_event);
+	dprintk(DEBUG_SUSPEND, "%s: event 0x%x\n", __func__, keypad_event);
 	if (CPUS_WAKEUP_IR&keypad_event) {/////unfinish
 		input_report_key(keypd_dev, keypad_power_key, 1);
 		input_sync(keypd_dev);
@@ -321,11 +321,11 @@ static int sunxi_keypad_suspend(struct device *dev)
 /* ���»��� */
 static int sunxi_keypad_resume(struct device *dev)
 {
-	unsigned long keypad_event = 0;
+	unsigned int keypad_event = 0;
 	dprintk(DEBUG_SUSPEND, "enter: sunxi_keypad_resume. \n");
 
 	arisc_query_wakeup_source(&keypad_event);
-	dprintk(DEBUG_SUSPEND, "%s: event 0x%lx\n", __func__, keypad_event);
+	dprintk(DEBUG_SUSPEND, "%s: event 0x%x\n", __func__, keypad_event);
 	if (CPUS_WAKEUP_IR&keypad_event) {/////unfinish
 		input_report_key(keypd_dev, keypad_power_key, 1);
 		input_sync(keypd_dev);

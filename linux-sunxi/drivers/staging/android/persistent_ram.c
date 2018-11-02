@@ -25,22 +25,6 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 
-#ifdef CONFIG_ARCH_SUNXI
-#undef atomic_cmpxchg
-#define atomic_cmpxchg(v, old, new)	atomic_cmpxchg_v6(v,old,new)
-static inline int atomic_cmpxchg_v6(atomic_t *v, int old, int new)
-{
-	int ret;
-	unsigned long flags;
-	raw_local_irq_save(flags);
-	ret = v->counter;
-	if (likely(ret == old))
-		v->counter = new;
-	raw_local_irq_restore(flags);
-	return ret;
-}
-#endif
-
 struct persistent_ram_buffer {
 	uint32_t    sig;
 	atomic_t    start;
@@ -347,7 +331,7 @@ static int persistent_ram_buffer_map(phys_addr_t start, phys_addr_t size,
 	page_start = start - offset_in_page(start);
 	page_count = DIV_ROUND_UP(size + offset_in_page(start), PAGE_SIZE);
 
-	prot = pgprot_noncached(PAGE_KERNEL);
+	prot = PAGE_KERNEL;
 
 	pages = kmalloc(sizeof(struct page *) * page_count, GFP_KERNEL);
 	if (!pages) {

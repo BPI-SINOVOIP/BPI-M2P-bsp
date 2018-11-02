@@ -221,7 +221,11 @@ static int sunxi_pcm_hw_params(struct snd_pcm_substream *substream,
 		#if defined CONFIG_ARCH_SUN9IW1
 		slave_config.slave_id = sunxi_slave_id(DRQDST_SDRAM, DRQSRC_R_DAUDIO_1_RX);
 		#elif defined CONFIG_ARCH_SUN8IW8 || defined CONFIG_ARCH_SUN8IW7
-		slave_config.slave_id = sunxi_slave_id(DRQDST_SDRAM, DRQSRC_DAUDIO_0_RX);
+			#ifdef CONFIG_SND_SOC_RT3261
+				slave_config.slave_id = sunxi_slave_id(DRQDST_SDRAM, 0x01c22810);
+			#else
+				slave_config.slave_id = sunxi_slave_id(DRQDST_SDRAM, DRQSRC_DAUDIO_0_RX);
+			#endif
 		#else
 		slave_config.slave_id = sunxi_slave_id(DRQDST_SDRAM, DRQDST_TDMRX);
 		#endif

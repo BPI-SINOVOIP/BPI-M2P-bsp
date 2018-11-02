@@ -30,6 +30,8 @@ struct firmware_ops {
 	unsigned int (*suspend)(void);
 	unsigned int (*suspend_prepare)(void);
 	unsigned int (*set_standby_status)(u32 arg0, u32 arg1, u32 arg2, u32 arg3);
+	unsigned int (*get_cp15_status)(void *addr);
+	unsigned int (*resume_hdcp_key)(void);
 };
 
 /* Global pointer for current firmware_ops structure, can't be NULL. */
@@ -56,4 +58,8 @@ static inline void register_firmware_ops(const struct firmware_ops *ops)
 	firmware_ops = ops;
 }
 
+struct sunxi_sst_hdcp{
+	u8			key[SZ_4K];
+	size_t		act_len ;
+};
 #endif

@@ -17,7 +17,20 @@ static int axp_script_parser_fetch(char *main, char *sub, u32 *val, u32 size)
 	*val = script_val.val;
 	return 0;
 }
+#ifdef CONFIG_AW_AXP20
+static int axp_script_parser_fetch_io(char *main, char *sub, struct gpio_config *val, u32 size)
+{
+	script_item_u script_val;
+	script_item_value_type_e type;
 
+	type = script_get_item(main, sub, &script_val);
+	if (SCIRPT_ITEM_VALUE_TYPE_PIO != type) {
+		return -1;
+	}
+	*val = script_val.gpio;
+	return 0;
+}
+#endif
 int axp_fetch_sysconfig_para(char * pmu_type, struct axp_config_info *axp_config)
 {
 	int ret;
@@ -489,7 +502,14 @@ int axp20_fetch_sysconfig_para(char * pmu_type, struct axp20_config_info *axp_co
 		if (ret)
 		{
 			printk("axp driver uning configuration failed(%d)\n", __LINE__);
-			axp_config->pmu_irq_id = 32;
+			axp_config->pmu_irq_id = 0;
+		}
+		if(axp_config->pmu_irq_id == 0)
+			ret = axp_script_parser_fetch_io(pmu_type, "pmu_irq_gpio", &axp_config->pmu_irq_io, sizeof(struct gpio_config));
+		if (ret)
+		{
+			printk("axp driver uning configuration failed(%d)\n", __LINE__);
+			axp_config->pmu_irq_id = 64;
 		}
 		ret = axp_script_parser_fetch(pmu_type, "pmu_twi_addr", &axp_config->pmu_twi_addr, sizeof(int));
 		if (ret)

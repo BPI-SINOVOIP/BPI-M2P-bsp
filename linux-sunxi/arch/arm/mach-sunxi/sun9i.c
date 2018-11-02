@@ -290,6 +290,9 @@ static void __init sun9i_fixup(struct tag *tags, char **from,
 	dramfreq_mem_size_mb = dramfreq_mem_size_mb?dramfreq_mem_size_mb:(dramfreq_mem_size>>20);
 #endif
 	meminfo->nr_banks = 1;
+#if defined(CONFIG_ION) || defined(CONFIG_ION_MODULE)
+	ion_reserve_common(CONFIG_ION_SUNXI_RESERVE_LIST,0,1);
+#endif
 
 #ifdef CONFIG_ARM_LPAE
 	early_printk("nr_banks: %d, bank.start: 0x%llx, bank.size: 0x%llx\n",

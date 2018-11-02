@@ -17,7 +17,11 @@
 #include <linux/blkdev.h>
 #include <linux/fsnotify.h>
 #include <linux/security.h>
-#include "fat.h"
+#include "fat.h"         
+#ifdef CONFIG_FAT_PRE_FALLOCATE
+#include <linux/falloc.h>        
+static long fat_fallocate(struct file *file, int mode, loff_t offset, loff_t len);
+#endif
 
 static int fat_ioctl_get_attributes(struct inode *inode, u32 __user *user_attr)
 {
@@ -175,6 +179,9 @@ const struct file_operations fat_file_operations = {
 #endif
 	.fsync		= fat_file_fsync,
 	.splice_read	= generic_file_splice_read,
+#ifdef CONFIG_FAT_PRE_FALLOCATE
+	.fallocate		= fat_fallocate,
+#endif
 };
 
 static int fat_cont_expand(struct inode *inode, loff_t size)
@@ -212,6 +219,71 @@ static int fat_cont_expand(struct inode *inode, loff_t size)
 out:
 	return err;
 }
+#ifdef CONFIG_FAT_PRE_FALLOCATE
+static long fat_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
+{      
+	int err = 0;
+	struct inode *inode = file->f_mapping->host;
+	int cluster, nr_cluster, fclus, dclus, free_bytes, nr_bytes;
+	struct super_block *sb = inode->i_sb;
+	struct msdos_sb_info *sbi = MSDOS_SB(sb);
+	if (mode & ~FALLOC_FL_KEEP_SIZE)
+		return -EOPNOTSUPP;
+	if ((offset + len) <= MSDOS_I(inode)->mmu_private) {
+		fat_msg(sb, KERN_ERR,
+				"fat_fallocate():Blocks already allocated");
+		return -EINVAL;
+	}
+	if ((mode & FALLOC_FL_KEEP_SIZE)) {
+		if (inode->i_size > 0) {
+			err = fat_get_cluster(inode, FAT_ENT_EOF,
+					&fclus, &dclus);
+			if (err < 0) {
+				fat_msg(sb, KERN_ERR,
+						"fat_fallocate():fat_get_cluster() error");
+				return err;
+			}
+			free_bytes = ((fclus+1) << sbi->cluster_bits) -
+				(inode->i_size);
+			nr_bytes = (offset + len - inode->i_size) - free_bytes;
+		} else
+			nr_bytes = (offset + len - inode->i_size);
+		nr_cluster = (nr_bytes + (sbi->cluster_size - 1)) >>
+			sbi->cluster_bits;
+		mutex_lock(&inode->i_mutex);
+		while (nr_cluster-- > 0) {
+			err = fat_alloc_clusters(inode, &cluster, 1);
+			if (err) {
+				fat_msg(sb, KERN_ERR,
+						"fat_fallocate():fat_alloc_clusters() error");
+				goto error;
+			}
+			err = fat_chain_add(inode, cluster, 1);
+			if (err) {
+				fat_free_clusters(inode, cluster);
+				goto error;
+			}
+		}
+		err = fat_get_cluster(inode, FAT_ENT_EOF, &fclus, &dclus);
+		if (err < 0) {
+			fat_msg(sb, KERN_ERR,
+					"fat_fallocate():fat_get_cluster() error");
+			goto error;
+		}
+		MSDOS_I(inode)->mmu_private = (fclus + 1) << sbi->cluster_bits;
+	} else {
+		mutex_lock(&inode->i_mutex);
+		err = fat_cont_expand(inode, (offset + len));
+		if (err) {
+			fat_msg(sb, KERN_ERR,
+					"fat_fallocate():fat_cont_expand() error");
+		}
+	}
+error:
+	mutex_unlock(&inode->i_mutex);
+	return err;
+}
+#endif
 
 /* Free all clusters after the skip'th cluster. */
 static int fat_free(struct inode *inode, int skip)

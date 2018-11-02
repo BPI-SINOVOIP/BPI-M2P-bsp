@@ -116,7 +116,7 @@ static void axp_power_off(void)
 	mdelay(20);
 	printk("[axp] warning!!! axp can't power-off, maybe some error happend!\n");
 #elif defined (CONFIG_AW_AXP81X)
-	axp81x_power_off(power_start);
+	axp81x_power_off();
 #elif defined (CONFIG_AW_AXP19)
 	axp19_power_off(power_start);
 #elif defined (CONFIG_AW_AXP20)

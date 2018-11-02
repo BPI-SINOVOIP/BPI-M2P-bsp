@@ -151,6 +151,7 @@ struct nand_blk_ops{
 	int blkshift;
     /* add/remove nandflash devparts,use gendisk */
     int (*add_dev)(struct nand_blk_ops *tr, struct _nand_phy_partition* phy_partition);
+    int (*add_dev_test)(struct nand_blk_ops *tr);
     int (*remove_dev)(struct nand_blk_ops *tr);
 
     /* Block layer ioctls */

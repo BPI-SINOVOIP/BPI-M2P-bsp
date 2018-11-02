@@ -72,24 +72,35 @@ int table_length_syscfg = 0;
 struct cpufreq_dvfs dvfs_table_syscfg[16];
 
 struct cpufreq_frequency_table sunxi_freq_tbl[] = {
-	{ .frequency = 60000  , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
-	{ .frequency = 120000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
-	{ .frequency = 240000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
-	{ .frequency = 312000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
-	{ .frequency = 408000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
-	{ .frequency = 480000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
-	{ .frequency = 504000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
-	{ .frequency = 600000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
-	{ .frequency = 648000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
-	{ .frequency = 720000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
-	{ .frequency = 816000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
-	{ .frequency = 912000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
-	{ .frequency = 1008000, .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
-	{ .frequency = 1104000, .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
-	{ .frequency = 1200000, .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
-	{ .frequency = 1344000, .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
-	{ .frequency = 1440000, .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
-	{ .frequency = 1536000, .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 60000  , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 120000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 240000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 312000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 408000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 480000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 504000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 528000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 576000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 600000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 624000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 648000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 672000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 720000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 768000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 816000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 864000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 912000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 960000 , .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 1008000, .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 1056000, .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 1104000, .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 1152000, .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 1200000, .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 1248000, .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 1296000, .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 1344000, .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 1440000, .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
+    { .frequency = 1536000, .index = SUNXI_CLK_DIV(0, 0, 0, 0), },
 
 	/* table end */
 	{ .frequency = CPUFREQ_TABLE_END,  .index = 0,              },
@@ -408,6 +419,32 @@ static void __vftable_show(void)
 	pr_debug("------------------------------------------\n");
 }
 
+extern int sunxi_get_soc_chipid(uint8_t *chip_id);
+static int calibrate_max_cpufreq(void *maxfreq)
+{
+    int ret = 0;
+#ifdef CONFIG_ARCH_SUN8IW7P1
+    unsigned char chipid[16];
+    memset(chipid, 0, sizeof(chipid));
+
+    sunxi_get_soc_chipid((uint8_t *)chipid);
+    switch(chipid[0]&0xff) {
+    case 0x42:      /* H2+ */
+    case 0x83:
+        *((unsigned int *)maxfreq) = 960000000;
+        ret = 1;
+        break;
+    case 0x00:      /* H3 */
+    case 0x81:
+        break;
+    default:        /* H3 */
+        break;
+    }
+#endif
+    printk("calibrat: max_cpufreq %uMhz Type %d!\n", *((unsigned int *)maxfreq)/1000000, ret);
+    return ret;
+}
+
 /*
  * init cpu max/min frequency from sysconfig;
  * return: 0 - init cpu max/min successed, !0 - init cpu max/min failed;
@@ -425,6 +462,7 @@ static int __init_freq_syscfg(char *tbl_name)
 		goto fail;
 	}
 	cpu_freq_max = max.val;
+	calibrate_max_cpufreq((void *)&cpu_freq_max);
 
 	type = script_get_item(tbl_name, "min_freq", &min);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {

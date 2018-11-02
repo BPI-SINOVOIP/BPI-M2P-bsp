@@ -417,7 +417,10 @@ void set_pll( void )
 	writel(permission | region_size | 1, 0x01c1e000 + 0x108 + 0x20);		// attribute.
 #endif
 
+	//busy_waiting();
 	//switch to normal world
+	//after restore mmu, u need to re-init reg base address.
+	restore_secure_mmu_state(&(mem_para_info.saved_secure_mmu_state));
 	func_entry = resume1_c_part;
 	switch2normal((int)func_entry, mem_para_info.monitor_vector);
 #endif

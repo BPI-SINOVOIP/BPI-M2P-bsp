@@ -788,7 +788,7 @@ static void auto_bws_model(unsigned int width, unsigned int height, unsigned int
 		else if (pd_ymin >= pd_black)	//do noting use s0
 		{
 			pd_s0 = 256;
-			pd_ymin_fix = 0;
+			pd_ymin_fix = 16;
 		}
 		else
 		{

@@ -18,9 +18,70 @@ struct disp_al_private_data
 
 static struct disp_al_private_data al_priv;
 
+int disp_checkout_straight(unsigned int disp, struct disp_layer_config_data *data)
+{
+	unsigned char i,chn,vi_chn,device_type;
+	struct disp_layer_config_data * pdata;
+	u32 num_layers = bsp_disp_feat_get_num_layers(disp);
+	u32 num_layers_video_by_chn[4] = {0};
+	u32 num_layers_video = 0;
+	u32 index = 0;
+	chn = de_feat_get_num_chns(disp);
+
+	vi_chn = de_feat_get_num_vi_chns(disp);
+	for(i=0;i<vi_chn;i++) {
+		num_layers_video_by_chn[i] = bsp_disp_feat_get_num_layers_by_chn(disp, i);
+	}
+
+	for(i=0;i<vi_chn;i++) {
+		num_layers_video += bsp_disp_feat_get_num_layers_by_chn(disp, i);
+	}
+
+	pdata = data;
+
+	device_type = al_priv.output_type[al_priv.disp_device[disp]];
+
+
+	if(device_type == DISP_OUTPUT_TYPE_TV)			//this type for extern cvbs
+	{
+		int j;
+		for(j=0; j<vi_chn; j++) {
+			for(i=0; i<num_layers_video_by_chn[j]; i++) {
+				if(pdata->config.enable &&
+					pdata->config.info.fb.format >= DISP_FORMAT_YUV444_I_AYUV) 
+				{
+					pdata = data + num_layers_video_by_chn[j] + index;
+					index += num_layers_video_by_chn[j];
+					break;
+				}
+				pdata++;
+			}
+		}
+
+		if (index < num_layers_video) {
+		       return -1;
+		}
+		for(i=index; i<num_layers; i++) {
+		       if(pdata->config.enable) {
+		               index++;
+		               break;
+		       }
+		       pdata++;
+		}
+		if(index > num_layers_video) {
+		       return -1;
+		}
+	}
+	else
+		return -1;
+
+	return 0;
+}
+
+
 int disp_al_layer_apply(unsigned int disp, struct disp_layer_config_data *data, unsigned int layer_num)
 {
-	return de_al_lyr_apply(disp, data, layer_num);
+	return de_al_lyr_apply(disp, data, layer_num, al_priv.output_type[al_priv.disp_device[disp]]);
 }
 
 int disp_al_manager_init(unsigned int disp)
@@ -369,7 +430,11 @@ int disp_al_vdevice_cfg(u32 screen_id, disp_video_timings *video_info, disp_vdev
 	struct lcd_clk_info clk_info;
 	disp_panel_para info;
 
-	al_priv.output_type[screen_id] = (u32)DISP_OUTPUT_TYPE_LCD;
+	if(para->sub_intf == LCD_HV_IF_CCIR656_2CYC){
+		al_priv.output_type[screen_id] = (u32)DISP_OUTPUT_TYPE_TV;
+	}
+	else
+		al_priv.output_type[screen_id] = (u32)DISP_OUTPUT_TYPE_LCD;
 	al_priv.output_mode[screen_id] = (u32)para->intf;
 	al_priv.output_fps[screen_id] = video_info->pixel_clk / video_info->hor_total_time /\
 		video_info->ver_total_time;
@@ -389,18 +454,21 @@ int disp_al_vdevice_cfg(u32 screen_id, disp_video_timings *video_info, disp_vdev
 	info.lcd_vt = video_info->ver_total_time;
 	info.lcd_vbp = video_info->ver_back_porch + video_info->ver_sync_time;
 	info.lcd_vspw = video_info->ver_sync_time;
+	info.lcd_interlace = video_info->b_interlace;
 	info.lcd_hv_syuv_fdly = para->fdelay;
 	info.lcd_hv_clk_phase = para->clk_phase;
 	info.lcd_hv_sync_polarity = para->sync_polarity;
+
 	if(LCD_HV_IF_CCIR656_2CYC == info.lcd_hv_if)
 		info.lcd_hv_syuv_seq = para->sequence;
 	else
 		info.lcd_hv_srgb_seq = para->sequence;
 	tcon_init(screen_id);
 	disp_al_lcd_get_clk_info(screen_id, &clk_info, &info);
-	clk_info.tcon_div = 11;//fixme
-	tcon0_set_dclk_div(screen_id, clk_info.tcon_div);
 
+	clk_info.tcon_div = 8;//fixme
+	tcon0_set_dclk_div(screen_id, clk_info.tcon_div);
+	tcon1_yuv_range(screen_id, 1);
 	if(0 != tcon0_cfg(screen_id, &info))
 		DE_WRN("lcd cfg fail!\n");
 	else
@@ -433,7 +501,7 @@ int disp_al_device_get_cur_line(u32 screen_id)
 {
 	u32 tcon_index = 0;
 
-	tcon_index = (al_priv.output_type[screen_id] == (u32)DISP_OUTPUT_TYPE_LCD)?0:1;
+	tcon_index = (al_priv.tcon_index[screen_id] == 0)?0:1;
 	return tcon_get_cur_line(screen_id, tcon_index);
 }
 
@@ -441,7 +509,7 @@ int disp_al_device_get_start_delay(u32 screen_id)
 {
 	u32 tcon_index = 0;
 
-	tcon_index = (al_priv.output_type[screen_id] == (u32)DISP_OUTPUT_TYPE_LCD)?0:1;
+	tcon_index = (al_priv.tcon_index[screen_id] == 0)?0:1;
 	return tcon_get_start_delay(screen_id, tcon_index);
 }
 
@@ -450,7 +518,7 @@ int disp_al_device_query_irq(u32 screen_id)
 	int ret = 0;
 	int irq_id = 0;
 
-	irq_id = (al_priv.output_type[screen_id] == (u32)DISP_OUTPUT_TYPE_LCD)?\
+	irq_id = (al_priv.tcon_index[screen_id] == 0)?\
 		LCD_IRQ_TCON0_VBLK:LCD_IRQ_TCON1_VBLK;
 	ret = tcon_irq_query(screen_id, irq_id);
 
@@ -462,7 +530,7 @@ int disp_al_device_enable_irq(u32 screen_id)
 	int ret = 0;
 	int irq_id = 0;
 
-	irq_id = (al_priv.output_type[screen_id] == (u32)DISP_OUTPUT_TYPE_LCD)?\
+	irq_id = (al_priv.tcon_index[screen_id] == 0)?\
 		LCD_IRQ_TCON0_VBLK:LCD_IRQ_TCON1_VBLK;
 	ret = tcon_irq_enable(screen_id, irq_id);
 
@@ -474,7 +542,7 @@ int disp_al_device_disable_irq(u32 screen_id)
 	int ret = 0;
 	int irq_id = 0;
 
-	irq_id = (al_priv.output_type[screen_id] == (u32)DISP_OUTPUT_TYPE_LCD)?\
+	irq_id = (al_priv.tcon_index[screen_id] == 0)?\
 		LCD_IRQ_TCON0_VBLK:LCD_IRQ_TCON1_VBLK;
 	ret = tcon_irq_disable(screen_id, irq_id);
 
@@ -521,7 +589,12 @@ int disp_init_al(disp_bsp_init_para * para)
 		disp_device = al_priv.disp_device[disp];
 
 		/* should take care about this, extend display treated as a LCD OUTPUT */
-		al_priv.output_type[disp_device] = (DISP_OUTPUT_TYPE_HDMI == para->boot_info.type)?DISP_OUTPUT_TYPE_HDMI:DISP_OUTPUT_TYPE_LCD;
+		if(DISP_OUTPUT_TYPE_HDMI == para->boot_info.type)
+			al_priv.output_type[disp_device] = DISP_OUTPUT_TYPE_HDMI;
+		else if(DISP_OUTPUT_TYPE_LCD == para->boot_info.type)
+			al_priv.output_type[disp_device] = DISP_OUTPUT_TYPE_LCD;
+		else if(DISP_OUTPUT_TYPE_TV == para->boot_info.type)
+			al_priv.output_type[disp_device] = DISP_OUTPUT_TYPE_TV;
 		al_priv.output_mode[disp_device] = para->boot_info.mode;
 		al_priv.tcon_index[disp_device] = (DISP_OUTPUT_TYPE_HDMI == para->boot_info.type)?1:0;
 

@@ -124,6 +124,3 @@ $(resume1-y): $(obj)/standby.code
 
 clean-files += standby.code standby.elf
 clean-files += resume1.code resume1.elf
-
-clean::
-	echo clean standby

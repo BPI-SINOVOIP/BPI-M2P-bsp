@@ -78,5 +78,5 @@ module_init(w1_sunxi_init);
 module_exit(w1_sunxi_exit);
 
 MODULE_DESCRIPTION("GPIO w1 sunxi platform device");
-MODULE_AUTHOR("Damien Nicolet <zardam-***@public.gmane.org> mod by LoBo <loboris@gmail.com");
+MODULE_AUTHOR("Damien Nicolet <zardam@gmail.com> mod by LoBo <loboris@gmail.com");
 MODULE_LICENSE("GPL");

@@ -85,10 +85,12 @@
 #define SUNXI_CLK_MAX_REG   0x02D8
 
 
-#define CPUS_APB0_GATE      0x0028
-#define CPUS_CIR            0x0054
-#define CPUS_APB0_RST       0x00B0
-#define CPUS_CLK_MAX_REG    0x00B0
+#define CPUS_CFG            (0x0000+IO_ADDRESS(0x01f01400))
+#define CPUS_APB0           (0x000C+IO_ADDRESS(0x01f01400))
+#define CPUS_APB0_GATE      (0x0028+IO_ADDRESS(0x01f01400))
+#define CPUS_CIR            (0x0054+IO_ADDRESS(0x01f01400))
+#define CPUS_APB0_RST       (0x00B0+IO_ADDRESS(0x01f01400))
+#define CPUS_CLK_MAX_REG    (0x00B0+IO_ADDRESS(0x01f01400))
 
 #define F_N8X8_P16x1(nv,pv)                FACTOR_ALL(nv,8,8,0,0,0,0,0,0,pv,16,1,0,0,0,0,0,0)
 #define F_N8X8_P0x2_D1S16X1(nv,pv,d1v)     FACTOR_ALL(nv,8,8,0,0,0,0,0,0,pv, 0,2,d1v,16,1,0,0,0)

@@ -108,6 +108,24 @@ static const struct snd_pcm_hardware sunxi_pcm_hardware = {
 	.fifo_size			= 128,
 };
 
+static const struct snd_pcm_hardware sunxi_pcm_capture_hardware = {
+	.info			= SNDRV_PCM_INFO_INTERLEAVED | SNDRV_PCM_INFO_BLOCK_TRANSFER |
+				      SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_MMAP_VALID |
+				      SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME,
+	.formats		= SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE | SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE,
+	.rates			= SNDRV_PCM_RATE_8000_192000 | SNDRV_PCM_RATE_KNOT,
+	.rate_min		= 8000,
+	.rate_max		= 192000,
+	.channels_min		= 1,
+	.channels_max		= 2,
+	.buffer_bytes_max	= 1024*1024,    /* value must be (2^n)Kbyte size */
+	.period_bytes_min	= 256,
+	.period_bytes_max	= 1024*64,
+	.periods_min		= 1,
+	.periods_max		= 8,
+	.fifo_size		= 128,
+};
+
 int hdmi_transfer_format_61937_to_60958(int *out,short* temp, int samples)
 {
 	int ret =0;
@@ -232,18 +250,23 @@ static int sunxi_pcm_hw_params(struct snd_pcm_substream *substream,
 		#endif	
 #endif
 	} else {
-		slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
-		slave_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 		slave_config.src_addr = dmap->dma_addr;
 		#ifdef CONFIG_ARCH_SUN8IW6
+		slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+		slave_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 		slave_config.src_maxburst = 8;
 		slave_config.dst_maxburst = 8;
 		#else
-		slave_config.src_maxburst = 2;
-		slave_config.dst_maxburst = 2;
+		slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+		slave_config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+		slave_config.src_maxburst = 4;
+		slave_config.dst_maxburst = 4;
 		#endif
 #ifdef CONFIG_ARCH_SUN8IW1
 		slave_config.slave_id = sunxi_slave_id(DRQDST_SDRAM, DRQSRC_HDMI_AUDIO);
+#endif
+#ifdef CONFIG_ARCH_SUN8IW7
+		slave_config.slave_id = sunxi_slave_id(DRQDST_SDRAM, DRQSRC_DAUDIO_2_RX);
 #endif
 	}
 
@@ -273,23 +296,33 @@ static int sunxi_pcm_hw_free(struct snd_pcm_substream *substream)
 
 static int sunxi_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
-	switch (cmd) {
-	case SNDRV_PCM_TRIGGER_START:
-	case SNDRV_PCM_TRIGGER_RESUME:
-	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		return snd_dmaengine_pcm_trigger(substream,
-					SNDRV_PCM_TRIGGER_START);
-		
-	case SNDRV_PCM_TRIGGER_SUSPEND:
-	case SNDRV_PCM_TRIGGER_STOP:
-	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		return snd_dmaengine_pcm_trigger(substream,
-					SNDRV_PCM_TRIGGER_STOP);
-
-	default:
-		return -EINVAL;
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		switch (cmd) {
+		case SNDRV_PCM_TRIGGER_START:
+		case SNDRV_PCM_TRIGGER_RESUME:
+		case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+			snd_dmaengine_pcm_trigger(substream, SNDRV_PCM_TRIGGER_START);
+		return 0;
+		case SNDRV_PCM_TRIGGER_SUSPEND:
+		case SNDRV_PCM_TRIGGER_STOP:
+		case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+			snd_dmaengine_pcm_trigger(substream, SNDRV_PCM_TRIGGER_STOP);
+		return 0;
+		}
+	} else {
+		switch (cmd) {
+		case SNDRV_PCM_TRIGGER_START:
+		case SNDRV_PCM_TRIGGER_RESUME:
+		case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+			snd_dmaengine_pcm_trigger(substream, SNDRV_PCM_TRIGGER_START);
+		return 0;
+		case SNDRV_PCM_TRIGGER_SUSPEND:
+		case SNDRV_PCM_TRIGGER_STOP:
+		case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+			snd_dmaengine_pcm_trigger(substream, SNDRV_PCM_TRIGGER_STOP);
+		return 0;
+		}
 	}
-
 	return 0;
 }
 
@@ -299,28 +332,45 @@ static int sunxi_pcm_open(struct snd_pcm_substream *substream)
 	struct device *dev = rtd->platform->dev;
 	int ret = 0;
 
-	ret = atomic_read(&card_open_num);
-	if (ret > 0) {
-		return -EINVAL;
-	}
-	/* Set HW params now that initialization is complete */
-	snd_soc_set_runtime_hwparams(substream, &sunxi_pcm_hardware);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		ret = atomic_read(&card_open_num);
+		if (ret > 0) {
+			return -EINVAL;
+		}
+		/* Set HW params now that initialization is complete */
+		snd_soc_set_runtime_hwparams(substream, &sunxi_pcm_hardware);
 
-	ret = snd_dmaengine_pcm_open(substream, NULL, NULL);
-	if (ret) {
-		dev_err(dev, "dmaengine pcm open failed with err %d\n", ret);
-		return ret;
-	}
-atomic_inc(&card_open_num);
+		ret = snd_dmaengine_pcm_open(substream, NULL, NULL);
+		if (ret) {
+			dev_err(dev, "dmaengine pcm open failed with err %d\n", ret);
+			return ret;
+		}
+		atomic_inc(&card_open_num);
+	} else {
+		/* Set HW params now that initialization is complete */
+		snd_soc_set_runtime_hwparams(substream, &sunxi_pcm_capture_hardware);
+		ret = snd_pcm_hw_constraint_integer(substream->runtime,
+					    SNDRV_PCM_HW_PARAM_PERIODS);
+		if (ret < 0)
+			return ret;
 
+		ret = snd_dmaengine_pcm_open(substream, NULL, NULL);
+		if (ret) {
+			dev_err(dev, "dmaengine pcm open failed with err %d\n", ret);
+		}
+	}
 	return 0;
 }
 
 static int sunxi_pcm_close(struct snd_pcm_substream *substream)
 {
-	snd_dmaengine_pcm_close(substream);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		snd_dmaengine_pcm_close(substream);
 
-	atomic_dec(&card_open_num);
+		atomic_dec(&card_open_num);
+	} else {
+		snd_dmaengine_pcm_close(substream);
+	}
 	return 0;
 }
 
@@ -398,8 +448,12 @@ static int sunxi_pcm_preallocate_dma_buffer(struct snd_pcm *pcm, int stream)
 {
 	struct snd_pcm_substream *substream = pcm->streams[stream].substream;
 	struct snd_dma_buffer *buf 			= &substream->dma_buffer;
-	size_t size 			 			= sunxi_pcm_hardware.buffer_bytes_max;
-
+	size_t size = 0;
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		size = sunxi_pcm_hardware.buffer_bytes_max;
+	} else {
+		size = sunxi_pcm_capture_hardware.buffer_bytes_max;
+	}
 	buf->dev.type 		= SNDRV_DMA_TYPE_DEV;
 	buf->dev.dev 		= pcm->card->dev;
 	buf->private_data 	= NULL;

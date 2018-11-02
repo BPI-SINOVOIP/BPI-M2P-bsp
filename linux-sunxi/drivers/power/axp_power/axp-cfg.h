@@ -1,5 +1,6 @@
 #ifndef __LINUX_AXP_CFG_H_
 #define __LINUX_AXP_CFG_H_
+#include <mach/sys_config.h>
 
 #define AXP22_ADDR		0x68 >> 1
 #define BATRDC			100		//initial rdc
@@ -184,11 +185,12 @@ enum {
 #define AXP_LDOIO_ID_START      30
 #define AXP_DCDC_ID_START       40
 
+extern char pmu_type[20];
 #ifdef CONFIG_AW_AXP81X
 extern int axp_debug;
 #define DBG_PSY_MSG(level_mask, fmt, arg...)	if (unlikely(axp_debug & level_mask)) \
 	printk(KERN_DEBUG fmt , ## arg)
-extern void axp81x_power_off(int power_start);
+extern void axp81x_power_off(void);
 #elif defined CONFIG_AW_AXP19
 extern int axp_debug;
 #define DBG_PSY_MSG(level_mask, fmt, arg...)	if (unlikely(axp_debug & level_mask)) \
@@ -249,6 +251,8 @@ struct axp20_config_info{
 	int pmu_pwrnoe_time;
 	int pmu_hot_shutdown;
 	int power_start;
+	int pmu_irq_io_id;
+	struct gpio_config pmu_irq_io;
 };
 
 #define AXP20_VOL_MAX			12 // capability buffer length

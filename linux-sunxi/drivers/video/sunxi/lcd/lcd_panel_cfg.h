@@ -47,6 +47,8 @@ extern __s32 dsi_gen_wr_3para(__u32 sel,__u8 cmd,__u8 para1,__u8 para2,__u8 para
 extern __s32 dsi_gen_wr_4para(__u32 sel,__u8 cmd,__u8 para1,__u8 para2,__u8 para3,__u8 para4);
 extern __s32 dsi_gen_wr_5para(__u32 sel,__u8 cmd,__u8 para1,__u8 para2,__u8 para3,__u8 para4,__u8 para5);
 
+extern __s32 dsi_dcs_rd(__u32 sel,__u8	cmd,__u8* para_p,__u32*	num_p);
+
 extern s32 LCD_GPIO_request(u32 sel, u32 io_index);
 extern s32 LCD_GPIO_release(u32 sel,u32 io_index);
 extern s32 LCD_GPIO_set_attr(u32 sel,u32 io_index, bool b_output);

@@ -183,6 +183,11 @@ ifeq ($(filter $(need),$(firstword $(sort $(MAKE_VERSION) $(need)))),)
 $(error A version of GNU make >= $(need) is required - this is version $(MAKE_VERSION))
 endif
 
+# Decide whether we need a BVNC
+ifneq ($(COMPILER_BVNC_LIST),)
+ DONT_NEED_RGX_BVNC := 1
+endif
+
 include ../defs.mk
 
 # Infer PVR_BUILD_DIR from the directory configuration is launched from.
@@ -191,24 +196,14 @@ include ../defs.mk
 PVR_BUILD_DIR := $(notdir $(abspath .))
 $(call directory-must-exist,$(TOP)/build/linux/$(PVR_BUILD_DIR))
 
-# ARCH_IDENT is used where there is a need to distinguish between build
-# components for different variants of the same architecture. For example,
-# for x86 builds, there is a need to distinguish between the output
-# directories, and cache tarballs, for x86_64 and i386 driver builds.
-#
-ARCH_IDENT :=
-ifeq ($(ARCH),i386)
-ARCH_IDENT := $(ARCH)
-endif
-
 # Output directory for configuration, object code,
 # final programs/libraries, and install/rc scripts.
 #
 BUILD        ?= release
-ifneq ($(filter $(WINDOW_SYSTEM),xorg wayland ews nullws),)
-OUT          ?= $(TOP)/binary_$(PVR_BUILD_DIR)$(if $(ARCH_IDENT),_$(ARCH_IDENT))_$(WINDOW_SYSTEM)_$(BUILD)
+ifneq ($(filter $(WINDOW_SYSTEM),xorg wayland nullws nulldrmws ews_drm nulladfws ews_adf),)
+OUT          ?= $(TOP)/binary_$(PVR_BUILD_DIR)_$(WINDOW_SYSTEM)_$(BUILD)
 else
-OUT          ?= $(TOP)/binary_$(PVR_BUILD_DIR)$(if $(ARCH_IDENT),_$(ARCH_IDENT))_$(BUILD)
+OUT          ?= $(TOP)/binary_$(PVR_BUILD_DIR)_$(BUILD)
 endif
 override OUT := $(if $(filter /%,$(OUT)),$(OUT),$(TOP)/$(OUT))
 
@@ -253,44 +248,46 @@ $(shell \
 		rm -f $$file; \
 	done)
 
-# Extract the BNC config name
-RGX_BNC_SPLIT := $(subst .,$(space) ,$(RGX_BVNC))
-RGX_BNC := $(word 1,$(RGX_BNC_SPLIT)).V.$(word 3,$(RGX_BNC_SPLIT)).$(word 4,$(RGX_BNC_SPLIT))
-
-# Check BVNC core version
-ALL_KM_BVNCS := \
- $(patsubst rgxcore_km_%.h,%,\
-	$(notdir $(shell ls $(TOP)/hwdefs/km/cores/rgxcore_km_*.h)))
-ifeq ($(filter $(RGX_BVNC),$(ALL_KM_BVNCS)),)
-$(error Error: Invalid Kernel core RGX_BVNC=$(RGX_BVNC). \
-	Valid Kernel core BVNCs: $(subst $(space),$(comma)$(space),$(ALL_KM_BVNCS)))
-endif
-
-# Check if BVNC core file exist
-RGX_BVNC_CORE_KM := $(TOP)/hwdefs/km/cores/rgxcore_km_$(RGX_BVNC).h
-RGX_BVNC_CORE_KM_HEADER := \"cores/rgxcore_km_$(RGX_BVNC).h\" 
-# "rgxcore_km_$(RGX_BVNC).h"
-ifeq ($(wildcard $(RGX_BVNC_CORE_KM)),)
-$(error The file $(RGX_BVNC_CORE_KM) does not exist. \
-	Valid BVNCs: $(ALL_KM_BVNCS))
-endif
-
-# Check BNC config version
-ALL_KM_BNCS := \
- $(patsubst rgxconfig_km_%.h,%,\
-	$(notdir $(shell ls $(TOP)/hwdefs/km/configs/rgxconfig_km_*.h)))
-ifeq ($(filter $(RGX_BNC),$(ALL_KM_BNCS)),)
-$(error Error: Invalid Kernel config RGX_BNC=$(RGX_BNC). \
-	Valid Kernel config BNCs: $(subst $(space),$(comma)$(space),$(ALL_KM_BNCS)))
-endif
-
-# Check if BNC config file exist
-RGX_BNC_CONFIG_KM := $(TOP)/hwdefs/km/configs/rgxconfig_km_$(RGX_BNC).h
-RGX_BNC_CONFIG_KM_HEADER := \"configs/rgxconfig_km_$(RGX_BNC).h\" 
-#"rgxcore_km_$(RGX_BNC).h"
-ifeq ($(wildcard $(RGX_BNC_CONFIG_KM)),)
-$(error The file $(RGX_BNC_CONFIG_KM) does not exist. \
-	Valid BNCs: $(ALL_KM_BNCS))
+ifeq ($(DONT_NEED_RGX_BVNC),)
+ # Extract the BNC config name
+ RGX_BNC_SPLIT := $(subst .,$(space) ,$(RGX_BVNC))
+ RGX_BNC := $(word 1,$(RGX_BNC_SPLIT)).V.$(word 3,$(RGX_BNC_SPLIT)).$(word 4,$(RGX_BNC_SPLIT))
+ 
+ # Check BVNC core version
+ ALL_KM_BVNCS := \
+  $(patsubst rgxcore_km_%.h,%,\
+ 	$(notdir $(shell ls $(TOP)/hwdefs/km/cores/rgxcore_km_*.h)))
+ ifeq ($(filter $(RGX_BVNC),$(ALL_KM_BVNCS)),)
+ $(error Error: Invalid Kernel core RGX_BVNC=$(RGX_BVNC). \
+ 	Valid Kernel core BVNCs: $(subst $(space),$(comma)$(space),$(ALL_KM_BVNCS)))
+ endif
+ 
+ # Check if BVNC core file exist
+ RGX_BVNC_CORE_KM := $(TOP)/hwdefs/km/cores/rgxcore_km_$(RGX_BVNC).h
+ RGX_BVNC_CORE_KM_HEADER := \"cores/rgxcore_km_$(RGX_BVNC).h\" 
+ # "rgxcore_km_$(RGX_BVNC).h"
+ ifeq ($(wildcard $(RGX_BVNC_CORE_KM)),)
+ $(error The file $(RGX_BVNC_CORE_KM) does not exist. \
+ 	Valid BVNCs: $(ALL_KM_BVNCS))
+ endif
+ 
+ # Check BNC config version
+ ALL_KM_BNCS := \
+  $(patsubst rgxconfig_km_%.h,%,\
+ 	$(notdir $(shell ls $(TOP)/hwdefs/km/configs/rgxconfig_km_*.h)))
+ ifeq ($(filter $(RGX_BNC),$(ALL_KM_BNCS)),)
+ $(error Error: Invalid Kernel config RGX_BNC=$(RGX_BNC). \
+ 	Valid Kernel config BNCs: $(subst $(space),$(comma)$(space),$(ALL_KM_BNCS)))
+ endif
+ 
+ # Check if BNC config file exist
+ RGX_BNC_CONFIG_KM := $(TOP)/hwdefs/km/configs/rgxconfig_km_$(RGX_BNC).h
+ RGX_BNC_CONFIG_KM_HEADER := \"configs/rgxconfig_km_$(RGX_BNC).h\" 
+ #"rgxcore_km_$(RGX_BNC).h"
+ ifeq ($(wildcard $(RGX_BNC_CONFIG_KM)),)
+ $(error The file $(RGX_BNC_CONFIG_KM) does not exist. \
+ 	Valid BNCs: $(ALL_KM_BNCS))
+ endif
 endif
 
 # Enforced dependencies. Move this to an include.
@@ -324,9 +321,25 @@ MAX_POOL_PAGES ?= 10240
 # components list. Make sure these are defined early enough to make this
 # possible.
 #
-SUPPORT_DISPLAY_CLASS ?= 0
-SUPPORT_RAY_TRACING := \
- $(shell grep -qw RGX_FEATURE_RAY_TRACING $(RGX_BNC_CONFIG_KM) && echo 1)
+ifeq ($(SUPPORT_DRM),1)
+SUPPORT_DISPLAY_CLASS := 0
+else
+ifeq ($(SUPPORT_ADF),1)
+SUPPORT_DISPLAY_CLASS := 0
+else
+SUPPORT_DISPLAY_CLASS ?= 1
+endif
+endif
+
+ifeq ($(DONT_NEED_RGX_BVNC),)
+# we can only do this stuff if we have a BVNC
+
+ SUPPORT_RAY_TRACING := \
+  $(shell grep -qw RGX_FEATURE_RAY_TRACING $(RGX_BNC_CONFIG_KM) && echo 1)
+
+ SUPPORT_DMA :=\
+  $(shell grep -qw RGX_FEATURE_META_DMA_CHANNEL_COUNT $(RGX_BNC_CONFIG_KM) && echo 1)
+endif
 
 # Default place for shared libraries
 SHLIB_DESTDIR ?= /usr/lib
@@ -335,6 +348,9 @@ SHLIB_DESTDIR ?= /usr/lib
 # - components.mk is a per-build file that specifies the components that are
 #   to be built
 -include components.mk
+
+# Set up the host and target compiler.
+include ../config/compiler.mk
 
 # PDUMP needs extra components
 #
@@ -407,14 +423,46 @@ endif
 
 endif # !Neutrino
 
-ifneq ($(ARCH_IDENT),)
-$(eval $(call UserConfigMake,ARCH_IDENT,$(ARCH_IDENT)))
+# Normally this is off for Linux, and only used by Android, but if customers
+# are testing their display engines using NULLADFWS, they need to enable it
+# for dmabuf support under Linux. The sync header is needed by adf_pdp.
+#
+SUPPORT_ION ?= 0
+ifneq ($(SUPPORT_ION),0)
+# Support kernels built out-of-tree with O=/other/path
+# In those cases, KERNELDIR will be O, not the source tree.
+ifneq ($(wildcard $(KERNELDIR)/source),)
+KSRCDIR := $(KERNELDIR)/source
+else
+KSRCDIR := $(KERNELDIR)
+endif
+ifneq ($(wildcard $(KSRCDIR)/drivers/staging/android/ion/ion.h),)
+# The kernel has a more recent version of ion, located in drivers/staging.
+# Change the default header paths and the behaviour wrt sg_dma_len.
+PVR_ANDROID_ION_HEADER := \"../drivers/staging/android/ion/ion.h\"
+PVR_ANDROID_ION_PRIV_HEADER := \"../drivers/staging/android/ion/ion_priv.h\"
+PVR_ANDROID_ION_USE_SG_LENGTH := 1
+endif
+ifneq ($(wildcard $(KSRCDIR)/drivers/staging/android/sync.h),)
+# The kernel has a more recent version of the sync driver, located in
+# drivers/staging. Change the default header path.
+PVR_ANDROID_SYNC_HEADER := \"../drivers/staging/android/sync.h\"
+endif
+$(eval $(call BothConfigMake,SUPPORT_ION,1))
+$(eval $(call BothConfigC,SUPPORT_ION,))
+$(eval $(call TunableKernelConfigC,PVR_ANDROID_ION_HEADER,\"linux/ion.h\"))
+$(eval $(call TunableKernelConfigC,PVR_ANDROID_ION_PRIV_HEADER,\"../drivers/gpu/ion/ion_priv.h\"))
+$(eval $(call TunableKernelConfigC,PVR_ANDROID_ION_USE_SG_LENGTH,))
+$(eval $(call TunableKernelConfigC,PVR_ANDROID_SYNC_HEADER,\"linux/sync.h\"))
 endif
 
 $(eval $(call UserConfigC,PVRSRV_MODULE_BASEDIR,\"$(PVRSRV_MODULE_BASEDIR)\"))
 
 # Ideally configured by platform Makefiles, as necessary
 #
+
+$(if $(USE_CCACHE),$(if $(USE_DISTCC),$(error\
+Enabling both USE_CCACHE and USE_DISTCC at the same time is not supported)))
 
 # Invariant options for Linux
 #
@@ -443,6 +491,12 @@ $(eval $(call UserConfigC,OPK_FALLBACK,"\"$(OPK_FALLBACK)\""))
 
 $(eval $(call BothConfigMake,PVR_SYSTEM,$(PVR_SYSTEM)))
 
+ifeq ($(MESA_EGL),1)
+$(eval $(call UserConfigMake,LIB_IMG_EGL,pvr_dri_if))
+else
+$(eval $(call UserConfigMake,LIB_IMG_EGL,IMGegl))
+endif
+
 # Build-type dependent options
 #
 $(eval $(call BothConfigMake,BUILD,$(BUILD)))
@@ -458,7 +512,6 @@ $(eval $(call KernelConfigC,DEBUG_HANDLEALLOC_KM,))
 $(eval $(call UserConfigC,DLL_METRIC,1))
 $(eval $(call TunableBothConfigC,RGXFW_ALIGNCHECKS,1))
 $(eval $(call TunableBothConfigC,PVRSRV_DEBUG_CCB_MAX,))
-$(eval $(call TunableBothConfigC,RGX_HWPERF_SLC_PERF,))
 else ifeq ($(BUILD),release)
 $(eval $(call BothConfigC,RELEASE,))
 $(eval $(call TunableBothConfigMake,DEBUGLINK,1))
@@ -471,11 +524,14 @@ else
 $(error BUILD= must be either debug, release or timing)
 endif
 
+
+
 # User-configurable options
 #
-
-$(eval $(call TunableBothConfigC,RGX_BVNC_CORE_KM_HEADER,))
-$(eval $(call TunableBothConfigC,RGX_BNC_CONFIG_KM_HEADER,))
+ifeq ($(DONT_NEED_RGX_BVNC),)
+ $(eval $(call TunableBothConfigC,RGX_BVNC_CORE_KM_HEADER,))
+    $(eval $(call TunableBothConfigC,RGX_BNC_CONFIG_KM_HEADER,))
+   endif
 
 $(eval $(call TunableBothConfigC,SUPPORT_DBGDRV_EVENT_OBJECTS,1))
 $(eval $(call TunableBothConfigC,PVR_DBG_BREAK_ASSERT_FAIL,,\
@@ -533,10 +589,10 @@ $(eval $(call TunableKernelConfigC,PVR_LINUX_MISR_USING_PRIVATE_WORKQUEUE,))
 $(eval $(call TunableKernelConfigC,PVR_LINUX_TIMERS_USING_WORKQUEUES,))
 $(eval $(call TunableKernelConfigC,PVR_LINUX_TIMERS_USING_SHARED_WORKQUEUE,))
 $(eval $(call TunableKernelConfigC,PVR_LDM_PLATFORM_PRE_REGISTERED,))
-$(eval $(call TunableKernelConfigC,PVR_LDM_PLATFORM_PRE_REGISTERED_DEV,))
 $(eval $(call TunableKernelConfigC,PVR_LDM_DRIVER_REGISTRATION_NAME,"\"$(PVRSRV_MODNAME)\""))
 $(eval $(call TunableBothConfigC,LDM_PLATFORM,))
 $(eval $(call TunableBothConfigC,LDM_PCI,))
+$(eval $(call TunableBothConfigC,PVRSRV_ENABLE_FULL_SYNC_TRACKING,))
 $(eval $(call TunableKernelConfigC,SYNC_DEBUG,))
 $(eval $(call TunableKernelConfigC,SUPPORT_DUMP_CLIENT_CCB_COMMANDS,))
 $(eval $(call TunableKernelConfigC,PVR_LINUX_DONT_USE_RANGE_BASED_INVALIDATE,))
@@ -560,9 +616,11 @@ $(eval $(call TunableBothConfigC,SUPPORT_PVR_VALGRIND,))
 
 
 
+
 ifneq ($(SUPPORT_ANDROID_PLATFORM),1)
   endif
 
+  
 $(eval $(call TunableBothConfigMake,CACHEFLUSH_TYPE,CACHEFLUSH_GENERIC))
 $(eval $(call TunableBothConfigMake,PDUMP,))
 $(eval $(call TunableBothConfigMake,SUPPORT_INSECURE_EXPORT,1))
@@ -588,16 +646,19 @@ $(eval $(call UserConfigC,EGL_BASENAME_SUFFIX,\"$(EGL_BASENAME_SUFFIX)\"))
 
 
 
+
 $(eval $(call TunableBothConfigC,PVR_TESTING_UTILS,,\
 Enable this to build in support for testing the PVR Transport Layer API._\
 ))
 
 
+TQ_CAPTURE_PARAMS ?= 1
+
 $(eval $(call TunableBothConfigC,TDMETACODE,))
 $(eval $(call TunableBothConfigC,PVR_DPF_ADHOC_DEBUG_ON,))
 $(eval $(call TunableBothConfigC,RGXFW_DEBUG_LOG_GROUP,))
-$(eval $(call TunableBothConfigC,RGXFW_POWMON_TIMERCTL,))
 $(eval $(call TunableBothConfigC,SUPPORT_POWMON_WO_GPIO_PIN,))
+
 
 $(eval $(call TunableKernelConfigMake,PVR_HANDLE_BACKEND,generic,\
 Specifies the back-end that should be used$(comma) by the Services kernel handle_\
@@ -607,9 +668,11 @@ interface$(comma) to allocate handles. The available backends are:_\
 ))
 
 
-$(eval $(call TunableKernelConfigC,PVRSRV_ENABLE_PROCESS_STATS,1,\
+$(eval $(call TunableBothConfigC,PVRSRV_ENABLE_PROCESS_STATS,1,\
 Enable Process Statistics via DebugFS._\
 ))
+
+$(eval $(call TunableKernelConfigC,SUPPORT_SHARED_SLC,,))
 
 # PVR_RI_DEBUG is set to enable RI annotation of devmem allocations
 # This is enabled by default for debug builds.
@@ -620,18 +683,22 @@ Enable Resource Information (RI) debug. This logs details of_\
 resource allocations with annotation to help indicate their use._\
 ))
 
-$(eval $(call TunableBothConfigC,PVRSRV_ENABLE_MEMORY_STATS,,\
+$(eval $(call TunableKernelConfigC,PVRSRV_ENABLE_MEMORY_STATS,,\
 Enable Memory allocations to be recorded and published via Process Statistics._\
 ))
 
-$(eval $(call TunableBothConfigC,PVRSRV_MEMORY_STATS_LITE,,\
-Logs Memory allocations as byte count only (no per-alloc records) via Process Statistics._\
-))
 $(eval $(call TunableKernelConfigC,PVRSRV_ENABLE_FW_TRACE_DEBUGFS,,\
 Enable automatic decoding of Firmware Trace via DebugFS._\
 ))
 
 $(eval $(call TunableKernelConfigC,PVR_LINUX_PYSMEM_MAX_POOL_PAGES,"$(MAX_POOL_PAGES)"))
+$(eval $(call TunableKernelConfigC,PVR_LINUX_VMALLOC_ALLOCATION_THRESHOLD, 16384 ))
+
+
+# Tunable RGX_MAX_TA_SYNCS / RGX_MAX_3D_SYNCS to increase the size of sync array in the DDK
+# If defined, these macros take up the values as defined in the environment,
+# Else, the default value is taken up as defined in include/rgxapi.h
+#
 
 endif # INTERNAL_CLOBBER_ONLY
 

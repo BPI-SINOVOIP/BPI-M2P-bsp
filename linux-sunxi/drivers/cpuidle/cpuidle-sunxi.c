@@ -36,6 +36,8 @@
 #include <mach/cpuidle-sunxi.h>
 #include <linux/clk.h>
 #include <linux/clk-private.h>
+#include <mach/sun9i/platsmp.h>
+
 #ifdef CONFIG_ARCH_SUN9IW1P1
 #include <linux/clk/clk-sun9iw1.h>
 #endif
@@ -165,8 +167,10 @@ static int dram_master_check(void)
 	return reg_val;
 }
 #endif
+
 #define DRAM_SELFREFLASH		0x1
 #define DRAM_NOT_SELFREFLASH		0x0
+
 #ifdef CONFIG_IDLE_FETCH
 #include <linux/debugfs.h>
 #include <asm/uaccess.h>
@@ -362,7 +366,7 @@ static int sunxi_sleep_all_core_finish(unsigned long val)
 {
 	unsigned int cpu;
 	struct cpumask tmp;
-	struct sunxi_enter_idle_para sunxi_enter_idle_para_info;
+	struct sunxi_cpuidle_para sunxi_enter_idle_para_info;
 	cpu = get_logical_index(read_cpuid_mpidr()&0xFFFF);
 
 	raw_spin_lock(&sunxi_cpu_idle_c2_lock);
@@ -380,8 +384,6 @@ static int sunxi_sleep_all_core_finish(unsigned long val)
 				mcpm_set_entry_vector(0, 0, cpu_resume);
 				/*call cpus interface to clear its irq pending*/
 
-				sunxi_enter_idle_para_info.resume_addr = (void *)(virt_to_phys(mcpm_entry_point));
-
 #ifdef CONFIG_DRAM_SELFREFLASH_IN_CPUIDLE
 				if(cpuidle_early_suspend_flag
 						&& !dram_master_check()){
@@ -389,7 +391,7 @@ static int sunxi_sleep_all_core_finish(unsigned long val)
 				}else
 #endif
 					sunxi_enter_idle_para_info.flags = DRAM_NOT_SELFREFLASH;
-				arisc_enter_cpuidle(NULL,NULL,(struct sunxi_enter_idle_para *)(&sunxi_enter_idle_para_info));
+				arisc_enter_cpuidle(NULL,NULL,(struct sunxi_cpuidle_para *)(&sunxi_enter_idle_para_info));
 				sunxi_idle_cluster_die(A7_CLUSTER);
 			}else{
 				asm("wfi");
@@ -569,6 +571,9 @@ static int __init sunxi_init_cpuidle(void)
 {
 	int i, max_cpuidle_state, cpu;
 	struct cpuidle_device *device;
+
+	sunxi_set_bootcpu_hotplugflg();
+	sunxi_set_secondary_entry((void *)(virt_to_phys(mcpm_entry_point)));
 
 	cpumask_clear(&sunxi_cpu_try_enter_idle_mask);
 	cpumask_clear(&sunxi_cpu_idle_mask);

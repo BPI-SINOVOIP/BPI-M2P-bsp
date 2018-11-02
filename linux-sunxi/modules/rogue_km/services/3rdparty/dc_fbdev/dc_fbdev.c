@@ -44,19 +44,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <linux/module.h>
 #include <linux/fb.h>
 
-#if defined(SUPPORT_DRM)
-#include <drm/drmP.h>
-#endif
-
 #include "kerneldisplay.h"
 #include "imgpixfmts_km.h"
 #include "pvrmodule.h" /* for MODULE_LICENSE() */
 
-#if defined(SUPPORT_DRM)
-#include "pvr_drm.h"
-#endif
-
-#ifndef CONFIG_FB
+#if !defined(CONFIG_FB)
 #error dc_fbdev needs Linux framebuffer support. Enable it in your kernel.
 #endif
 
@@ -117,7 +109,7 @@ static inline void console_unlock(void)
 #endif
 
 static
-IMG_VOID DC_FBDEV_GetInfo(IMG_HANDLE hDeviceData,
+void DC_FBDEV_GetInfo(IMG_HANDLE hDeviceData,
 						  DC_DISPLAY_INFO *psDisplayInfo)
 {
 	PVR_UNREFERENCED_PARAMETER(hDeviceData);
@@ -332,7 +324,7 @@ err_out:
 }
 
 static
-IMG_VOID DC_FBDEV_ContextConfigure(IMG_HANDLE hDisplayContext,
+void DC_FBDEV_ContextConfigure(IMG_HANDLE hDisplayContext,
 								   IMG_UINT32 ui32PipeCount,
 								   PVRSRV_SURFACE_CONFIG_INFO *pasSurfAttrib,
 								   IMG_HANDLE *ahBuffers,
@@ -414,7 +406,7 @@ IMG_VOID DC_FBDEV_ContextConfigure(IMG_HANDLE hDisplayContext,
 }
 
 static
-IMG_VOID DC_FBDEV_ContextDestroy(IMG_HANDLE hDisplayContext)
+void DC_FBDEV_ContextDestroy(IMG_HANDLE hDisplayContext)
 {
 	DC_FBDEV_CONTEXT *psDeviceContext = hDisplayContext;
 
@@ -453,7 +445,7 @@ IMG_BOOL DC_FBDEV_GetBufferID(DC_FBDEV_CONTEXT *psDeviceContext, IMG_UINT32 *pui
 }
 
 static
-IMG_VOID DC_FBDEV_PutBufferID(DC_FBDEV_CONTEXT *psDeviceContext, IMG_UINT32 ui32BufferID)
+void DC_FBDEV_PutBufferID(DC_FBDEV_CONTEXT *psDeviceContext, IMG_UINT32 ui32BufferID)
 {
 	psDeviceContext->ui32AllocUseMask &= ~(1UL << ui32BufferID);
 }
@@ -550,12 +542,12 @@ PVRSRV_ERROR DC_FBDEV_BufferAcquire(IMG_HANDLE hBuffer,
 	return PVRSRV_OK;
 }
 
-static IMG_VOID DC_FBDEV_BufferRelease(IMG_HANDLE hBuffer)
+static void DC_FBDEV_BufferRelease(IMG_HANDLE hBuffer)
 {
 	PVR_UNREFERENCED_PARAMETER(hBuffer);
 }
 
-static IMG_VOID DC_FBDEV_BufferFree(IMG_HANDLE hBuffer)
+static void DC_FBDEV_BufferFree(IMG_HANDLE hBuffer)
 {
 	DC_FBDEV_BUFFER *psBuffer = hBuffer;
 
@@ -638,11 +630,7 @@ static bool DC_FBDEV_FlipPossible(struct fb_info *psLINFBInfo)
 	return true;
 }
 
-#if defined(SUPPORT_DRM)
-int PVR_DRM_MAKENAME(DISPLAY_CONTROLLER, _Init)(struct drm_device unref__ *dev)
-#else
 static int __init DC_FBDEV_init(void)
-#endif
 {
 	static DC_DEVICE_FUNCTIONS sDCFunctions =
 	{
@@ -717,12 +705,11 @@ static int __init DC_FBDEV_init(void)
 				   psLINFBInfo->var.blue.offset);
 			goto err_unlock;
 		}
-#if !defined(DC_FBDEV_FORCE_XRGB8888)
-		if(psLINFBInfo->var.transp.length==8)
-			ePixFormat = IMG_PIXFMT_B8G8R8A8_UNORM;
-		else
+#if defined(DC_FBDEV_FORCE_XRGB8888)
+		ePixFormat = IMG_PIXFMT_B8G8R8X8_UNORM;
+#else
+		ePixFormat = IMG_PIXFMT_B8G8R8A8_UNORM;
 #endif
-			ePixFormat = IMG_PIXFMT_B8G8R8X8_UNORM;
 	}
 	else if(psLINFBInfo->var.bits_per_pixel == 16)
 	{
@@ -807,11 +794,7 @@ err_module_put:
 	goto err_unlock;
 }
 
-#if defined(SUPPORT_DRM)
-void PVR_DRM_MAKENAME(DISPLAY_CONTROLLER, _Cleanup)(struct drm_device unref__ *dev)
-#else
 static void __exit DC_FBDEV_exit(void)
-#endif
 {
 	DC_FBDEV_DEVICE *psDeviceData = gpsDeviceData;
 	struct fb_info *psLINFBInfo = psDeviceData->psLINFBInfo;
@@ -831,7 +814,5 @@ static void __exit DC_FBDEV_exit(void)
 	kfree(psDeviceData);
 }
 
-#if !defined(SUPPORT_DRM)
 module_init(DC_FBDEV_init);
 module_exit(DC_FBDEV_exit);
-#endif

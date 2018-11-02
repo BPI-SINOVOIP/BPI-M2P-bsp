@@ -392,7 +392,7 @@ __s32  burn_boot0_1k_mode_secure( __u32 read_retry_type, __u32 length, __u32 Boo
 		goto error;
 	}
 
-	/* ï¿½ï¿½ï¿½ page count */
+	/* Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½ page count */
 	pages_per_block = NAND_GetPageCntPerBlk();
 	if(pages_per_block%64)
 	{
@@ -405,13 +405,13 @@ __s32  burn_boot0_1k_mode_secure( __u32 read_retry_type, __u32 length, __u32 Boo
 		for( i = NAND_BOOT0_BLK_START;  i < (NAND_BOOT0_BLK_START + NAND_BOOT0_BLK_CNT);  i++ )
 	    {
 
-			/* æ“¦é™¤å— */
+			/* Ã¦â€œÂ¦Ã©â„¢Â¤Ã¥Ââ€” */
 			para.chip  = 0;
 			para.block = i;
 			if( PHY_SimpleErase( &para ) <0 )
 			{
 			    debug("Fail in erasing block %d.\n", i );
-	    		continue;
+	    		//continue;
 	    	}
 	    }
 		blocks_per_copy = NAND_BOOT0_PAGE_CNT_PER_COPY/pages_per_block;
@@ -448,17 +448,17 @@ __s32  burn_boot0_1k_mode_secure( __u32 read_retry_type, __u32 length, __u32 Boo
 	    {
 	        debug("boot0 %x \n", i);
 
-			/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+			/* Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½ */
 			para.chip  = 0;
 			para.block = i;
 			if( PHY_SimpleErase( &para ) <0 )
 			{
 			    debug("Fail in erasing block %d.\n", i );
-	    		continue;
+	    		//continue;
 	    	}
 			debug("after erase.\n" );
 
-	        /* ï¿½Ú¿ï¿½ï¿½ï¿½ï¿½ï¿½Ð´boot0ï¿½ï¿½ï¿½ï¿½ */
+	        /* Ã¯Â¿Â½ÃšÂ¿Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½ÃÂ´boot0Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½ */
 	        for( j = 0;  j < copies_per_block;  j++ )
 	       	{
 
@@ -534,7 +534,7 @@ __s32  burn_boot0_lsb_mode_secure(__u32 read_retry_type,  __u32 length, __u32 Bo
 	}
 	NFC_LSBEnable(0, read_retry_type);
 
-	/* æ£€æŸ¥ page count */
+	/* Ã¦Â£â‚¬Ã¦Å¸Â¥ page count */
 	page_size = NAND_GetPageSize();
 	if(page_size %1024)
 	{
@@ -571,13 +571,13 @@ __s32  burn_boot0_lsb_mode_secure(__u32 read_retry_type,  __u32 length, __u32 Bo
 	{
 	 	debug("down boot0 %x \n", i);
 
-		/* æ“¦é™¤å— */
+		/* Ã¦â€œÂ¦Ã©â„¢Â¤Ã¥Ââ€” */
 		para.chip  = 0;
 		para.block = i;
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		for(j=0;j<copies_per_block;j++)
 		{
@@ -686,7 +686,7 @@ __s32  burn_boot0_lsb_FF_mode_secure(__u32 read_retry_type,  __u32 length, __u32
 		goto error;
 	}
 
-	/* æ£€æŸ¥ page count */
+	/* Ã¦Â£â‚¬Ã¦Å¸Â¥ page count */
 	page_size = NAND_GetPageSize();
 
 	if(page_size %1024)
@@ -723,13 +723,13 @@ __s32  burn_boot0_lsb_FF_mode_secure(__u32 read_retry_type,  __u32 length, __u32
 	{
 	 	debug("pagetab boot0 %x \n", i);
 
-		/* æ“¦é™¤å— */
+		/* Ã¦â€œÂ¦Ã©â„¢Â¤Ã¥Ââ€” */
 		para.chip  = 0;
 		para.block = i;
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		for(j=0;j<copies_per_block;j++)
 		{
@@ -911,7 +911,7 @@ __s32  burn_boot0_lsb_FF_mode_8K(__u32 read_retry_type,  __u32 length, __u32 Boo
 		goto error;
 	}
 
-	/* ¼쳩 page count */
+	/* Â¼ì³© page count */
 	page_size = NAND_GetPageSize();
 
 	if(page_size %1024)
@@ -933,7 +933,7 @@ __s32  burn_boot0_lsb_FF_mode_8K(__u32 read_retry_type,  __u32 length, __u32 Boo
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		for(j=0;j<copies_per_block;j++)
 		{
@@ -1039,7 +1039,7 @@ __s32  burn_boot0_lsb_FF_mode(__u32 read_retry_type, __u32 Boot0_buf )
 		goto error;
 	}
 
-	/* ¼ì²é page count */
+	/* Â¼Ã¬Â²Ã© page count */
 	page_size = NAND_GetPageSize();
 	{
 		if(page_size %1024)
@@ -1057,16 +1057,16 @@ __s32  burn_boot0_lsb_FF_mode(__u32 read_retry_type, __u32 Boot0_buf )
     {
         debug("down boot0 %x \n", i);
 	
-		/* ²Á³ý¿é */
+		/* Â²ÃÂ³Ã½Â¿Ã© */
 		para.chip  = 0;
 		para.block = i;
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 
-        /* ÔÚ¿éÖÐÉÕÐ´boot0±¸·Ý, lsb modeÏÂ£¬Ã¿¸ö¿éÖ»ÄÜÐ´Ç°2¸öpage */
+        /* Ã”ÃšÂ¿Ã©Ã–ÃÃ‰Ã•ÃÂ´boot0Â±Â¸Â·Ã, lsb modeÃÃ‚Â£Â¬ÃƒÂ¿Â¸Ã¶Â¿Ã©Ã–Â»Ã„ÃœÃÂ´Ã‡Â°2Â¸Ã¶page */
 		for( k = 0;  k < 5;  k++ )
 		{
 			if(k<2)
@@ -1124,7 +1124,7 @@ __s32  burn_boot0_lsb_FF_mode(__u32 read_retry_type, __u32 Boot0_buf )
 
         debug("verify boot0 %x \n", i);
 
-        /* ÔÚ¿éÖÐÉÕÐ´boot0±¸·Ý, lsb modeÏÂ£¬Ã¿¸ö¿éÖ»ÄÜÐ´Ç°2¸öpage */
+        /* Ã”ÃšÂ¿Ã©Ã–ÃÃ‰Ã•ÃÂ´boot0Â±Â¸Â·Ã, lsb modeÃÃ‚Â£Â¬ÃƒÂ¿Â¸Ã¶Â¿Ã©Ã–Â»Ã„ÃœÃÂ´Ã‡Â°2Â¸Ã¶page */
 		for( k = 0;  k < 2;  k++ )
 		{
 			para.chip  = 0;
@@ -1185,7 +1185,7 @@ __s32  burn_boot0_lsb_mode(__u32 read_retry_type, __u32 Boot0_buf )
 
 
 
-	/* ��� page count */
+	/* ï¿½ï¿½ï¿½ page count */
 	page_size = NAND_GetPageSize();
 	{
 		if(page_size %1024)
@@ -1202,16 +1202,16 @@ __s32  burn_boot0_lsb_mode(__u32 read_retry_type, __u32 Boot0_buf )
     {
 		debug("burn boot0 %x \n", i);
 
-		/* ������ */
+		/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 		para.chip  = 0;
 		para.block = i;
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		debug("after erase.\n" );
-        /* �ڿ�����дboot0����, lsb mode�£�ÿ����ֻ��дǰ4��page */
+        /* ï¿½Ú¿ï¿½ï¿½ï¿½ï¿½ï¿½Ð´boot0ï¿½ï¿½ï¿½ï¿½, lsb modeï¿½Â£ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½Ð´Ç°4ï¿½ï¿½page */
 		for( k = 0;  k < 4;  k++ )
 		{
 			para.chip  = 0;
@@ -1240,7 +1240,7 @@ __s32  burn_boot0_lsb_mode(__u32 read_retry_type, __u32 Boot0_buf )
     {
 		debug("check boot0 %x \n", i);
 
-        /* �ڿ�����дboot0����, lsb mode�£�ÿ����ֻ��дǰ4��page */
+        /* ï¿½Ú¿ï¿½ï¿½ï¿½ï¿½ï¿½Ð´boot0ï¿½ï¿½ï¿½ï¿½, lsb modeï¿½Â£ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½Ð´Ç°4ï¿½ï¿½page */
 		for( k = 0;  k < 4;  k++ )
 		{
 			para.chip  = 0;
@@ -1295,7 +1295,7 @@ __s32  burn_boot0_1k_mode( __u32 read_retry_type, __u32 Boot0_buf )
 		goto error;
 	}
 
-	/* ��� page count */
+	/* ï¿½ï¿½ï¿½ page count */
 	pages_per_block = NAND_GetPageCntPerBlk();
 	if(pages_per_block%64)
 	{
@@ -1311,17 +1311,17 @@ __s32  burn_boot0_1k_mode( __u32 read_retry_type, __u32 Boot0_buf )
     {
         debug("boot0 %x \n", i);
 
-		/* ������ */
+		/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 		para.chip  = 0;
 		para.block = i;
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		debug("after erase.\n" );
 
-        /* �ڿ�����дboot0���� */
+        /* ï¿½Ú¿ï¿½ï¿½ï¿½ï¿½ï¿½Ð´boot0ï¿½ï¿½ï¿½ï¿½ */
         for( j = 0;  j < copies_per_block;  j++ )
        	{
 
@@ -1367,7 +1367,7 @@ __s32  burn_boot0_1k_fullpage_mode( __u32 read_retry_type, __u32 Boot0_buf )
 		goto error;
 	}
 
-	/* ��� page count */
+	/* ¼ì²é page count */
 	pages_per_block = NAND_GetPageCntPerBlk();
 	if(pages_per_block%64)
 	{
@@ -1376,12 +1376,21 @@ __s32  burn_boot0_1k_fullpage_mode( __u32 read_retry_type, __u32 Boot0_buf )
 	}
 
 	/* cal copy cnt per bock */
-	copies_per_block = pages_per_block / 64;
+	copies_per_block = pages_per_block / NAND_BOOT0_PAGE_CNT_PER_COPY;
 
 	page_size = NAND_GetPageSize();
 	/* burn boot0 copys */
     for( i = NAND_BOOT0_BLK_START;  i < (NAND_BOOT0_BLK_START + NAND_BOOT0_BLK_CNT);  i++ )
     {
+    	debug("erase block %d\n",i );
+    	para.chip  = 0;
+		para.block = i;
+		if( PHY_SimpleErase( &para ) <0 )
+		{
+		    debug("Fail in erasing block %d.\n", i );
+    		//continue;
+    	}
+		
 		for(j=0;j<copies_per_block;j++)
 		{
 			for(k=0;k<NAND_BOOT0_PAGE_CNT_PER_COPY;k++)
@@ -1478,7 +1487,8 @@ int NAND_BurnBoot0_nonsecure(unsigned int length, void *buf)
 	}
 	else
 	{
-		if( burn_boot0_1k_fullpage_mode(read_retry_type, (__u32)buffer) )
+		//if( burn_boot0_1k_fullpage_mode(read_retry_type, (__u32)buffer) )
+		if( burn_boot0_1k_mode(read_retry_type, (__u32)buffer) )
 			goto error;
 	}
 	debug("burn boot 0 nonsecure success\n");
@@ -1523,7 +1533,7 @@ __s32  read_boot0_1k_mode_secure( __u32 read_retry_type, __u32 length, __u32 Boo
 
     debug("read boot0 normal mode!\n");
 	err_flag = 0;
-	/* ï¿½ï¿½ï¿?page count */
+	/* Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿?page count */
 	pages_per_block = NAND_GetPageCntPerBlk();
 	if(pages_per_block%64)
 	{
@@ -1578,7 +1588,7 @@ __s32  read_boot0_1k_mode_secure( __u32 read_retry_type, __u32 length, __u32 Boo
 	    {
 	        debug("boot0 blk %x \n", i);
 
-			/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+			/* Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½ */
 			para.chip  = 0;
 			para.block = i;
 
@@ -1634,7 +1644,7 @@ __s32  read_boot0_lsb_mode_secure(__u32 read_retry_type, __u32 length, __u32 Boo
 	struct boot_physical_param para;
 	struct boot_ndfc_cfg cfg;
 
-	/* ï¿½ï¿½ï¿?page count */
+	/* Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿?page count */
 	page_size = NAND_GetPageSize();
 	if(page_size %1024)
 	{
@@ -1758,7 +1768,7 @@ __s32  read_boot0_lsb_FF_mode_8K(__u32 read_retry_type,  __u32 length, __u32 Boo
 
     debug("read_boot0_lsb_FF_pagetab_mode!\n");
 
-	/* ¼쳩 page count */
+	/* Â¼ì³© page count */
 	page_size = NAND_GetPageSize();
 
 	if(page_size %1024)
@@ -1902,7 +1912,7 @@ __s32  read_boot0_lsb_mode(__u32 read_retry_type, __u32 Boot0_buf )
 
 
 
-	/* ��� page count */
+	/* ï¿½ï¿½ï¿½ page count */
 	page_size = NAND_GetPageSize();
 	{
 		if(page_size %1024)
@@ -1970,7 +1980,7 @@ __s32  read_boot0_1k_mode( __u32 read_retry_type, __u32 Boot0_buf )
 
     debug("read boot0 normal mode!\n");
 
-	/* ��� page count */
+	/* ï¿½ï¿½ï¿½ page count */
 	pages_per_block = NAND_GetPageCntPerBlk();
 	if(pages_per_block%64)
 	{
@@ -1986,7 +1996,7 @@ __s32  read_boot0_1k_mode( __u32 read_retry_type, __u32 Boot0_buf )
     {
         debug("boot0 blk %x \n", i);
 		
-		/* ������ */
+		/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 		para.chip  = 0;
 		para.block = i;
 
@@ -2129,7 +2139,7 @@ __s32 burn_boot1_in_one_blk(__u32 BOOT1_buf, __u32 length)
 	}
 
 
-	/* ï¿½ï¿½ï¿½ page count */
+	/* Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½ page count */
 	page_size = NAND_GetPageSize();
 	{
 		if(page_size %1024)
@@ -2139,7 +2149,7 @@ __s32 burn_boot1_in_one_blk(__u32 BOOT1_buf, __u32 length)
 		}
 	}
 
-	/* ï¿½ï¿½ï¿½ page count */
+	/* Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½ page count */
 	pages_per_block = NAND_GetPageCntPerBlk();
 	if(pages_per_block%64)
 	{
@@ -2149,7 +2159,7 @@ __s32 burn_boot1_in_one_blk(__u32 BOOT1_buf, __u32 length)
 
 	debug("pages_per_block: 0x%x\n", pages_per_block);
 
-	/* ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½page */
+	/* Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½ÃƒÂ¿Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½page */
 	if(length%page_size)
 	{
 		debug("uboot length check error!\n");
@@ -2169,16 +2179,16 @@ __s32 burn_boot1_in_one_blk(__u32 BOOT1_buf, __u32 length)
     {
         debug("boot1 %x \n", i);
 
-		/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+		/* Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½ */
 		para.chip  = 0;
 		para.block = i;
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 
-        /* ï¿½Ú¿ï¿½ï¿½ï¿½ï¿½ï¿½Ð´boot0ï¿½ï¿½ï¿½ï¿½, lsb modeï¿½Â£ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½Ð´Ç°4ï¿½ï¿½page */
+        /* Ã¯Â¿Â½ÃšÂ¿Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½ÃÂ´boot0Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½, lsb modeÃ¯Â¿Â½Ã‚Â£Ã¯Â¿Â½ÃƒÂ¿Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã–Â»Ã¯Â¿Â½Ã¯Â¿Â½ÃÂ´Ã‡Â°4Ã¯Â¿Â½Ã¯Â¿Â½page */
 		for( k = 0;  k < pages_per_copy;  k++ )
 		{
 			para.chip  = 0;
@@ -2234,7 +2244,7 @@ __s32 burn_boot1_in_many_blks(__u32 BOOT1_buf, __u32 length)
 	}
 
 
-	/* ï¿½ï¿½ï¿½ page count */
+	/* Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½ page count */
 	page_size = NAND_GetPageSize();
 	{
 		if(page_size %1024)
@@ -2244,7 +2254,7 @@ __s32 burn_boot1_in_many_blks(__u32 BOOT1_buf, __u32 length)
 		}
 	}
 
-	/* ï¿½ï¿½ï¿½ page count */
+	/* Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½ page count */
 	pages_per_block = NAND_GetPageCntPerBlk();
 	if(pages_per_block%64)
 	{
@@ -2252,7 +2262,7 @@ __s32 burn_boot1_in_many_blks(__u32 BOOT1_buf, __u32 length)
 		goto error;
 	}
 
-	/* ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½page */
+	/* Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½ÃƒÂ¿Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½page */
 	if(length%page_size)
 	{
 		debug("uboot length check error!\n");
@@ -2272,16 +2282,16 @@ __s32 burn_boot1_in_many_blks(__u32 BOOT1_buf, __u32 length)
     {
         debug("uboot %x \n", i);
 
-		/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+		/* Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½ */
 		para.chip  = 0;
 		para.block = i;
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 
-        /* ï¿½Ú¿ï¿½ï¿½ï¿½ï¿½ï¿½Ð´boot0ï¿½ï¿½ï¿½ï¿½, lsb modeï¿½Â£ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½Ð´Ç°4ï¿½ï¿½page */
+        /* Ã¯Â¿Â½ÃšÂ¿Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½ÃÂ´boot0Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½, lsb modeÃ¯Â¿Â½Ã‚Â£Ã¯Â¿Â½ÃƒÂ¿Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½Ã–Â»Ã¯Â¿Â½Ã¯Â¿Â½ÃÂ´Ã‡Â°4Ã¯Â¿Â½Ã¯Â¿Â½page */
 		for( k = 0;  k < pages_per_block;  k++ )
 		{
 			para.chip  = 0;
@@ -2350,7 +2360,7 @@ int NAND_BurnBoot1(unsigned int length, void *buf)
 		}
 	}
 
-	/* ï¿½ï¿½ï¿½ page count */
+	/* Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½ page count */
 	pages_per_block = NAND_GetPageCntPerBlk();
 	if(pages_per_block%64)
 	{

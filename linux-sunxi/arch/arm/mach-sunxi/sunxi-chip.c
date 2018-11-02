@@ -25,7 +25,9 @@
 #include <linux/kernel.h>
 #include <linux/arisc/arisc.h>
 #include <asm/cacheflush.h>
-
+#include <mach/sys_config.h>
+#include <linux/pinctrl/pinconf-sunxi.h>
+#include <linux/pinctrl/consumer.h>
 #include <mach/platform.h>
 #include <mach/sunxi-chip.h>
 #include <mach/sunxi-smc.h>
@@ -65,18 +67,99 @@ int sunxi_get_serial(u8 *serial)
 }
 EXPORT_SYMBOL(sunxi_get_serial);
 
-int sunxi_get_soc_chipid_str(char *serial)
+unsigned int sunxi_get_board_vendor_id(void)
 {
 #if (defined CONFIG_ARCH_SUN8IW7P1)
-	switch (sunxi_soc_chipid[0] & 0x0ff) {
-	case 0x24:
-		strcpy(serial, "H2");
+	u32 vid_cnt, vid_used;
+	u32 i, pin_val, vid_val = 0;
+	script_item_u val;
+	script_item_value_type_e type;
+	unsigned long cfg;
+	struct gpio_config pin;
+	char pin_name[SUNXI_PIN_NAME_MAX_LEN];
+	char vid_bit[16];
+
+	char *vid_para = "board_vendor";
+	type = script_get_item(vid_para, "vid_used", &val);
+	if (type != SCIRPT_ITEM_VALUE_TYPE_INT) {
+		pr_err("get %s used failed! \n", vid_para);
+		goto fail;
+	}
+	vid_used = val.val;
+	type = script_get_item(vid_para, "vid_count", &val);
+	if (type != SCIRPT_ITEM_VALUE_TYPE_INT) {
+		pr_err("get %s count failed! \n", vid_para);
+		goto fail;
+	}
+	vid_cnt = val.val;
+	if (!vid_used || !vid_cnt)
+		goto fail;
+
+	for (i=0; i<vid_cnt; i++) {
+		memset(vid_bit, 0, sizeof(vid_bit));
+		sprintf(vid_bit, "vid_bit_%d", i);
+		type = script_get_item(vid_para, vid_bit, &val);
+		if (type != SCIRPT_ITEM_VALUE_TYPE_PIO) {
+			pr_err("get %s %s failed! \n", vid_para, vid_bit);
+			goto fail;
+		}
+		pin = val.gpio;
+
+		sunxi_gpio_to_name(pin.gpio, pin_name);
+		cfg = SUNXI_PINCFG_PACK(SUNXI_PINCFG_TYPE_FUNC, pin.mul_sel);
+		pin_config_set(SUNXI_PINCTRL, pin_name, cfg);
+		if (pin.pull != GPIO_PULL_DEFAULT) {
+			cfg = SUNXI_PINCFG_PACK(SUNXI_PINCFG_TYPE_PUD, pin.pull);
+			pin_config_set(SUNXI_PINCTRL, pin_name, cfg);
+		}
+		if (pin.drv_level != GPIO_DRVLVL_DEFAULT) {
+			cfg = SUNXI_PINCFG_PACK(SUNXI_PINCFG_TYPE_DRV, pin.drv_level);
+			pin_config_set(SUNXI_PINCTRL, pin_name, cfg);
+		}
+		cfg = SUNXI_PINCFG_PACK(SUNXI_PINCFG_TYPE_DAT, 0XFFFF);
+		pin_config_get(SUNXI_PINCTRL, pin_name, &cfg);
+		pin_val = SUNXI_PINCFG_UNPACK_VALUE(cfg);
+		if (pin_val > 0x01) {
+			pr_err("get board vendor pin value err!\n");
+			goto fail;
+		}
+		vid_val |= (pin_val<<i);
+	}
+	return vid_val;
+fail:
+	return -1;
+#else
+	return -1;
+#endif
+}
+EXPORT_SYMBOL(sunxi_get_board_vendor_id);
+
+int sunxi_get_soc_chipid_str(char *serial)
+{
+#if (defined CONFIG_ARCH_SUN8IW6P1)
+	size_t size;
+
+	size = sprintf(serial, "%s", "1673");
+	size += sprintf(serial + size, "%x", (sunxi_soc_chipid[0] >> 28) & 0x3f);
+#elif (defined CONFIG_ARCH_SUN8IW7P1)
+	sprintf(serial, "%08x", sunxi_soc_chipid[0] & 0x0ff);
+#elif (defined CONFIG_ARCH_SUN9IW1P1)
+	size_t size;
+
+	size = sprintf(serial, "%s", "A80");
+	switch ((sunxi_soc_chipid[0] & 0x0ff) | ((sunxi_soc_chipid[1] & 0x0ff)<<4)) {
+	case 0x002c:
+	case 0x402c:
+	case 0x00c0:
+		size += sprintf(serial + size, "%s", " ");
 		break;
-	case 0x42:
-		strcpy(serial, "H3s");
+	case 0x1d2c:
+	case 0x5d2c:
+	case 0x1dc0:
+		size += sprintf(serial + size, "%s", "T");
 		break;
 	default:
-		strcpy(serial, "H3");
+		size += sprintf(serial + size, "%s", " ");
 		break;
 	}
 #else
@@ -116,6 +199,31 @@ int sunxi_soc_is_secure(void)
 	}
 }
 EXPORT_SYMBOL(sunxi_soc_is_secure);
+
+static int sunxi_boot_secure_status = 2;
+int  sunxi_boot_is_secure(void)
+{
+	if (sunxi_boot_secure_status != 2) {
+		/* sunxi_boot_secure_status initialize already,
+		   use the initialized value derectly. */
+
+		return sunxi_boot_secure_status;
+	} else {
+		/* default is non-secure, in order to
+		 * compatible with other non-secure platform.
+		 */
+
+#if   (defined CONFIG_ARCH_SUN9IW1P1)
+		sunxi_boot_secure_status = ((sunxi_smc_readl(SUNXI_SID_VBASE + 0x200 + 0x1F4)) >> 11) & 1;
+#elif  (defined CONFIG_ARCH_SUN8IW6P1) || (defined CONFIG_ARCH_SUN8IW7P1)
+		sunxi_boot_secure_status = ((sunxi_smc_readl(SUNXI_SID_VBASE + 0x200 + 0xF4))>>11) & 1;
+#endif 
+		pr_debug("secure boot flag in kernel 0x%d\n", sunxi_boot_secure_status);
+		return sunxi_boot_secure_status ;
+	}
+
+}
+EXPORT_SYMBOL(sunxi_boot_is_secure);
 
 /*
  * get sunxi soc bin

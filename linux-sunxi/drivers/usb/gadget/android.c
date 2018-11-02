@@ -60,6 +60,9 @@
 #include "f_rndis.c"
 #include "rndis.c"
 #include "u_ether.c"
+#ifdef CONFIG_USB_SUNXI_G_WEBCAM
+#include "webcam.c"
+#endif
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -1025,6 +1028,31 @@ static struct android_usb_function audio_source_function = {
 	.attributes	= audio_source_function_attributes,
 };
 
+#ifdef CONFIG_USB_SUNXI_G_WEBCAM
+static int webcam_function_init(struct android_usb_function *f,
+			struct usb_composite_dev *cdev)
+{
+	return 0;
+}
+
+static void webcam_function_cleanup(struct android_usb_function *f)
+{
+}
+
+static int webcam_function_bind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+	return webcam_config_bind(c);
+}
+
+static struct android_usb_function webcam_function = {
+	.name		= "webcam",
+	.init		= webcam_function_init,
+	.cleanup	= webcam_function_cleanup,
+	.bind_config	= webcam_function_bind_config,
+};
+#endif
+
 static struct android_usb_function *supported_functions[] = {
 	&ffs_function,
 	&adb_function,
@@ -1035,6 +1063,9 @@ static struct android_usb_function *supported_functions[] = {
 	&mass_storage_function,
 	&accessory_function,
 	&audio_source_function,
+#ifdef CONFIG_USB_SUNXI_G_WEBCAM
+	&webcam_function,
+#endif
 	NULL
 };
 

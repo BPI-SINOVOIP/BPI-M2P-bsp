@@ -611,6 +611,31 @@ static int usb_host_init_status(char *usbc)
 		return 0;
 	}
 }
+
+int usb_otg_id_status(void)
+{
+	struct usb_cfg *cfg = NULL;
+	int id_status = -1;
+
+	cfg = &g_usb_cfg;
+	if(cfg == NULL){
+		return -1;
+	}
+
+	if(cfg->port[0].port_type == USB_PORT_TYPE_DEVICE){
+		return 1;
+	}
+
+	if (cfg->port[0].port_type != USB_PORT_TYPE_OTG) {
+		return -1;
+	}
+	if(cfg->port[0].id.valid){
+		id_status = __gpio_get_value(cfg->port[0].id.gpio_set.gpio.gpio);
+	}
+
+	return id_status;
+}
+EXPORT_SYMBOL(usb_otg_id_status);
 #endif
 
 static int __init usb_manager_init(void)
@@ -667,7 +692,7 @@ static int __init usb_manager_init(void)
 
 	if (g_usb_cfg.port[0].port_type == USB_PORT_TYPE_HOST) {
 #if defined (CONFIG_ARCH_SUN8IW8) || defined (CONFIG_ARCH_SUN8IW7)
-		if(usb_host_init_status(SET_USB1)){
+		if(usb_host_init_status(SET_USB0)){
 			set_usb_role_ex(USB_ROLE_HOST);
 		}
 #else

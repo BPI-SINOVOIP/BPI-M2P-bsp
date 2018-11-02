@@ -186,6 +186,16 @@ static inline void sunxi_set_secondary_entry(void *entry)
 }
 
 /*
+ * set the boot cpu hotplug flg.
+ */
+static inline void sunxi_set_bootcpu_hotplugflg(void)
+{
+#if defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN8IW9P1)
+	sunxi_smc_writel(0xFA50392F, (void *)(SUNXI_R_CPUCFG_VBASE + BOOT_CPU_HOTPLUG_REG));
+#endif
+}
+
+/*
  * get the sencodary cpu boot entry address.
  */
 static inline void *sunxi_get_secondary_entry(void)

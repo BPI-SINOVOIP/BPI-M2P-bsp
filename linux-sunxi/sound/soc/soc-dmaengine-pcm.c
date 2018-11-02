@@ -357,4 +357,75 @@ int snd_dmaengine_pcm_close(struct snd_pcm_substream *substream)
 }
 EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_close);
 
+int snd_dmaengine_pcm_open_diy(void *prtd, dma_filter_fn filter_fn, void *filter_data)
+{
+	int ret;
+	ret = dmaengine_pcm_request_channel((struct dmaengine_pcm_runtime_data *)prtd, filter_fn, filter_data);
+	if (ret < 0) {
+		kfree(prtd);
+		return ret;
+	}
+	return 0;
+}
+EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_open_diy);
+int snd_dmaengine_pcm_close_diy(void *p)
+{
+	struct dmaengine_pcm_runtime_data *prtd = (struct dmaengine_pcm_runtime_data *)p;
+	if(!prtd){
+		printk("<0>!!!!!lkj dma prtd == NULL");
+		return 0;
+	}
+	dma_release_channel(prtd->dma_chan);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_close_diy);
+static int dmaengine_pcm_prepare_and_submit_diy(void *p,
+			dma_addr_t dma_addr, enum dma_transfer_direction direction, int buffer_bytes, int period_bytes)
+{
+	struct dmaengine_pcm_runtime_data *prtd = (struct dmaengine_pcm_runtime_data *)p;
+	struct dma_chan *chan = prtd->dma_chan;
+	struct dma_async_tx_descriptor *desc;
+	unsigned long flags = DMA_CTRL_ACK;
+	flags |= DMA_PREP_INTERRUPT;
+	prtd->pos = 0;
+	desc = dmaengine_prep_dma_cyclic(chan,
+		dma_addr,
+		buffer_bytes,
+		period_bytes, direction, flags);
+	if (!desc)
+		return -ENOMEM;
+	desc->callback = NULL;
+	desc->callback_param = NULL;
+	prtd->cookie = dmaengine_submit(desc);
+	return 0;
+}
+int snd_dmaengine_pcm_trigger_diy(void *p, int cmd,
+			dma_addr_t dma_addr, enum dma_transfer_direction direction, int buffer_bytes, int period_bytes)
+{
+	struct dmaengine_pcm_runtime_data *prtd = (struct dmaengine_pcm_runtime_data *)p;
+	int ret;
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+		ret = dmaengine_pcm_prepare_and_submit_diy(prtd,dma_addr, direction, buffer_bytes, period_bytes);
+		if (ret)
+			return ret;
+		dma_async_issue_pending(prtd->dma_chan);
+		break;
+	case SNDRV_PCM_TRIGGER_RESUME:
+	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		dmaengine_resume(prtd->dma_chan);
+		break;
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		dmaengine_pause(prtd->dma_chan);
+		break;
+	case SNDRV_PCM_TRIGGER_STOP:
+		dmaengine_terminate_all(prtd->dma_chan);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_trigger_diy);
 MODULE_LICENSE("GPL");

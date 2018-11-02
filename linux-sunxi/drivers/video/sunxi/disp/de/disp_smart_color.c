@@ -659,12 +659,15 @@ s32 disp_init_smcl(__disp_bsp_init_para * para)
 			break;
 		}
 		smclp->shadow_protect = para->shadow_protect;
-		//smclp->screen_info.user_info.mode = DISP_ENHANCE_MODE_VIVID;
+#if defined(CONFIG_HOMLET_PLATFORM)
 		smclp->screen_info.user_info.mode = DISP_ENHANCE_MODE_STANDARD;
 		smclp->screen_info.user_info.bright = 50;
 		smclp->screen_info.user_info.saturation = 50;
 		smclp->screen_info.user_info.hue = 50;
 		smclp->screen_info.user_info.enable = 1;
+#else
+		smclp->screen_info.user_info.mode = DISP_ENHANCE_MODE_VIVID;
+#endif
 
 		smcl->enable = disp_smcl_enable;
 		smcl->disable = disp_smcl_disable;

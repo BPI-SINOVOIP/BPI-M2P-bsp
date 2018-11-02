@@ -68,6 +68,7 @@
 #include <linux/shmem_fs.h>
 #include <linux/slab.h>
 #include <linux/perf_event.h>
+#include <linux/random.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>
@@ -608,6 +609,10 @@ asmlinkage void __init start_kernel(void)
 	if (efi_enabled(EFI_RUNTIME_SERVICES))
 		efi_enter_virtual_mode();
 #endif
+#ifdef CONFIG_X86_ESPFIX64
+	/* Should be run before the first non-init thread is created */
+	init_espfix_bsp();
+#endif
 	thread_info_cache_init();
 	cred_init();
 	fork_init(totalram_pages);
@@ -785,6 +790,7 @@ static void __init do_basic_setup(void)
 	do_ctors();
 	usermodehelper_enable();
 	do_initcalls();
+	random_int_secret_init();
 }
 
 static void __init do_pre_smp_initcalls(void)
@@ -874,8 +880,14 @@ static int __init kernel_init(void * unused)
 	do_basic_setup();
 
 	/* Open the /dev/console on the rootfs, this should never fail */
-	if (sys_open((const char __user *) "/dev/console", O_RDWR, 0) < 0)
-		printk(KERN_WARNING "Warning: unable to open an initial console.\n");
+	char *console = "/dev_console";
+
+	if (sys_open((const char __user *) "/dev/console", O_RDWR, 0) < 0) {
+		sys_mknod(console, S_IFCHR|0600, (TTYAUX_MAJOR<<8)|1);
+		if (sys_open(console, O_RDWR, 0) < 0)
+			printk(KERN_WARNING "Warning: unable to open an initial console.\n");
+		sys_unlink(console);
+	}
 
 	(void) sys_dup(0);
 	(void) sys_dup(0);

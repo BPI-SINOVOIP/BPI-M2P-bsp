@@ -43,7 +43,7 @@
 #include <mach/gpio.h>
 #include "ac100.h"
 
-#ifndef CONFIG_ANDROID_SWITCH_GPIO_TS3A225
+#ifndef CONFIG_SUNXI_SWITCH_GPIO
 static volatile int reset_flag = 0;
 static int hook_flag1 = 0;
 static int hook_flag2 = 0;
@@ -60,23 +60,23 @@ static struct workqueue_struct *codec_irq_queue;
 #define HEADSET_CHECKCOUNT_SUM  (2)
 #endif
 struct spk_gpio spkgpio;
-static int speaker_double_used = 0;
-static int double_speaker_val = 0;
-static int single_speaker_val = 0;
-static int headset_val = 0;
-static int earpiece_val = 0;
-static int mainmic_val = 0;
-static int headsetmic_val = 0;
-static int dmic_used = 0;
-static int adc_digital_val = 0;
+static int speaker_double_used 	= 0;
+static int double_speaker_val 	= 0;
+static int single_speaker_val 	= 0;
+static int headset_val 		= 0;
+static int earpiece_val 	= 0;
+static int mainmic_val 		= 0;
+static int headsetmic_val 	= 0;
+static int dmic_used 		= 0;
+static int adc_digital_val 	= 0;
 static int agc_used 		= 0;
 static int drc_used 		= 0;
+static int aif2_lrck_div 	= 0;
+static int aif2_bclk_div 	= 0;
 
 #define ac100_RATES  (SNDRV_PCM_RATE_8000_192000|SNDRV_PCM_RATE_KNOT)
 #define ac100_FORMATS (SNDRV_PCM_FMTBIT_S8 | SNDRV_PCM_FMTBIT_S16_LE | \
 		                     SNDRV_PCM_FMTBIT_S18_3LE | SNDRV_PCM_FMTBIT_S20_3LE | SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE)
-
-
 
 static script_item_u item;
 enum headphone_mode_u {
@@ -100,12 +100,16 @@ struct ac100_priv {
 
 	struct mutex dac_mutex;
 	struct mutex adc_mutex;
+	struct mutex mute_mutex;
 	u8 dac_enable;
 	u8 adc_enable;
 	struct mutex aifclk_mutex;
 	u8 aif1_clken;
 	u8 aif2_clken;
 	u8 aif3_clken;
+
+	u8 aif2_mute;
+	u8 aif1_mute;
 
 	/*voltage supply*/
 	int num_supplies;
@@ -132,72 +136,72 @@ struct ac100_priv {
 	struct input_dev *key;
 };
 
-void get_configuration(void)
+static void get_configuration(void)
 {
 	script_item_value_type_e  type;
 	script_item_u val;
-	type = script_get_item("audio0", "speaker_double_used", &val);
+	type = script_get_item("ac100_audio0", "speaker_double_used", &val);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
 		pr_err("[CODEC] speaker_double_used type err!\n");
 	}
 	speaker_double_used = val.val;
 
-	type = script_get_item("audio0", "double_speaker_val", &val);
+	type = script_get_item("ac100_audio0", "double_speaker_val", &val);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
 		pr_err("[CODEC] double_speaker_val type err!\n");
 	}
 	double_speaker_val = val.val;
 
-	type = script_get_item("audio0", "single_speaker_val", &val);
+	type = script_get_item("ac100_audio0", "single_speaker_val", &val);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
 		pr_err("[CODEC] single_speaker_val type err!\n");
 	}
 	single_speaker_val = val.val;
 
-	type = script_get_item("audio0", "headset_val", &val);
+	type = script_get_item("ac100_audio0", "headset_val", &val);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
 		pr_err("[CODEC] headset_val type err!\n");
 	}
 	headset_val = val.val;
 
-	type = script_get_item("audio0", "earpiece_val", &val);
+	type = script_get_item("ac100_audio0", "earpiece_val", &val);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
 		pr_err("[CODEC] headset_val type err!\n");
 	}
 	earpiece_val = val.val;
 
-	type = script_get_item("audio0", "mainmic_val", &val);
+	type = script_get_item("ac100_audio0", "mainmic_val", &val);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
 		pr_err("[CODEC] headset_val type err!\n");
 	}
 	mainmic_val = val.val;
 
-	type = script_get_item("audio0", "headsetmic_val", &val);
+	type = script_get_item("ac100_audio0", "headsetmic_val", &val);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
 		pr_err("[CODEC] headset_val type err!\n");
 	}
 	headsetmic_val = val.val;
 
-	type = script_get_item("audio0", "dmic_used", &val);
+	type = script_get_item("ac100_audio0", "dmic_used", &val);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
 		pr_err("[CODEC] dmic_used type err!\n");
 	}
 	dmic_used = val.val;
 	if (dmic_used) {
-		type = script_get_item("audio0", "adc_digital_val", &val);
+		type = script_get_item("ac100_audio0", "adc_digital_val", &val);
 		if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
 			pr_err("[CODEC] adc_digital_val type err!\n");
 		}
 
 		adc_digital_val = val.val;
 	}
-	type = script_get_item("audio0", "agc_used", &val);
+	type = script_get_item("ac100_audio0", "agc_used", &val);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
 		pr_err("[audiocodec] agc_used type err!\n");
 	} else {
 		agc_used = val.val;
 	}
-	type = script_get_item("audio0", "drc_used", &val);
+	type = script_get_item("ac100_audio0", "drc_used", &val);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
 		pr_err("[audiocodec] drc_used type err!\n");
 	} else {
@@ -205,10 +209,10 @@ void get_configuration(void)
 	}
 
 }
-void agc_config(struct snd_soc_codec *codec)
+static void agc_config(struct snd_soc_codec *codec)
 {
 	int reg_val;
-	//if(agc_used){
+
 	reg_val = snd_soc_read(codec, 0xb4);
 	reg_val |= (0x3<<6);
 	snd_soc_write(codec, 0xb4, reg_val);
@@ -265,17 +269,15 @@ void agc_config(struct snd_soc_codec *codec)
 	reg_val |= (0xfc<<0);
 	snd_soc_write(codec, 0x93, reg_val);
 	snd_soc_write(codec, 0x94, 0xabb3);
-	//}
 }
-void drc_config(struct snd_soc_codec *codec)
+
+static void drc_config(struct snd_soc_codec *codec)
 {
 	int reg_val;
-	//if(drc_used){
 	reg_val = snd_soc_read(codec, 0xa3);
 	reg_val &= ~(0x7ff<<0);
 	reg_val |= 1<<0;
 	snd_soc_write(codec, 0xa3, reg_val);
-	//snd_soc_write(codec, 0xa4, 0x1fb6);
 	snd_soc_write(codec, 0xa4, 0x2baf);
 
 	reg_val = snd_soc_read(codec, 0xa5);
@@ -296,10 +298,8 @@ void drc_config(struct snd_soc_codec *codec)
 
 	reg_val = snd_soc_read(codec, 0xab);
 	reg_val &= ~(0x7ff<<0);
-	//reg_val |= (0x27d<<0);
 	reg_val |= (0x352<<0);
 	snd_soc_write(codec, 0xab, reg_val);
-	//snd_soc_write(codec, 0xac, 0xcf68);
 	snd_soc_write(codec, 0xac, 0x6910);
 
 	reg_val = snd_soc_read(codec, 0xad);
@@ -310,16 +310,12 @@ void drc_config(struct snd_soc_codec *codec)
 
 	reg_val = snd_soc_read(codec, 0xaf);
 	reg_val &= ~(0x7ff<<0);
-	//reg_val |= (0x1fe<<0);
 	reg_val |= (0x2de<<0);
 	snd_soc_write(codec, 0xaf, reg_val);
 	snd_soc_write(codec, 0xb0, 0xc982);
-
 	snd_soc_write(codec, 0x16, 0x9f9f);
-	//}
-
 }
-void agc_enable(struct snd_soc_codec *codec,bool on)
+static void agc_enable(struct snd_soc_codec *codec,bool on)
 {
 	int reg_val;
 	if (on) {
@@ -355,20 +351,16 @@ void agc_enable(struct snd_soc_codec *codec,bool on)
 
 		reg_val = snd_soc_read(codec, 0x82);
 		reg_val &= ~(0xf<<0);
-		//reg_val |= (0x6<<0);
 		reg_val &= ~(0x7<<12);
-		//reg_val |= (0x7<<12);
 		snd_soc_write(codec, 0x82, reg_val);
 
 		reg_val = snd_soc_read(codec, 0x83);
 		reg_val &= ~(0xf<<0);
-		//reg_val |= (0x6<<0);
 		reg_val &= ~(0x7<<12);
-		//reg_val |= (0x7<<12);
 		snd_soc_write(codec, 0x83, reg_val);
 	}
 }
-void drc_enable(struct snd_soc_codec *codec,bool on)
+static void drc_enable(struct snd_soc_codec *codec,bool on)
 {
 	int reg_val;
 	if (on) {
@@ -397,7 +389,7 @@ void drc_enable(struct snd_soc_codec *codec,bool on)
 		snd_soc_write(codec, 0xa0, reg_val);
 	}
 }
-void set_configuration(struct snd_soc_codec *codec)
+static void set_configuration(struct snd_soc_codec *codec)
 {
 	if (speaker_double_used) {
 		snd_soc_update_bits(codec, SPKOUT_CTRL, (0x1f<<SPK_VOL), (double_speaker_val<<SPK_VOL));
@@ -419,6 +411,16 @@ void set_configuration(struct snd_soc_codec *codec)
 	}
 	/*headphone calibration clock frequency select*/
 	snd_soc_update_bits(codec, SPKOUT_CTRL, (0x7<<HPCALICKS), (0x7<<HPCALICKS));
+
+	#ifdef CONFIG_SND_SUNXI_SOC_DAUDIO0_KARAOKE_MACHINE
+	snd_soc_update_bits(codec, ADC_APC_CTRL, (0x1<<ADCLEN), (0x1<<ADCLEN));
+	snd_soc_update_bits(codec, ADC_APC_CTRL, (0x1<<ADCREN), (0x1<<ADCREN));
+	snd_soc_update_bits(codec, ADC_DIG_CTRL, (0x1<<ENAD), (0x1<<ENAD));
+	snd_soc_update_bits(codec, SYSCLK_CTRL, (0x1<<AIF2CLK_ENA), (0x1<<AIF2CLK_ENA));
+	snd_soc_update_bits(codec, SYSCLK_CTRL, (0x1<<AIF1CLK_ENA), (0x1<<AIF1CLK_ENA));
+	snd_soc_update_bits(codec, MOD_CLK_ENA, (0x1<<MOD_CLK_ADC_DIG), (0x1<<MOD_CLK_ADC_DIG));
+	snd_soc_update_bits(codec, MOD_RST_CTRL, (0x1<<MOD_RESET_ADC_DIG), (0x1<<MOD_RESET_ADC_DIG));
+	#endif
 
 }
 static int late_enable_dac(struct snd_soc_dapm_widget *w,
@@ -474,10 +476,12 @@ static int late_enable_adc(struct snd_soc_dapm_widget *w,
 		if (ac100->adc_enable > 0){
 			ac100->adc_enable--;
 			if (ac100->adc_enable == 0){
+				#ifndef CONFIG_SND_SUNXI_SOC_DAUDIO0_KARAOKE_MACHINE
 				snd_soc_update_bits(codec, ADC_DIG_CTRL, (0x1<<ENAD), (0x0<<ENAD));
 				/*disable adc module clk*/
 				snd_soc_update_bits(codec, MOD_CLK_ENA, (0x1<<MOD_CLK_ADC_DIG), (0x0<<MOD_CLK_ADC_DIG));
 				snd_soc_update_bits(codec, MOD_RST_CTRL, (0x1<<MOD_RESET_ADC_DIG), (0x0<<MOD_RESET_ADC_DIG));
+				#endif
 			}
 		}
 		break;
@@ -491,7 +495,7 @@ static int ac100_speaker_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	switch (event) {
-	case	SND_SOC_DAPM_POST_PMU:
+	case SND_SOC_DAPM_POST_PMU:
 		AC100_DBG("[speaker open ]%s,line:%d\n",__func__,__LINE__);
 		if (drc_used) {
 			drc_enable(codec,1);
@@ -500,7 +504,7 @@ static int ac100_speaker_event(struct snd_soc_dapm_widget *w,
 		if (spkgpio.used)
 			gpio_set_value(spkgpio.gpio, 1);
 		break;
-	case	SND_SOC_DAPM_PRE_PMD :
+	case SND_SOC_DAPM_PRE_PMD :
 		AC100_DBG("[speaker close ]%s,line:%d\n",__func__,__LINE__);
 		if (spkgpio.used)
 			gpio_set_value(spkgpio.gpio, 0);
@@ -519,11 +523,11 @@ static int ac100_earpiece_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	switch (event) {
-	case	SND_SOC_DAPM_POST_PMU:
+	case SND_SOC_DAPM_POST_PMU:
 		AC100_DBG("[earpiece open ]%s,line:%d\n",__func__,__LINE__);
 		snd_soc_update_bits(codec, ESPKOUT_CTRL, (0x1<<ESPPA_EN), (0x1<<ESPPA_EN));
 		break;
-	case	SND_SOC_DAPM_PRE_PMD :
+	case SND_SOC_DAPM_PRE_PMD :
 		AC100_DBG("[earpiece close ]%s,line:%d\n",__func__,__LINE__);
 		snd_soc_update_bits(codec, ESPKOUT_CTRL, (0x1<<ESPPA_EN), (0x0<<ESPPA_EN));
 	default:
@@ -561,27 +565,30 @@ int ac100_aif1clk(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct ac100_priv *ac100 = snd_soc_codec_get_drvdata(codec);
+
 	mutex_lock(&ac100->aifclk_mutex);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if (ac100->aif1_clken == 0){
+		if (ac100->aif1_clken == 0) {
 			/*enable AIF1CLK*/
 			snd_soc_update_bits(codec, SYSCLK_CTRL, (0x1<<AIF1CLK_ENA), (0x1<<AIF1CLK_ENA));
 			snd_soc_update_bits(codec, MOD_CLK_ENA, (0x1<<MOD_CLK_AIF1), (0x1<<MOD_CLK_AIF1));
 			snd_soc_update_bits(codec, MOD_RST_CTRL, (0x1<<MOD_RESET_AIF1), (0x1<<MOD_RESET_AIF1));
+
 			/*enable systemclk*/
 			if (ac100->aif2_clken == 0 && ac100->aif3_clken == 0)
 				snd_soc_update_bits(codec, SYSCLK_CTRL, (0x1<<SYSCLK_ENA), (0x1<<SYSCLK_ENA));
 		}
 		ac100->aif1_clken++;
-
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (ac100->aif1_clken > 0){
 			ac100->aif1_clken--;
 			if (ac100->aif1_clken == 0){
 				/*disable AIF1CLK*/
+				#ifndef CONFIG_SND_SUNXI_SOC_DAUDIO0_KARAOKE_MACHINE
 				snd_soc_update_bits(codec, SYSCLK_CTRL, (0x1<<AIF1CLK_ENA), (0x0<<AIF1CLK_ENA));
+				#endif
 				snd_soc_update_bits(codec, MOD_CLK_ENA, (0x1<<MOD_CLK_AIF1), (0x0<<MOD_CLK_AIF1));
 				snd_soc_update_bits(codec, MOD_RST_CTRL, (0x1<<MOD_RESET_AIF1), (0x0<<MOD_RESET_AIF1));
 				/*DISABLE systemclk*/
@@ -600,6 +607,7 @@ int ac100_aif2clk(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct ac100_priv *ac100 = snd_soc_codec_get_drvdata(codec);
+
 	mutex_lock(&ac100->aifclk_mutex);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -613,14 +621,15 @@ int ac100_aif2clk(struct snd_soc_dapm_widget *w,
 				snd_soc_update_bits(codec, SYSCLK_CTRL, (0x1<<SYSCLK_ENA), (0x1<<SYSCLK_ENA));
 		}
 		ac100->aif2_clken++;
-
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (ac100->aif2_clken > 0){
 			ac100->aif2_clken--;
 			if (ac100->aif2_clken == 0){
 				/*disable AIF2CLK*/
+				#ifndef CONFIG_SND_SUNXI_SOC_DAUDIO0_KARAOKE_MACHINE
 				snd_soc_update_bits(codec, SYSCLK_CTRL, (0x1<<AIF2CLK_ENA), (0x0<<AIF2CLK_ENA));
+				#endif
 				snd_soc_update_bits(codec, MOD_CLK_ENA, (0x1<<MOD_CLK_AIF2), (0x0<<MOD_CLK_AIF2));
 				snd_soc_update_bits(codec, MOD_RST_CTRL, (0x1<<MOD_RESET_AIF2), (0x0<<MOD_RESET_AIF2));
 				/*DISABLE systemclk*/
@@ -687,7 +696,6 @@ int ac100_aif3clk(struct snd_soc_dapm_widget *w,
 	mutex_unlock(&ac100->aifclk_mutex);
 	return 0;
 }
-
 
 static int aif2inl_vir_event(struct snd_soc_dapm_widget *w,
 			  struct snd_kcontrol *kcontrol, int event)
@@ -756,6 +764,7 @@ static int dmic_mux_ev(struct snd_soc_dapm_widget *w,
 	mutex_unlock(&ac100->adc_mutex);
 	return 0;
 }
+
 static const DECLARE_TLV_DB_SCALE(headphone_vol_tlv, -6300, 100, 0);
 static const DECLARE_TLV_DB_SCALE(lineout_vol_tlv, -450, 150, 0);
 static const DECLARE_TLV_DB_SCALE(speaker_vol_tlv, -4800, 150, 0);
@@ -830,6 +839,11 @@ static const struct snd_kcontrol_new ac100_controls[] = {
 	SOC_SINGLE_TLV("speaker volume", SPKOUT_CTRL, SPK_VOL, 0x1f, 0, speaker_vol_tlv),
 	SOC_SINGLE_TLV("line out volume", LOUT_CTRL, LINEOUTG, 0x7, 0, lineout_vol_tlv),
 	SOC_SINGLE_TLV("headphone volume", HPOUT_CTRL, HP_VOL, 0x3f, 0, headphone_vol_tlv),
+#ifdef CONFIG_SND_SUNXI_SOC_DAUDIO0_KARAOKE_MACHINE
+	SOC_SINGLE("AIF1 ADCR Switch Duplicate", AIF1_MXR_SRC, AIF1_AD0R_ADCR_MXR, 0x1, 0),
+	SOC_SINGLE("DACR ADCR Switch Duplicate", DAC_MXR_SRC,  	DACR_MXR_ADCR, 1, 0),
+#endif
+
 };
 /*AIF1 AD0 OUT */
 static const char *aif1out0l_text[] = {
@@ -851,7 +865,6 @@ static const struct soc_enum aif1out0r_enum =
 static const struct snd_kcontrol_new aif1out0r_mux =
 	SOC_DAPM_ENUM("AIF1OUT0R Mux", aif1out0r_enum);
 
-
 /*AIF1 AD1 OUT */
 static const char *aif1out1l_text[] = {
 	"AIF1_AD1L", "AIF1_AD1R","SUM_AIF1ADC1L_AIF1ADC1R", "AVE_AIF1ADC1L_AIF1ADC1R"
@@ -871,7 +884,6 @@ static const struct soc_enum aif1out1r_enum =
 
 static const struct snd_kcontrol_new aif1out1r_mux =
 	SOC_DAPM_ENUM("AIF1OUT1R Mux", aif1out1r_enum);
-
 
 /*AIF1 DA0 IN*/
 static const char *aif1in0l_text[] = {
@@ -893,7 +905,6 @@ static const struct soc_enum aif1in0r_enum =
 static const struct snd_kcontrol_new aif1in0r_mux =
 	SOC_DAPM_ENUM("AIF1IN0R Mux", aif1in0r_enum);
 
-
 /*AIF1 DA1 IN*/
 static const char *aif1in1l_text[] = {
 	"AIF1_DA1L", "AIF1_DA1R","SUM_AIF1DA1L_AIF1DA1R", "AVE_AIF1DA1L_AIF1DA1R"
@@ -914,7 +925,6 @@ static const struct soc_enum aif1in1r_enum =
 static const struct snd_kcontrol_new aif1in1r_mux =
 	SOC_DAPM_ENUM("AIF1IN1R Mux", aif1in1r_enum);
 
-
 /*0x13register*/
 /*AIF1 ADC0 MIXER SOURCE*/
 static const struct snd_kcontrol_new aif1_ad0l_mxr_src_ctl[] = {
@@ -926,10 +936,13 @@ static const struct snd_kcontrol_new aif1_ad0l_mxr_src_ctl[] = {
 static const struct snd_kcontrol_new aif1_ad0r_mxr_src_ctl[] = {
 	SOC_DAPM_SINGLE("AIF1 DA0R Switch", 	AIF1_MXR_SRC,  	AIF1_AD0R_AIF1_DA0R_MXR, 1, 0),
 	SOC_DAPM_SINGLE("AIF2 DACR Switch", 	AIF1_MXR_SRC, 	AIF1_AD0R_AIF2_DACR_MXR, 1, 0),
+	#ifdef CONFIG_SND_SUNXI_SOC_DAUDIO0_KARAOKE_MACHINE
+	SOC_DAPM_SINGLE("ADCR Switch", 	ESPKOUT_CTRL, 	0, 1, 0),
+	#else
 	SOC_DAPM_SINGLE("ADCR Switch", 		AIF1_MXR_SRC, 	AIF1_AD0R_ADCR_MXR, 1, 0),
+	#endif
 	SOC_DAPM_SINGLE("AIF2 DACL Switch", 	AIF1_MXR_SRC, 	AIF1_AD0R_AIF2_DACL_MXR, 1, 0),
 };
-
 
 /*AIF1 ADC1 MIXER SOURCE*/
 static const struct snd_kcontrol_new aif1_ad1l_mxr_src_ctl[] = {
@@ -941,7 +954,6 @@ static const struct snd_kcontrol_new aif1_ad1r_mxr_src_ctl[] = {
 	SOC_DAPM_SINGLE("ADCR Switch", 	AIF1_MXR_SRC, 	AIF1_AD1R_ADCR_MXR, 1, 0),
 };
 
-
 /*4C register*/
 static const struct snd_kcontrol_new dacl_mxr_src_controls[] = {
 	SOC_DAPM_SINGLE("ADCL Switch", 			DAC_MXR_SRC,  	DACL_MXR_ADCL, 1, 0),
@@ -950,15 +962,17 @@ static const struct snd_kcontrol_new dacl_mxr_src_controls[] = {
 	SOC_DAPM_SINGLE("AIF1DA0L Switch", 		DAC_MXR_SRC, 	DACL_MXR_AIF1_DA0L, 1, 0),
 };
 static const struct snd_kcontrol_new dacr_mxr_src_controls[] = {
+	#ifdef CONFIG_SND_SUNXI_SOC_DAUDIO0_KARAOKE_MACHINE
+	SOC_DAPM_SINGLE("ADCR Switch", 			ESPKOUT_CTRL,  	1, 1, 0),
+	#else
 	SOC_DAPM_SINGLE("ADCR Switch", 			DAC_MXR_SRC,  	DACR_MXR_ADCR, 1, 0),
+	#endif
 	SOC_DAPM_SINGLE("AIF2DACR Switch", 		DAC_MXR_SRC, 	DACR_MXR_AIF2_DACR, 1, 0),
 	SOC_DAPM_SINGLE("AIF1DA1R Switch", 		DAC_MXR_SRC, 	DACR_MXR_AIF1_DA1R, 1, 0),
 	SOC_DAPM_SINGLE("AIF1DA0R Switch", 		DAC_MXR_SRC, 	DACR_MXR_AIF1_DA0R, 1, 0),
 };
 
-
 /*output mixer source select*/
-
 /*defined left output mixer*/
 static const struct snd_kcontrol_new ac100_loutmix_controls[] = {
 	SOC_DAPM_SINGLE("DACR Switch", OMIXER_SR, LMIXMUTEDACR, 1, 0),
@@ -981,9 +995,7 @@ static const struct snd_kcontrol_new ac100_routmix_controls[] = {
 	SOC_DAPM_SINGLE("MIC1Booststage Switch", OMIXER_SR, RMIXMUTEMIC1BOOST, 1, 0),
 };
 
-
 /*hp source select*/
-
 /*headphone input source*/
 static const char *ac100_hp_r_func_sel[] = {
 	"DACR HPR Switch", "Right Analog Mixer HPR Switch"};
@@ -1000,7 +1012,6 @@ static const struct soc_enum ac100_hp_l_func_enum =
 
 static const struct snd_kcontrol_new ac100_hp_l_func_controls =
 	SOC_DAPM_ENUM("HP_L Mux", ac100_hp_l_func_enum);
-
 
 /*spk source select*/
 static const char *ac100_rspks_func_sel[] = {
@@ -1019,7 +1030,6 @@ static const struct soc_enum ac100_lspks_func_enum =
 static const struct snd_kcontrol_new ac100_lspks_func_controls =
 	SOC_DAPM_ENUM("SPK_L Mux", ac100_lspks_func_enum);
 
-
 /*earpiece source select*/
 static const char *ac100_earpiece_func_sel[] = {
 	"DACR", "DACL", "Right Analog Mixer", "Left Analog Mixer"};
@@ -1028,7 +1038,6 @@ static const struct soc_enum ac100_earpiece_func_enum =
 
 static const struct snd_kcontrol_new ac100_earpiece_func_controls =
 	SOC_DAPM_ENUM("EAR Mux", ac100_earpiece_func_enum);
-
 
 /*AIF2 out */
 static const char *aif2outl_text[] = {
@@ -1050,9 +1059,7 @@ static const struct soc_enum aif2outr_enum =
 static const struct snd_kcontrol_new aif2outr_mux =
 	SOC_DAPM_ENUM("AIF2OUTR Mux", aif2outr_enum);
 
-
 /*AIF2 IN*/
-
 static const char *aif2inl_text[] = {
 	"AIF2_DACL", "AIF2_DACR","SUM_AIF2DACL_AIF2DACR", "AVE_AIF2DACL_AIF2DACR"
 };
@@ -1074,7 +1081,6 @@ static const struct snd_kcontrol_new aif2inr_mux =
 
 /*23 REGIDTER*/
 /*AIF2 source select*/
-
 static const struct snd_kcontrol_new aif2_adcl_mxr_src_controls[] = {
 	SOC_DAPM_SINGLE("AIF1 DA0L Switch", 			AIF2_MXR_SRC,  	AIF2_ADCL_AIF1DA0L_MXR, 1, 0),
 	SOC_DAPM_SINGLE("AIF1 DA1L Switch", 		AIF2_MXR_SRC, 	AIF2_ADCL_AIF1DA1L_MXR, 1, 0),
@@ -1087,7 +1093,6 @@ static const struct snd_kcontrol_new aif2_adcr_mxr_src_controls[] = {
 	SOC_DAPM_SINGLE("AIF2 DACL Switch", 		AIF2_MXR_SRC, 	AIF2_ADCR_AIF2DACL_MXR, 1, 0),
 	SOC_DAPM_SINGLE("ADCR Switch", 		AIF2_MXR_SRC, 	AIF2_ADCR_ADCR_MXR, 1, 0),
 };
-
 
 /*aif3 out 33 REGISTER*/
 static const char *aif3out_text[] = {
@@ -1103,9 +1108,7 @@ static const struct soc_enum aif3out_enum =
 static const struct snd_kcontrol_new aif3out_mux =
 	SOC_DAPM_VALUE_ENUM("AIF3OUT Mux", aif3out_enum);
 
-
 /*aif2 DAC INPUT SOURCE SELECT 33 REGISTER*/
-
 static const char *aif2dacin_text[] = {
 	"Left_s right_s AIF2","Left_s AIF3 Right_s AIF2", "Left_s AIF2 Right_s AIF3"
 };
@@ -1179,7 +1182,7 @@ static const struct snd_kcontrol_new aif2inr_aif3switch =
 	SOC_DAPM_SINGLE("aif2inr aif3Switch", OMIXER_BST1_CTRL, 10, 1, 1);
 /*built widget*/
 static const struct snd_soc_dapm_widget ac100_dapm_widgets[] = {
-/*temp switch*/
+	/*aif2 switch*/
 	SND_SOC_DAPM_SWITCH("AIF2INL Mux switch", SND_SOC_NOPM, 0, 1,
 			    &aif2inl_aif2switch),
 	SND_SOC_DAPM_SWITCH("AIF2INR Mux switch", SND_SOC_NOPM, 0, 1,
@@ -1233,7 +1236,6 @@ static const struct snd_soc_dapm_widget ac100_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA("SPK_LR Adder", SND_SOC_NOPM, 0, 0, NULL, 0),
 
 	SND_SOC_DAPM_MUX("EAR Mux", ESPKOUT_CTRL, ESPPA_MUTE, 0,	&ac100_earpiece_func_controls),
-	//SND_SOC_DAPM_PGA("EAR PA", ESPKOUT_CTRL, ESPPA_EN, 0, NULL, 0),
 
 	/*output widget*/
 	SND_SOC_DAPM_OUTPUT("HPOUTL"),
@@ -1263,18 +1265,23 @@ static const struct snd_soc_dapm_widget ac100_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX("AIF3OUT Mux", SND_SOC_NOPM, 0, 0, &aif3out_mux),
 
 	SND_SOC_DAPM_MUX("AIF2 DAC SRC Mux", SND_SOC_NOPM, 0, 0, &aif2dacin_mux),
-/*virtual widget*/
+	/*virtual widget*/
 	SND_SOC_DAPM_PGA_E("AIF2INL Mux VIR", SND_SOC_NOPM, 0, 0, NULL, 0,
 			aif2inl_vir_event, SND_SOC_DAPM_PRE_PMU|SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_PGA_E("AIF2INR Mux VIR", SND_SOC_NOPM, 0, 0, NULL, 0,
 			aif2inr_vir_event, SND_SOC_DAPM_PRE_PMU|SND_SOC_DAPM_POST_PMD),
 
-
+	#ifndef CONFIG_SND_SUNXI_SOC_DAUDIO0_KARAOKE_MACHINE
 	SND_SOC_DAPM_MIXER_E("LEFT ADC input Mixer", ADC_APC_CTRL, ADCLEN, 0,
 		ac100_ladcmix_controls, ARRAY_SIZE(ac100_ladcmix_controls),late_enable_adc, SND_SOC_DAPM_PRE_PMU|SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MIXER_E("RIGHT ADC input Mixer", ADC_APC_CTRL, ADCREN, 0,
 		ac100_radcmix_controls, ARRAY_SIZE(ac100_radcmix_controls),late_enable_adc, SND_SOC_DAPM_PRE_PMU|SND_SOC_DAPM_POST_PMD),
-
+	#else
+	SND_SOC_DAPM_MIXER_E("LEFT ADC input Mixer", SND_SOC_NOPM, 0, 0,
+		ac100_ladcmix_controls, ARRAY_SIZE(ac100_ladcmix_controls),late_enable_adc, SND_SOC_DAPM_PRE_PMU|SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MIXER_E("RIGHT ADC input Mixer", SND_SOC_NOPM, 0, 0,
+		ac100_radcmix_controls, ARRAY_SIZE(ac100_radcmix_controls),late_enable_adc, SND_SOC_DAPM_PRE_PMU|SND_SOC_DAPM_POST_PMD),
+	#endif
 	/*mic reference*/
 	SND_SOC_DAPM_PGA("MIC1 PGA", ADC_SRCBST_CTRL, MIC1AMPEN, 0, NULL, 0),
 	SND_SOC_DAPM_PGA("MIC2 PGA", ADC_SRCBST_CTRL, MIC2AMPEN, 0, NULL, 0),
@@ -1292,7 +1299,6 @@ static const struct snd_soc_dapm_widget ac100_dapm_widgets[] = {
 
 	SND_SOC_DAPM_MICBIAS("MainMic Bias", ADC_APC_CTRL, MBIASEN, 0),
 	SND_SOC_DAPM_MICBIAS("HMic Bias", SND_SOC_NOPM, 0, 0),
-	//SND_SOC_DAPM_MICBIAS("HMic Bias", ADC_APC_CTRL, HBIASEN, 0),
 	SND_SOC_DAPM_INPUT("MIC2"),
 	SND_SOC_DAPM_INPUT("MIC3"),
 
@@ -1314,28 +1320,20 @@ static const struct snd_soc_dapm_widget ac100_dapm_widgets[] = {
 		   SND_SOC_DAPM_PRE_PMU|SND_SOC_DAPM_POST_PMD),
 
 	/*aif2 interface*/
-
 	SND_SOC_DAPM_AIF_IN_E("AIF2DACL", "AIF2 Playback", 0, SND_SOC_NOPM, 0, 0,ac100_aif2clk,
 		   SND_SOC_DAPM_PRE_PMU|SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_AIF_IN_E("AIF2DACR", "AIF2 Playback", 0, SND_SOC_NOPM, 0, 0,ac100_aif2clk,
 		   SND_SOC_DAPM_PRE_PMU|SND_SOC_DAPM_POST_PMD),
 
-	//SND_SOC_DAPM_INPUT("AIF2DAC"),
-
 	SND_SOC_DAPM_AIF_OUT_E("AIF2ADCL", "AIF2 Capture", 0, SND_SOC_NOPM, 0, 0,ac100_aif2clk,
 		   SND_SOC_DAPM_PRE_PMU|SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_AIF_OUT_E("AIF2ADCR", "AIF2 Capture", 0, SND_SOC_NOPM, 0, 0,ac100_aif2clk,
 		   SND_SOC_DAPM_PRE_PMU|SND_SOC_DAPM_POST_PMD),
 
-	//SND_SOC_DAPM_OUTPUT("AIF2ADC"),
-
 	/*aif3 interface*/
-//	SND_SOC_DAPM_AIF_IN_E("AIF2DACL", NULL, 0, SND_SOC_NOPM, 0, 0,ac100_aif2clk,
-//		   SND_SOC_DAPM_PRE_PMU|SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_AIF_OUT_E("AIF3OUT", "AIF3 Capture", 0, SND_SOC_NOPM, 0, 0,ac100_aif3clk,
 		   SND_SOC_DAPM_PRE_PMU|SND_SOC_DAPM_POST_PMD),
-	//SND_SOC_DAPM_AIF_IN("AIF3IN", "AIF3 Playback", 0, SND_SOC_NOPM, 0, 0),
 
 	SND_SOC_DAPM_AIF_IN_E("AIF3IN", "AIF3 Playback", 0, SND_SOC_NOPM, 0, 0,ac100_aif3clk,
 		   SND_SOC_DAPM_PRE_PMU|SND_SOC_DAPM_POST_PMD),
@@ -1345,8 +1343,8 @@ static const struct snd_soc_dapm_widget ac100_dapm_widgets[] = {
 	SND_SOC_DAPM_SPK("External Speaker", ac100_speaker_event),
 	/*earpiece*/
 	SND_SOC_DAPM_SPK("Earpiece", ac100_earpiece_event),
-	/*DMIC*/
 
+	/*DMIC*/
 	SND_SOC_DAPM_VIRT_MUX("ADCL Mux", SND_SOC_NOPM, 0, 0, &adcl_mux),
 	SND_SOC_DAPM_VIRT_MUX("ADCR Mux", SND_SOC_NOPM, 0, 0, &adcr_mux),
 
@@ -1358,7 +1356,6 @@ static const struct snd_soc_dapm_widget ac100_dapm_widgets[] = {
 };
 
 static const struct snd_soc_dapm_route ac100_dapm_routes[] = {
-
 	{"AIF1ADCL", NULL, "AIF1OUT0L Mux"},
 	{"AIF1ADCR", NULL, "AIF1OUT0R Mux"},
 
@@ -1382,24 +1379,20 @@ static const struct snd_soc_dapm_route ac100_dapm_routes[] = {
 	/*AIF1 AD0L Mixer*/
 	{"AIF1 AD0L Mixer", "AIF1 DA0L Switch",		"AIF1IN0L Mux"},
 	{"AIF1 AD0L Mixer", "AIF2 DACL Switch",		"AIF2INL_VIR"},
-	//{"AIF1 AD0L Mixer", "ADCL Switch",		"LEFT ADC input Mixer"},
 	{"AIF1 AD0L Mixer", "ADCL Switch",		"ADCL Mux"},
 	{"AIF1 AD0L Mixer", "AIF2 DACR Switch",		"AIF2INR_VIR"},
 
 	/*AIF1 AD0R Mixer*/
 	{"AIF1 AD0R Mixer", "AIF1 DA0R Switch",		"AIF1IN0R Mux"},
 	{"AIF1 AD0R Mixer", "AIF2 DACR Switch",		"AIF2INR_VIR"},
-	//{"AIF1 AD0R Mixer", "ADCR Switch",		"RIGHT ADC input Mixer"},
 	{"AIF1 AD0R Mixer", "ADCR Switch",		"ADCR Mux"},
 	{"AIF1 AD0R Mixer", "AIF2 DACL Switch",		"AIF2INL_VIR"},
 
 	/*AIF1 AD1L Mixer*/
 	{"AIF1 AD1L Mixer", "AIF2 DACL Switch",		"AIF2INL_VIR"},
-	//{"AIF1 AD1L Mixer", "ADCL Switch",		"LEFT ADC input Mixer"},
 	{"AIF1 AD1L Mixer", "ADCL Switch",		"ADCL Mux"},
 	/*AIF1 AD1R Mixer*/
 	{"AIF1 AD1R Mixer", "AIF2 DACR Switch",		"AIF2INR_VIR"},
-	//{"AIF1 AD1R Mixer", "ADCR Switch",		"RIGHT ADC input Mixer"},
 	{"AIF1 AD1R Mixer", "ADCR Switch",		"ADCR Mux"},
 	/*AIF1 DA0 IN 12h*/
 	{"AIF1IN0L Mux", "AIF1_DA0L",		"AIF1DACL"},
@@ -1429,22 +1422,13 @@ static const struct snd_soc_dapm_route ac100_dapm_routes[] = {
 	{"DACL Mixer", "AIF1DA0L Switch",		"AIF1IN0L Mux"},
 	{"DACL Mixer", "AIF1DA1L Switch",		"AIF1IN1L Mux"},
 
-	//{"DACL Mixer", "ADCL Switch",		"ADC En"},
-	//{"DACL Mixer", "ADCL Switch",		"LEFT ADC input Mixer"},
 	{"DACL Mixer", "ADCL Switch",		"ADCL Mux"},
-	//{"DACL Mixer", "AIF2DACL Switch",		"AIF2 DAC SRC Mux"},AIF2INL Mux
 	{"DACL Mixer", "AIF2DACL Switch",		"AIF2INL_VIR"},
 	{"DACR Mixer", "AIF1DA0R Switch",		"AIF1IN0R Mux"},
 	{"DACR Mixer", "AIF1DA1R Switch",		"AIF1IN1R Mux"},
 
-	//{"DACR Mixer", "ADCR Switch",		"RIGHT ADC input Mixer"},
-	//{"DACR Mixer", "ADCR Switch",		"RIGHT ADC input Mixer"},
 	{"DACR Mixer", "ADCR Switch",		"ADCR Mux"},
-	//{"DACR Mixer", "AIF2DACR Switch",		"AIF2 DAC SRC Mux"},AIF2INL Mux
 	{"DACR Mixer", "AIF2DACR Switch",		"AIF2INR_VIR"},
-	/*dac*/
-	//{"DAC En", NULL,				"DACL Mixer"},
-	//{"DAC En", NULL,				"DACR Mixer"},
 
 	{"Right Output Mixer", "DACR Switch",		"DACR Mixer"},
 	{"Right Output Mixer", "DACL Switch",		"DACL Mixer"},
@@ -1454,7 +1438,6 @@ static const struct snd_soc_dapm_route ac100_dapm_routes[] = {
 	{"Right Output Mixer", "LINEINL-LINEINR Switch",		"LINEIN PGA"},
 	{"Right Output Mixer", "MIC2Booststage Switch",		"MIC2 PGA"},
 	{"Right Output Mixer", "MIC1Booststage Switch",		"MIC1 PGA"},
-
 
 	{"Left Output Mixer", "DACL Switch",		"DACL Mixer"},
 	{"Left Output Mixer", "DACR Switch",		"DACR Mixer"},
@@ -1468,7 +1451,6 @@ static const struct snd_soc_dapm_route ac100_dapm_routes[] = {
 	/*hp mux*/
 	{"HP_R Mux", "DACR HPR Switch",		"DACR Mixer"},
 	{"HP_R Mux", "Right Analog Mixer HPR Switch",		"Right Output Mixer"},
-
 
 	{"HP_L Mux", "DACL HPL Switch",		"DACL Mixer"},
 	{"HP_L Mux", "Left Analog Mixer HPL Switch",		"Left Output Mixer"},
@@ -1508,9 +1490,6 @@ static const struct snd_soc_dapm_route ac100_dapm_routes[] = {
 	{"EAR Mux", "DACL",				"DACL Mixer"},
 	{"EAR Mux", "Right Analog Mixer",				"Right Output Mixer"},
 	{"EAR Mux", "Left Analog Mixer",				"Left Output Mixer"},
-	//{"EAR PA", NULL,		"EAR Mux"},
-	//{"EAROUTP", NULL,		"EAR PA"},
-	//{"EAROUTN", NULL,		"EAR PA"},
 	{"EAROUTP", NULL,		"EAR Mux"},
 	{"EAROUTN", NULL,		"EAR Mux"},
 	{"Earpiece", NULL,				"EAROUTP"},
@@ -1568,12 +1547,10 @@ static const struct snd_soc_dapm_route ac100_dapm_routes[] = {
 	{"AIF2 ADL Mixer", "AIF1 DA0L Switch",				"AIF1IN0L Mux"},
 	{"AIF2 ADL Mixer", "AIF1 DA1L Switch",				"AIF1IN1L Mux"},
 	{"AIF2 ADL Mixer", "AIF2 DACR Switch",				"AIF2INR_VIR"},
-	//{"AIF2 ADL Mixer", "ADCL Switch",				"LEFT ADC input Mixer"},
 	{"AIF2 ADL Mixer", "ADCL Switch",				"ADCL Mux"},
 	{"AIF2 ADR Mixer", "AIF1 DA0R Switch",				"AIF1IN0R Mux"},
 	{"AIF2 ADR Mixer", "AIF1 DA1R Switch",				"AIF1IN1R Mux"},
 	{"AIF2 ADR Mixer", "AIF2 DACL Switch",				"AIF2INL_VIR"},
-	//{"AIF2 ADR Mixer", "ADCR Switch",				"RIGHT ADC input Mixer"},
 	{"AIF2 ADR Mixer", "ADCR Switch",				"ADCR Mux"},
 
 	/*aif2*/
@@ -1617,13 +1594,18 @@ struct pll_div {
 
 struct aif1_fs {
 	unsigned int samplerate;
-	int aif1_bclk_div;
+	int aif1_bclk_bit;
 	int aif1_srbit;
 };
 
+struct aif1_bclk {
+	int aif1_bclk_div;
+	int aif1_bclk_bit;
+};
+
 struct aif1_lrck {
-	int aif1_lrlk_div;
-	int aif1_lrlk_bit;
+	int aif1_lrck_div;
+	int aif1_lrck_bit;
 };
 
 struct aif1_word_size {
@@ -1643,6 +1625,7 @@ static const struct pll_div codec_pll_div[] = {
 	{6000000, 22579200, 38, 429, 0},/*((429+0*0.2)*6000000)/(38*(2*1+1))*/
 	{13000000, 22579200, 19, 99, 0},
 	{19200000, 22579200, 25, 88, 1},
+	{24000000, 22579200, 38, 107, 1},
 	{128000, 24576000, 1, 576, 0},
 	{192000, 24576000, 1, 384, 0},
 	{256000, 24576000, 1, 288, 0},
@@ -1651,8 +1634,10 @@ static const struct pll_div codec_pll_div[] = {
 	{6000000, 24576000, 25, 307, 1},
 	{13000000, 24576000, 42, 238, 1},
 	{19200000, 24576000, 25, 88, 1},
+	{24000000, 24576000, 25, 76, 4},
 };
 
+/*for all of the fs freq. lrck_div is 64*/
 static const struct aif1_fs codec_aif1_fs[] = {
 	{44100, 4, 7},
 	{48000, 4, 8},
@@ -1665,6 +1650,23 @@ static const struct aif1_fs codec_aif1_fs[] = {
 	{32000, 5, 6},
 	{96000, 2, 9},
 	{192000, 1, 10},
+};
+
+static const struct aif1_bclk codec_aif1_bclk[] = {
+	{1, 0},
+	{2, 1},
+	{4, 2},
+	{6, 3},
+	{8, 4},
+	{12, 5},
+	{16, 6},
+	{24, 7},
+	{32, 8},
+	{48, 9},
+	{64, 10},
+	{96, 11},
+	{128, 12},
+	{192, 13},
 };
 
 static const struct aif1_lrck codec_aif1_lrck[] = {
@@ -1684,22 +1686,30 @@ static const struct aif1_word_size codec_aif1_wsize[] = {
 
 static int ac100_aif_mute(struct snd_soc_dai *codec_dai, int mute)
 {
-	//pr_debug("%s,line:%d,mute:%d\n",__func__,__LINE__,mute);
 	struct snd_soc_codec *codec = codec_dai->codec;
+	struct ac100_priv *ac100 = snd_soc_codec_get_drvdata(codec);
+	mutex_lock(&ac100->mute_mutex);
 	if(mute){
-		snd_soc_write(codec, DAC_VOL_CTRL, 0);
+		if (0 == ac100->aif2_mute)
+			snd_soc_write(codec, DAC_VOL_CTRL, 0);
 	}else{
 		snd_soc_write(codec, DAC_VOL_CTRL, 0xa0a0);
 	}
+	mutex_unlock(&ac100->mute_mutex);
 	return 0;
 }
 static int ac100_aif2_mute(struct snd_soc_dai *codec_dai, int mute)
 {
-	//printk("%s,line:%d,mute:%d\n",__func__,__LINE__,mute);
 	struct snd_soc_codec *codec = codec_dai->codec;
+	struct ac100_priv *ac100 = snd_soc_codec_get_drvdata(codec);
+	mutex_lock(&ac100->mute_mutex);
 	if (mute == 0) {
 		snd_soc_write(codec, DAC_VOL_CTRL, 0xa0a0);
+		ac100->aif2_mute = 1;
 	}
+	else
+		ac100->aif2_mute = 0;
+	mutex_unlock(&ac100->mute_mutex);
 	return 0;
 }
 static void ac100_aif_shutdown(struct snd_pcm_substream *substream,
@@ -1729,27 +1739,44 @@ static int ac100_hw_params(struct snd_pcm_substream *substream,
 	int i = 0;
 	int AIF_CLK_CTRL = 0;
 	int aif1_word_size = 16;
-	int aif1_lrlk_div = 64;
+	/*
+	* 22.5792M/8 = 2.8224M;
+	* 2.8224M/64 = 44.1k;
+	*
+	* 24.576M/8 = 3.072M;
+	* 3.072M/64 = 48k;
+	*/
+	int aif1_bclk_div = 8;
+	int aif1_lrck_div = 64;
+
 	struct snd_soc_codec *codec = codec_dai->codec;
 	switch (codec_dai->id) {
 	case 1:
 		AIF_CLK_CTRL = AIF1_CLK_CTRL;
-		aif1_lrlk_div = 64;
+		aif1_lrck_div = 64;
 		break;
 	case 2:
 		AIF_CLK_CTRL = AIF2_CLK_CTRL;
-		aif1_lrlk_div = 64;
+		aif1_lrck_div = 64;
 		break;
 	default:
 		return -EINVAL;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(codec_aif1_lrck); i++) {
-		if (codec_aif1_lrck[i].aif1_lrlk_div == aif1_lrlk_div) {
-			snd_soc_update_bits(codec, AIF_CLK_CTRL, (0x7<<AIF1_LRCK_DIV), ((codec_aif1_lrck[i].aif1_lrlk_bit)<<AIF1_LRCK_DIV));
+	for (i = 0; i < ARRAY_SIZE(codec_aif1_bclk); i++) {
+		if (codec_aif1_bclk[i].aif1_bclk_div == aif1_bclk_div) {
+			snd_soc_update_bits(codec, AIF_CLK_CTRL, (0xf<<AIF1_BCLK_DIV), ((codec_aif1_bclk[i].aif1_bclk_bit)<<AIF1_BCLK_DIV));
 			break;
 		}
 	}
+
+	for (i = 0; i < ARRAY_SIZE(codec_aif1_lrck); i++) {
+		if (codec_aif1_lrck[i].aif1_lrck_div == aif1_lrck_div) {
+			snd_soc_update_bits(codec, AIF_CLK_CTRL, (0x7<<AIF1_LRCK_DIV), ((codec_aif1_lrck[i].aif1_lrck_bit)<<AIF1_LRCK_DIV));
+			break;
+		}
+	}
+	/*for all of the fs freq. lrck_div is 64*/
 	for (i = 0; i < ARRAY_SIZE(codec_aif1_fs); i++) {
 		if (codec_aif1_fs[i].samplerate ==  params_rate(params)) {
 			if (codec_dai->capture_active && dmic_used && codec_aif1_fs[i].samplerate == 44100) {
@@ -1757,7 +1784,7 @@ static int ac100_hw_params(struct snd_pcm_substream *substream,
 			} else
 				snd_soc_update_bits(codec, AIF_SR_CTRL, (0xf<<AIF1_FS), ((codec_aif1_fs[i].aif1_srbit)<<AIF1_FS));
 			snd_soc_update_bits(codec, AIF_SR_CTRL, (0xf<<AIF2_FS), ((codec_aif1_fs[i].aif1_srbit)<<AIF2_FS));
-			snd_soc_update_bits(codec, AIF_CLK_CTRL, (0xf<<AIF1_BCLK_DIV), ((codec_aif1_fs[i].aif1_bclk_div)<<AIF1_BCLK_DIV));
+			snd_soc_update_bits(codec, AIF_CLK_CTRL, (0xf<<AIF1_BCLK_DIV), ((codec_aif1_fs[i].aif1_bclk_bit)<<AIF1_BCLK_DIV));
 			break;
 		}
 	}
@@ -1777,6 +1804,7 @@ static int ac100_hw_params(struct snd_pcm_substream *substream,
 			break;
 		}
 	}
+
 	return 0;
 }
 
@@ -1820,8 +1848,8 @@ static int ac100_set_dai_fmt(struct snd_soc_dai *codec_dai,
 	default:
 		return -EINVAL;
 	}
-
 	AC100_DBG("%s,line:%d\n", __func__, __LINE__);
+
 	/*
 	* 	master or slave selection
 	*	0 = Master mode
@@ -1983,24 +2011,31 @@ static int ac100_aif2_hw_params(struct snd_pcm_substream *substream,
 	int i = 0;
 	int AIF_CLK_CTRL = 0;
 	int aif1_word_size = 16;
-	int aif1_lrlk_div = 256;
+	int aif1_bclk_div = aif2_bclk_div;/*aif2_bclk_div=8, 24.576M/8=3.072M*/
+	int aif1_lrck_div = aif2_lrck_div;/*aif2_lrck_div=64, 3.072M/64=48k*/
 	struct snd_soc_codec *codec = codec_dai->codec;
+
 	switch (codec_dai->id) {
-	case 1:
-		AIF_CLK_CTRL = AIF1_CLK_CTRL;
-		//aif1_lrlk_div = 64;
-		break;
-	case 2:
-		AIF_CLK_CTRL = AIF2_CLK_CTRL;
-		//aif1_lrlk_div = 64;
-		break;
-	default:
+		case 1:
+			AIF_CLK_CTRL = AIF1_CLK_CTRL;
+			break;
+		case 2:
+			AIF_CLK_CTRL = AIF2_CLK_CTRL;
+			break;
+		default:
 		return -EINVAL;
 	}
 
+	for (i = 0; i < ARRAY_SIZE(codec_aif1_bclk); i++) {
+		if (codec_aif1_bclk[i].aif1_bclk_div == aif1_bclk_div) {
+			snd_soc_update_bits(codec, AIF_CLK_CTRL, (0xf<<AIF1_BCLK_DIV), ((codec_aif1_bclk[i].aif1_bclk_bit)<<AIF1_BCLK_DIV));
+			break;
+		}
+	}
+
 	for (i = 0; i < ARRAY_SIZE(codec_aif1_lrck); i++) {
-		if (codec_aif1_lrck[i].aif1_lrlk_div == aif1_lrlk_div) {
-			snd_soc_update_bits(codec, AIF_CLK_CTRL, (0x7<<AIF1_LRCK_DIV), ((codec_aif1_lrck[i].aif1_lrlk_bit)<<AIF1_LRCK_DIV));
+		if (codec_aif1_lrck[i].aif1_lrck_div == aif1_lrck_div) {
+			snd_soc_update_bits(codec, AIF_CLK_CTRL, (0x7<<AIF1_LRCK_DIV), ((codec_aif1_lrck[i].aif1_lrck_bit)<<AIF1_LRCK_DIV));
 			break;
 		}
 	}
@@ -2008,7 +2043,6 @@ static int ac100_aif2_hw_params(struct snd_pcm_substream *substream,
 		if (codec_aif1_fs[i].samplerate ==  params_rate(params)) {
 			snd_soc_update_bits(codec, AIF_SR_CTRL, (0xf<<AIF1_FS), ((codec_aif1_fs[i].aif1_srbit)<<AIF1_FS));
 			snd_soc_update_bits(codec, AIF_SR_CTRL, (0xf<<AIF2_FS), ((codec_aif1_fs[i].aif1_srbit)<<AIF2_FS));
-			snd_soc_update_bits(codec, AIF_CLK_CTRL, (0xf<<AIF1_BCLK_DIV), (0x5<<AIF1_BCLK_DIV));
 			break;
 		}
 	}
@@ -2028,9 +2062,14 @@ static int ac100_aif2_hw_params(struct snd_pcm_substream *substream,
 			break;
 		}
 	}
-	snd_soc_update_bits(codec, AIF_CLK_CTRL, (0x1<<1), (0x1<<1));
+	if (params_channels(params) == 1) {
+	
+		snd_soc_update_bits(codec, AIF_CLK_CTRL, (0x1<<1), (0x1<<1));
+	} else
+		snd_soc_update_bits(codec, AIF_CLK_CTRL, (0x1<<1), (0x1<<0));
 	return 0;
 }
+
 static int ac100_aif3_set_dai_fmt(struct snd_soc_dai *codec_dai,
 			       unsigned int fmt)
 {
@@ -2086,7 +2125,7 @@ static int ac100_aif3_hw_params(struct snd_pcm_substream *substream,
 	snd_soc_update_bits(codec, AIF3_CLK_CTRL, (0x3<<AIF3_WORD_SIZ), aif3_size<<AIF3_WORD_SIZ);
 	return 0;
 }
-#ifndef CONFIG_ANDROID_SWITCH_GPIO_TS3A225
+#ifndef CONFIG_SUNXI_SWITCH_GPIO
 /*
 **switch_hw_config:config the 53 codec register
 */
@@ -2131,14 +2170,13 @@ static int ac100_set_bias_level(struct snd_soc_codec *codec,
 		AC100_DBG("%s,line:%d, SND_SOC_BIAS_PREPARE\n", __func__, __LINE__);
 		break;
 	case SND_SOC_BIAS_STANDBY:
-		#ifndef CONFIG_ANDROID_SWITCH_GPIO_TS3A225
+		#ifndef CONFIG_SUNXI_SWITCH_GPIO
 		switch_hw_config(codec);
 		#endif
-
 		AC100_DBG("%s,line:%d, SND_SOC_BIAS_STANDBY\n", __func__, __LINE__);
 		break;
 	case SND_SOC_BIAS_OFF:
-		#ifndef CONFIG_ANDROID_SWITCH_GPIO_TS3A225
+		#ifndef CONFIG_SUNXI_SWITCH_GPIO
 		snd_soc_update_bits(codec, ADC_APC_CTRL, (0x1<<HBIASEN), (0<<HBIASEN));
 		snd_soc_update_bits(codec, ADC_APC_CTRL, (0x1<<HBIASADCEN), (0<<HBIASADCEN));
 		#endif
@@ -2163,7 +2201,6 @@ static const struct snd_soc_dai_ops ac100_aif1_dai_ops = {
 static const struct snd_soc_dai_ops ac100_aif2_dai_ops = {
 	.set_sysclk	= ac100_set_dai_sysclk,
 	.set_fmt	= ac100_set_dai_fmt,
-	//.hw_params	= ac100_hw_params,
 	.hw_params	= ac100_aif2_hw_params,
 	.shutdown	= ac100_aif_shutdown,
 	.set_pll	= ac100_set_fll,
@@ -2234,7 +2271,7 @@ static struct snd_soc_dai_driver ac100_dai[] = {
 		.ops = &ac100_aif3_dai_ops,
 	}
 };
-#ifndef CONFIG_ANDROID_SWITCH_GPIO_TS3A225
+#ifndef CONFIG_SUNXI_SWITCH_GPIO
 static ssize_t switch_gpio_print_state(struct switch_dev *sdev, char *buf)
 {
 	struct ac100_priv	*ac100 =
@@ -2396,7 +2433,6 @@ static void earphone_switch_work(struct work_struct *work)
 							ac100->check_count_sum = 0;
 						}
 					}
-
 				}else{
 					ac100->check_count_sum++;
 				}
@@ -2418,7 +2454,6 @@ static void earphone_switch_work(struct work_struct *work)
 					ac100->check_count_sum = 0;
 					reset_flag = 0;
 					break;
-
 				} else {
 					ac100->mode = HEADPHONE_IDLE;
 					ac100->state = 0;
@@ -2458,7 +2493,7 @@ static void codec_resume_work(struct work_struct *work)
 	struct ac100_priv *ac100 = container_of(work, struct ac100_priv, codec_resume);
 	struct snd_soc_codec *codec = ac100->codec;
 	int i ,ret =0;
-#ifndef CONFIG_ANDROID_SWITCH_GPIO_TS3A225
+#ifndef CONFIG_SUNXI_SWITCH_GPIO
 	ac100->virq = gpio_to_irq(item_eint.gpio.gpio);
 	if (IS_ERR_VALUE(ac100->virq)) {
 		pr_warn("[AC100] map gpio to virq failed, errno = %d\n",ac100->virq);
@@ -2495,7 +2530,7 @@ static void codec_resume_work(struct work_struct *work)
 		gpio_direction_output(spkgpio.gpio, 1);
 		gpio_set_value(spkgpio.gpio, 0);
 	}
-	#ifndef CONFIG_ANDROID_SWITCH_GPIO_TS3A225
+	#ifndef CONFIG_SUNXI_SWITCH_GPIO
 	msleep(200);
 	ret = snd_soc_read(codec, HMIC_STS);
 	ret = (ret>>HMIC_DATA);
@@ -2506,7 +2541,6 @@ static void codec_resume_work(struct work_struct *work)
 	}
 	#endif
 }
-
 
 /***************************************************************************/
 static ssize_t ac100_debug_store(struct device *dev,
@@ -2565,10 +2599,11 @@ static int ac100_codec_probe(struct snd_soc_codec *codec)
 {
 	int ret = 0;
 	int i = 0;
-#ifndef CONFIG_ANDROID_SWITCH_GPIO_TS3A225
+#ifndef CONFIG_SUNXI_SWITCH_GPIO
 	int req_status = 0;
 #endif
 	script_item_value_type_e  type;
+	script_item_u val;
 	struct ac100_priv *ac100;
 	//struct device *dev = codec->dev;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
@@ -2579,7 +2614,7 @@ static int ac100_codec_probe(struct snd_soc_codec *codec)
 	ac100->codec = codec;
 	snd_soc_codec_set_drvdata(codec, ac100);
 	/*ac100 switch driver*/
-#ifndef CONFIG_ANDROID_SWITCH_GPIO_TS3A225
+#ifndef CONFIG_SUNXI_SWITCH_GPIO
 	ac100->sdev.state 		= 0;
 	ac100->state				= -1;
 	ac100->check_count		= 0;
@@ -2634,7 +2669,7 @@ static int ac100_codec_probe(struct snd_soc_codec *codec)
 		goto err_switch_work_queue;
 	}
 
-	type = script_get_item("audio0", "audio_int_ctrl", &item_eint);
+	type = script_get_item("ac100_audio0", "audio_int_ctrl", &item_eint);
 	if (SCIRPT_ITEM_VALUE_TYPE_PIO != type) {
 		pr_err("[AC100] script_get_item return type err\n");
 	}
@@ -2648,13 +2683,13 @@ static int ac100_codec_probe(struct snd_soc_codec *codec)
 	mutex_init(&ac100->dac_mutex);
 	mutex_init(&ac100->adc_mutex);
 	mutex_init(&ac100->aifclk_mutex);
+	mutex_init(&ac100->mute_mutex);
 
 	/*get the default pa val(close)*/
-	type = script_get_item("audio0", "audio_pa_ctrl", &item);
+	type = script_get_item("ac100_audio0", "audio_pa_ctrl", &item);
 	if (SCIRPT_ITEM_VALUE_TYPE_PIO != type) {
-		pr_err("script_get_item return type err\n");
+		pr_err("ac100_audio0 audio_pa_ctrl script_get_item return type err\n");
 		spkgpio.used = false;
-		//return -EFAULT;
 	} else {
 		spkgpio.used = true;
 		spkgpio.gpio = item.gpio.gpio;
@@ -2669,8 +2704,21 @@ static int ac100_codec_probe(struct snd_soc_codec *codec)
 		gpio_direction_output(spkgpio.gpio, 1);
 		gpio_set_value(spkgpio.gpio, 0);
 	}
+	type = script_get_item("ac100_audio0", "aif2_lrck_div", &val);
+	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
+		pr_err("[CODEC] aif2_lrck_div type err, use default aif2 lrck div 256!\n");
+		aif2_lrck_div = 256;
+	} else
+		aif2_lrck_div = val.val;
 
-#ifndef CONFIG_ANDROID_SWITCH_GPIO_TS3A225
+	type = script_get_item("ac100_audio0", "aif2_bclk_div", &val);
+	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
+		pr_err("[CODEC] aif2_lrck_div type err, use default aif2 bclk div 12!\n");
+		aif2_bclk_div = 12;
+	} else
+		aif2_bclk_div = val.val;
+
+#ifndef CONFIG_SUNXI_SWITCH_GPIO
 	/*
 	* map the virq of gpio
 	* headphone gpio irq pin is ***
@@ -2744,7 +2792,7 @@ static int ac100_codec_probe(struct snd_soc_codec *codec)
 	snd_soc_dapm_new_controls(dapm, ac100_dapm_widgets, ARRAY_SIZE(ac100_dapm_widgets));
  	snd_soc_dapm_add_routes(dapm, ac100_dapm_routes, ARRAY_SIZE(ac100_dapm_routes));
 	return 0;
-#ifndef CONFIG_ANDROID_SWITCH_GPIO_TS3A225
+#ifndef CONFIG_SUNXI_SWITCH_GPIO
 err_switch_work_queue:
 	devm_free_irq(codec->dev,ac100->virq,NULL);
 
@@ -2809,7 +2857,7 @@ static int ac100_codec_suspend(struct snd_soc_codec *codec)
 		pr_err("[AC100] %s: some error happen, fail to disable regulator!\n", __func__);
 		}
 	}
-	#ifndef CONFIG_ANDROID_SWITCH_GPIO_TS3A225
+	#ifndef CONFIG_SUNXI_SWITCH_GPIO
 	devm_free_irq(codec->dev,ac100->virq,ac100);
 	sunxi_gpio_to_name(item_eint.gpio.gpio, pin_name);
 	config = SUNXI_PINCFG_PACK(SUNXI_PINCFG_TYPE_FUNC, 7);
@@ -2827,7 +2875,7 @@ static int ac100_codec_resume(struct snd_soc_codec *codec)
 {
 	struct ac100_priv *ac100 = snd_soc_codec_get_drvdata(codec);
 	AC100_DBG("[codec]:resume");
-	#ifndef CONFIG_ANDROID_SWITCH_GPIO_TS3A225
+	#ifndef CONFIG_SUNXI_SWITCH_GPIO
 	ac100->mode = HEADPHONE_IDLE;
 	headphone_state = 0;
 	ac100->state	= -1;
@@ -2885,7 +2933,24 @@ static int __devinit ac100_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct ac100_priv *ac100;
+#ifdef CONFIG_ARCH_SUN8IW7
+	int reg_val;
+
+	/*PLL_PERIPH1*/
+	writel(0x89010000,0xf1c00090);
+	writel(0xa707000f,0xf1f01444);
+	writel(0xa707000f,0xf1f01444);
+
+	reg_val = readl(0xf1c20804);
+	reg_val &=~(0x7<<8);
+	reg_val |= (0x1<<8);
+	writel(reg_val, 0xf1c20804);
+	reg_val = readl(0xf1c20810);
+	reg_val |= (0x1<<10);
+	writel(reg_val, 0xf1c20810);
+#endif
 	pr_debug("%s,line:%d\n", __func__, __LINE__);
+
 	ac100 = devm_kzalloc(&pdev->dev, sizeof(struct ac100_priv), GFP_KERNEL);
 	if (ac100 == NULL) {
 		return -ENOMEM;

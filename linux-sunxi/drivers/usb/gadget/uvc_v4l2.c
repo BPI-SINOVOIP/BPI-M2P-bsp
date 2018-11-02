@@ -37,7 +37,11 @@ uvc_send_response(struct uvc_device *uvc, struct uvc_request_data *data)
 	struct usb_request *req = uvc->control_req;
 
 	if (data->length < 0)
+#if defined (CONFIG_ARCH_SUN8IW8)
+		return 0;
+#else
 		return usb_ep_set_halt(cdev->gadget->ep0);
+#endif
 
 	req->length = min_t(unsigned int, uvc->event_length, data->length);
 	req->zero = data->length < uvc->event_length;
@@ -59,7 +63,7 @@ struct uvc_format
 };
 
 static struct uvc_format uvc_formats[] = {
-	{ 16, V4L2_PIX_FMT_YUYV  },
+	//{ 16, V4L2_PIX_FMT_YUYV  },
 	{ 0,  V4L2_PIX_FMT_MJPEG },
 };
 

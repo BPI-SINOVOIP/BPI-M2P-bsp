@@ -1,5 +1,12 @@
 #include "de_hal.h"
 
+static unsigned int g_device_fps[DEVICE_NUM] = {60};
+
+int de_update_device_fps(unsigned int sel, u32 fps)
+{
+	g_device_fps[sel] = fps;
+	return 0;
+}
 static int de_set_coarse(unsigned int sel, unsigned char chno, unsigned int fmt, unsigned int lcd_fps,
 						 unsigned int lcd_height, unsigned int de_freq_MHz, unsigned int ovl_w, unsigned int ovl_h,
 						 unsigned int vsu_outw, unsigned int vsu_outh, unsigned int *midyw, unsigned int *midyh,
@@ -24,7 +31,7 @@ static int de_calc_overlay_scaler_para(unsigned int screen_id, unsigned char chn
 	bool scaler_en;
 	unsigned char i,j,k,lay_en[CHN_NUM][LAYER_MAX_NUM_PER_CHN];
 	unsigned int midyw, midyh;
-	unsigned int lcd_fps = 60,lcd_height = 480,de_freq_MHz = 150;
+	unsigned int lcd_fps = 60, lcd_width = 1280, lcd_height = 720,de_freq_MHz = 150;
 	de_rect64 crop64[CHN_NUM][LAYER_MAX_NUM_PER_CHN];
 	de_rect frame[CHN_NUM][LAYER_MAX_NUM_PER_CHN];
 	static scaler_para para[CHN_NUM][LAYER_MAX_NUM_PER_CHN],cpara[VI_CHN_NUM][LAYER_MAX_NUM_PER_CHN];
@@ -32,6 +39,7 @@ static int de_calc_overlay_scaler_para(unsigned int screen_id, unsigned char chn
 	unsigned int vi_chn = de_feat_get_num_vi_chns(screen_id);
 	unsigned int scaler_num = de_feat_is_support_scale(screen_id);
 
+	de_rtmx_get_display_size(screen_id, &lcd_width, &lcd_height);
 	//init para
 	for (j=0;j<vi_chn;j++)
 		memset((void *)cpara[j],0x0,layno*sizeof(scaler_para));

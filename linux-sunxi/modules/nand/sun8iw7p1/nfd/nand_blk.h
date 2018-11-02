@@ -80,6 +80,7 @@
 #define nand_dbg_err(fmt, ...)  ({})
 #endif
 
+int NAND_Print_DBG(const char *fmt, ...);
 //#define BLK_INFO_MSG_ON
 #ifdef  BLK_INFO_MSG_ON
 #define nand_dbg_inf(fmt, args...) printk("[NAND]"fmt, ## args)

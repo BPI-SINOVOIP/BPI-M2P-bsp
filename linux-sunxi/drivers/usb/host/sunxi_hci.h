@@ -191,6 +191,10 @@ struct sunxi_hci_hcd{
 	struct clk	*hsic_usbphy;            /* PHY0 clock handle */
 	__u32 clk_is_open;                      /* is usb clock open */
 
+#ifdef CONFIG_ARCH_SUN8IW8
+	struct work_struct usbc_work;
+#endif
+
 	script_item_u drv_vbus_gpio_set;
 	script_item_u restrict_gpio_set;
 	script_item_u usb_host_hsic_rdy;
@@ -237,6 +241,8 @@ static inline void fpga_config_use_hci(__u32 sram_vbase)
 	USBC_Writel(reg_value, (sram_vbase + 0x04));
 }
 #endif
+int usb_phyx_tp_write(int index, int addr, int data, int len);
+int usb_phyx_tp_read(int index, int addr, int len);
 
 void sunxi_set_host_hisc_rdy(struct sunxi_hci_hcd *sunxi_hci, int is_on);
 

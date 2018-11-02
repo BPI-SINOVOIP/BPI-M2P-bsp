@@ -184,7 +184,7 @@ config LSM_MMAP_MIN_ADDR
 	  systems running LSM.
 	  
 config FILE_INTEGRITY 
-	depends on SECURITY
+	depends on SECURITYFS
 	tristate "Enable System File Verify Module"
 	default n
 	help

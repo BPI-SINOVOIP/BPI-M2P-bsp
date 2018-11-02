@@ -192,12 +192,12 @@ config BT_HCIVHCI
 	  Say Y here to compile support for virtual HCI devices into the
 	  kernel or say M to compile it as module (hci_vhci).
 
-config BCM_BT_LPM
-	tristate "Broadcom Bluetooth Low Power Manager Support"
+config BT_LPM
+	tristate "Bluetooth Low Power Manager Support Adaptively"
 	help
 	  Bluetooth Low Power Manager Driver.
 	  This driver provides the dynamic active power saving mechanism for
-	  bluetooth radio devices special for android4.2.
+	  bluetooth radio devices.
 
 	  Say Y here to compile support for bt lmp support into the kernel
 	  or say M to compile it as module (btlmp).

@@ -233,7 +233,7 @@ static int ss_rng_start(ss_aes_ctx_t *ctx, u8 *rdata, unsigned int dlen)
 	return ret;
 }
 
-int ss_rng_get_random(struct crypto_rng *tfm, u8 *rdata, unsigned int dlen)
+int ss_rng_get_random(struct crypto_rng *tfm, u8 *rdata, u32 dlen, u32 trng)
 {
 	int ret = 0;
 	ss_aes_ctx_t *ctx = crypto_rng_ctx(tfm);
@@ -368,9 +368,6 @@ int ss_aes_one_req(sunxi_ss_t *sss, struct ablkcipher_request *req)
 #endif
 
 	ctx->cnt += req->nbytes;
-	if (req->base.complete)
-		req->base.complete(&req->base, ret);
-
 	return ret;
 }
 

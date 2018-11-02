@@ -76,9 +76,9 @@ static void LCD_cfg_panel_info(panel_extend_para * info)
 
 static s32 LCD_open_flow(u32 sel)
 {
-	LCD_OPEN_FUNC(sel, LCD_power_on, 0);   //open lcd power, and delay 50ms
+	LCD_OPEN_FUNC(sel, LCD_power_on, 10);   //open lcd power, and delay 50ms
 	LCD_OPEN_FUNC(sel, LCD_panel_init, 10);   //open lcd power, than delay 200ms
-	LCD_OPEN_FUNC(sel, sunxi_lcd_tcon_enable, 300);     //open lcd controller, and delay 100ms
+	LCD_OPEN_FUNC(sel, sunxi_lcd_tcon_enable, 150);     //open lcd controller, and delay 100ms
 	LCD_OPEN_FUNC(sel, LCD_bl_open, 0);     //open lcd backlight, and delay 0ms
 
 	return 0;
@@ -86,10 +86,10 @@ static s32 LCD_open_flow(u32 sel)
 
 static s32 LCD_close_flow(u32 sel)
 {
-	LCD_CLOSE_FUNC(sel, LCD_bl_close, 300);       //close lcd backlight, and delay 0ms
+	LCD_CLOSE_FUNC(sel, LCD_bl_close, 50);       //close lcd backlight, and delay 0ms
 	LCD_CLOSE_FUNC(sel, sunxi_lcd_tcon_disable, 10);         //close lcd controller, and delay 0ms
 	LCD_CLOSE_FUNC(sel, LCD_panel_exit,	10);   //open lcd power, than delay 200ms
-	LCD_CLOSE_FUNC(sel, LCD_power_off, 500);   //close lcd power, and delay 500ms
+	LCD_CLOSE_FUNC(sel, LCD_power_off, 10);   //close lcd power, and delay 500ms
 
 	return 0;
 }
@@ -164,18 +164,79 @@ static void t27p06_spi_wr(u32 value)
 }
 static void lcd_panel_t27p06_init(void)
 {
-	t27p06_spi_wr(0x055f);
-	sunxi_lcd_delay_ms(5);
-	t27p06_spi_wr(0x051f);//reset
-	sunxi_lcd_delay_ms(10);
-	t27p06_spi_wr(0x055f);
-	sunxi_lcd_delay_ms(50);
-	t27p06_spi_wr(0x2b01);//exit standby mode
-	t27p06_spi_wr(0x0009);//vcomac  
-	t27p06_spi_wr(0x019f);//vcomdc  
-//	t27p06_spi_wr(0x040b);//8-bit rgb interface
-	t27p06_spi_wr(0x040c);//8-bit rgb interface
-	t27p06_spi_wr(0x1604);//default gamma setting  2.2
+
+	int need_special_process = 0;
+#ifdef CONFIG_LCD_ABT_320X480
+		need_special_process = 1;
+#endif
+
+	if (!need_special_process) {
+		t27p06_spi_wr(0x055f);
+		sunxi_lcd_delay_ms(5);
+		t27p06_spi_wr(0x051f);//reset
+		sunxi_lcd_delay_ms(10);
+		t27p06_spi_wr(0x055f);
+		sunxi_lcd_delay_ms(50);
+		t27p06_spi_wr(0x2b01);//exit standby mode
+		t27p06_spi_wr(0x0009);//vcomac
+		t27p06_spi_wr(0x019f);//vcomdc
+	//	t27p06_spi_wr(0x040b);//8-bit rgb interface
+		t27p06_spi_wr(0x040c);//8-bit rgb interface
+		t27p06_spi_wr(0x1604);//default gamma setting  2.2
+	} else {//asia better lcd 320x480
+		t27p06_spi_wr(0x0500);
+		t27p06_spi_wr(0x7006);
+		t27p06_spi_wr(0x54d0);
+		t27p06_spi_wr(0x0177);
+		t27p06_spi_wr(0x0614);//04
+		t27p06_spi_wr(0x0820);
+		//t27p06_spi_wr(0x0b03);//before 180 rotate
+		t27p06_spi_wr(0x0b00);//180 rotate
+
+		t27p06_spi_wr(0x1401);
+		t27p06_spi_wr(0x031f);
+		t27p06_spi_wr(0x041f);
+		//t27p06_spi_wr(0x1060);
+
+		t27p06_spi_wr(0x7110);
+		t27p06_spi_wr(0x7b82);
+
+		//t27p06_spi_wr(0x0CAA);
+		//t27p06_spi_wr(0x0D26);
+
+		t27p06_spi_wr(0x1911);
+		t27p06_spi_wr(0x1a0c);
+		t27p06_spi_wr(0x1b14);
+		t27p06_spi_wr(0x1c0e);
+		t27p06_spi_wr(0x1d10);
+		t27p06_spi_wr(0x1e0c);
+		t27p06_spi_wr(0x1fa8);
+
+		t27p06_spi_wr(0x2085);
+		t27p06_spi_wr(0x218b);
+		t27p06_spi_wr(0x22bd);
+		t27p06_spi_wr(0x230f);
+		t27p06_spi_wr(0x2413);
+		t27p06_spi_wr(0x2511);
+		t27p06_spi_wr(0x2613);
+		t27p06_spi_wr(0x270a);
+		t27p06_spi_wr(0x2803);
+		t27p06_spi_wr(0x2903);
+
+		t27p06_spi_wr(0x2a0a);
+		t27p06_spi_wr(0x2b13);
+		t27p06_spi_wr(0x2c11);
+		t27p06_spi_wr(0x2d13);
+		t27p06_spi_wr(0x2e0f);
+		t27p06_spi_wr(0x2f0c);
+
+		t27p06_spi_wr(0x3010);
+		t27p06_spi_wr(0x310e);
+		t27p06_spi_wr(0x3214);
+		t27p06_spi_wr(0x330c);
+		t27p06_spi_wr(0x3422);
+		t27p06_spi_wr(0x0581);
+	}
 }
 
 

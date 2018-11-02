@@ -30,6 +30,8 @@
 
 //power/scenelock.h
 #include <linux/power/scenelock.h>
+#include <linux/pinctrl/pinconf-sunxi.h>
+#include <linux/pinctrl/consumer.h>
 
 #include "sunxi_codecdma.h"
 #include "sun8iw3_sndcodec.h"
@@ -2387,6 +2389,8 @@ static int sndpcm_soc_probe(struct snd_soc_codec *codec)
 
 static int sndpcm_suspend(struct snd_soc_codec *codec)
 {
+	unsigned long config;
+	char pin_name[SUNXI_PIN_NAME_MAX_LEN];
 	/* check if called in talking standby */
 	if (check_scene_locked(SCENE_TALKING_STANDBY) == 0) {
 		pr_debug("In talking standby, audio codec do not suspend!!\n");
@@ -2411,6 +2415,10 @@ static int sndpcm_suspend(struct snd_soc_codec *codec)
 
 	//codec_wr_prcm_control(LINEOUT_VOLC, 0x1f, LINEOUTVOL, 0x0);
 	gpio_set_value(item.gpio.gpio, 0);
+
+	sunxi_gpio_to_name(item.gpio.gpio, pin_name);
+	config = SUNXI_PINCFG_PACK(SUNXI_PINCFG_TYPE_FUNC, 7);
+	pin_config_set(SUNXI_PINCTRL, pin_name, config);
 
 	if ((NULL == codec_moduleclk)||(IS_ERR(codec_moduleclk))) {
 		pr_err("codec_moduleclk handle is invaled, just return\n");
@@ -2454,6 +2462,8 @@ static int sndpcm_resume(struct snd_soc_codec *codec)
 	}
 
 	codec_wr_control(SUNXI_DAC_FIFOC, 0x1, FIR_VERSION, 0x1);
+	gpio_direction_output(item.gpio.gpio, 1);
+	gpio_set_value(item.gpio.gpio, 0);
 
 	pr_debug("[audio codec]:resume end\n");
 	return 0;

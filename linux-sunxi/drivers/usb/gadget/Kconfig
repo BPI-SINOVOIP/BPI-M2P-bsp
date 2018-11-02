@@ -994,4 +994,10 @@ config USB_G_WEBCAM
 
 endchoice
 
+config USB_SUNXI_G_WEBCAM
+	bool "USB SUNXI Webcam Gadget"
+	depends on USB_G_ANDROID && VIDEO_DEV
+	help
+	  SoftWinner SUNXI Webcam Gadget support.
+
 endif # USB_GADGET

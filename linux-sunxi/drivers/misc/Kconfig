@@ -11,6 +11,15 @@ config SUNXI_VIBRATOR
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called sunxi-vibrator.
+	  
+config SUN8I_VIBRATOR
+	tristate "Vibrator sun8i platform"
+	default n
+	help
+	  Say Y here if you have a vibrator on your board.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called sun8i-vibrator.
 
 config SENSORS_LIS3LV02D
 	tristate

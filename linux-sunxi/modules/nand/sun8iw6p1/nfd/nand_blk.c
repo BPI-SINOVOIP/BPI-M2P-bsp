@@ -13,6 +13,7 @@
 #define TIMEOUT                 300         // ms
 #define NAND_CACHE_RW
 
+static unsigned int dragonboard_test_flag = 0;
 
 //#define NAND_IO_RESPONSE_TEST
 struct secblc_op_t{
@@ -43,6 +44,7 @@ extern struct _nand_info* p_nand_info;
 //extern void NAND_Interrupt(__u32 nand_index);
 
 extern  int add_nand(struct nand_blk_ops *tr, struct _nand_phy_partition* phy_partition);
+extern  int add_nand_for_dragonboard_test(struct nand_blk_ops *tr);
 extern  int remove_nand(struct nand_blk_ops *tr);
 extern  int nand_flush(struct nand_blk_dev *dev);
 extern struct _nand_phy_partition* get_head_phy_partition_from_nand_info(struct _nand_info*nand_info);
@@ -349,6 +351,11 @@ static void mtd_blktrans_request(struct request_queue *rq)
     }
 }
 
+static void null_for_dragonboard(struct request_queue *rq)
+{
+	return ;
+}
+
 
 
 /*****************************************************************************
@@ -415,6 +422,7 @@ static int nand_release(struct gendisk *disk, fmode_t mode)
 #define ENABLE_WRITE            _IO('V',1)
 #define DISABLE_READ            _IO('V',2)
 #define ENABLE_READ             _IO('V',3)
+#define DRAGON_BOARD_TEST    _IO('V',55)  
 #define BLKBURNBOOT0            _IO('v',127)
 #define BLKBURNBOOT1            _IO('v',128)
 #define SECBLK_READ				_IO('V',20)
@@ -537,6 +545,17 @@ static int nand_ioctl(struct block_device *bdev, fmode_t mode, unsigned int cmd,
 		}
 		return ret;
 
+	case DRAGON_BOARD_TEST:
+		
+		if (0 == down_trylock(&(nandr->nand_ops_mutex)))
+		{
+			IS_IDLE = 0;
+			ret = NAND_DragonboardTest();
+			up(&(nandr->nand_ops_mutex));
+			IS_IDLE = 1;
+		}
+		return ret;
+		
     default:
         return -ENOTTY;
     }
@@ -588,17 +607,21 @@ static int nand_blk_release(struct nand_blk_dev *dev)
 {
     int error = 0;
     struct _nand_dev *nand_dev = (struct _nand_dev *)dev->priv;
-
+	if(dragonboard_test_flag == 0)
+	{
     //nand_dbg_err("nand_blk_release!\n");
 
     //error = nand_dev->flush_sector_write_cache(nand_dev,0);
-    error = nand_dev->flush_write_cache(nand_dev,0xffff);
+	    error = nand_dev->flush_write_cache(nand_dev,0xffff);
 
-    //mutex_lock(&dev->lock);
-    //kref_put(&dev->ref, del_nand_blktrans_dev);
-    //mutex_unlock(&dev->lock);
+	    //mutex_lock(&dev->lock);
+	    //kref_put(&dev->ref, del_nand_blktrans_dev);
+	    //mutex_unlock(&dev->lock);
 
-    return error;
+	    return error;
+	}
+	else
+		return 0;
 }
 
 /*****************************************************************************
@@ -657,6 +680,7 @@ struct nand_blk_ops mytr = {
     .release            = nand_blk_release,
     .getgeo             = nand_getgeo,
     .add_dev            = add_nand,
+    .add_dev_test     = add_nand_for_dragonboard_test,
     .remove_dev         = remove_nand,
     .flush              = nand_flush,
     .owner              = THIS_MODULE,
@@ -834,6 +858,60 @@ error2:
     return ret;
 }
 
+int add_nand_blktrans_dev_for_dragonboard(struct nand_blk_dev *dev)
+{
+    struct nand_blk_ops *tr = dev->nandr;
+    struct gendisk *gd;
+    int ret = -ENOMEM;
+
+	gd = alloc_disk(1);
+	if (!gd) {
+        list_del(&dev->list);
+        goto error2;
+    }
+
+    gd->major = tr->major;
+	gd->first_minor = 0;
+	gd->fops = &nand_blktrans_ops;
+
+    snprintf(gd->disk_name, sizeof(gd->disk_name),
+         "%s%c", tr->name, (1?'a':'0') + dev->devnum);
+    set_capacity(gd, 512);
+
+    gd->private_data = dev;
+    dev->disk = gd;
+    gd->queue = dev->rq;
+	
+    dev->disable_access = 0;
+    dev->readonly = 0;
+    dev->writeonly = 0;
+
+    mutex_init(&dev->lock);
+
+    // Create the request queue
+    spin_lock_init(&dev->queue_lock);
+	dev->rq = blk_init_queue(null_for_dragonboard, &dev->queue_lock);
+    if (!dev->rq){
+       goto error3;
+    }
+    dev->rq->queuedata = dev;
+    blk_queue_logical_block_size(dev->rq, tr->blksize);
+
+    gd->queue = dev->rq;
+	add_disk(gd);
+
+    return 0;
+
+error3:
+    nand_dbg_err("\nerror3\n");
+    put_disk(dev->disk);
+error2:
+    nand_dbg_err("\nerror2\n");
+    list_del(&dev->list);
+    return ret;
+}
+
+
 /*****************************************************************************
 *Name         :
 *Description  :
@@ -947,6 +1025,42 @@ int  init_blklayer(void)
 
     return nand_blk_register(&mytr);
 }
+
+int init_blklayer_for_dragonboard(void)
+{
+    int ret;
+	struct nand_blk_ops *tr;
+
+	tr =  &mytr;
+
+	dragonboard_test_flag = 1;
+
+    down(&nand_mutex);
+
+    ret = register_blkdev(tr->major, tr->name);
+    if(ret){
+        nand_dbg_err("\nfaild to register blk device\n");
+        up(&nand_mutex);
+        return -1;
+    }
+
+    init_completion(&tr->thread_exit);
+    init_waitqueue_head(&tr->thread_wq);
+    sema_init(&tr->nand_ops_mutex, 1);
+
+    //devfs_mk_dir(nandr->name);
+    INIT_LIST_HEAD(&tr->devs);
+    tr->nftl_blk_head.nftl_blk_next = NULL;
+    tr->nand_dev_head.nand_dev_next = NULL;
+
+    tr->add_dev_test(tr);
+
+    up(&nand_mutex);
+
+    return 0;
+
+}
+
 /*****************************************************************************
 *Name         :
 *Description  :

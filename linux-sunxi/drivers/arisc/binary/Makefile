@@ -29,8 +29,8 @@ ifdef CONFIG_ARCH_SUN9IW1P1
 PLATFORM=arisc_sun9iw1p1
 endif
 
-$(obj)/$(PLATFORM).bin : $(obj)/$(PLATFORM).code
-	cp $(obj)/$(PLATFORM).code $(obj)/$(PLATFORM).tar.bz2; \
+$(obj)/$(PLATFORM).bin : $(src)/$(PLATFORM).code
+	cp $< $(obj)/$(PLATFORM).tar.bz2; \
 	tar -xjvf $(obj)/$(PLATFORM).tar.bz2 -C $(obj)/; \
 	cp $(obj)/arisc_package/$(PLATFORM).bin $(obj)/$(PLATFORM).bin; \
 	cp $(obj)/arisc_package/$(PLATFORM).tar.bz2.aes $(obj)/arisc; \

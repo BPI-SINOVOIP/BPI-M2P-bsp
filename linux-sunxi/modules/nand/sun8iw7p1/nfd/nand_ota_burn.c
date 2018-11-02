@@ -411,7 +411,7 @@ __s32  burn_boot0_1k_mode_secure( __u32 read_retry_type, __u32 length, __u32 Boo
 			if( PHY_SimpleErase( &para ) <0 )
 			{
 			    debug("Fail in erasing block %d.\n", i );
-	    		continue;
+	    		//continue;
 	    	}
 	    }
 		blocks_per_copy = NAND_BOOT0_PAGE_CNT_PER_COPY/pages_per_block;
@@ -454,7 +454,7 @@ __s32  burn_boot0_1k_mode_secure( __u32 read_retry_type, __u32 length, __u32 Boo
 			if( PHY_SimpleErase( &para ) <0 )
 			{
 			    debug("Fail in erasing block %d.\n", i );
-	    		continue;
+	    		//continue;
 	    	}
 			debug("after erase.\n" );
 
@@ -577,7 +577,7 @@ __s32  burn_boot0_lsb_mode_secure(__u32 read_retry_type,  __u32 length, __u32 Bo
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		for(j=0;j<copies_per_block;j++)
 		{
@@ -729,7 +729,7 @@ __s32  burn_boot0_lsb_FF_mode_secure(__u32 read_retry_type,  __u32 length, __u32
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		for(j=0;j<copies_per_block;j++)
 		{
@@ -880,7 +880,7 @@ __s32  burn_boot0_1k_lsb_mode_secure(__u32 read_retry_type,  __u32 length, __u32
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		for(j=0;j<copies_per_block;j++)
 		{
@@ -1089,7 +1089,7 @@ __s32  burn_boot0_lsb_FF_mode_8K(__u32 read_retry_type,  __u32 length, __u32 Boo
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		for(j=0;j<copies_per_block;j++)
 		{
@@ -1219,7 +1219,7 @@ __s32  burn_boot0_lsb_FF_mode(__u32 read_retry_type, __u32 Boot0_buf )
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 
         /* ÔÚ¿éÖÐÉÕÐ´boot0±¸·Ý, lsb modeÏÂ£¬Ã¿¸ö¿éÖ»ÄÜÐ´Ç°2¸öpage */
@@ -1364,7 +1364,7 @@ __s32  burn_boot0_lsb_mode(__u32 read_retry_type, __u32 Boot0_buf )
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		debug("after erase.\n" );
         /* �ڿ�����дboot0����, lsb mode�£�ÿ����ֻ��дǰ4��page */
@@ -1473,7 +1473,7 @@ __s32  burn_boot0_1k_mode( __u32 read_retry_type, __u32 Boot0_buf )
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		debug("after erase.\n" );
 
@@ -1570,7 +1570,7 @@ __s32  burn_boot0_1k_lsb_mode(__u32 read_retry_type,  __u32 length, __u32 Boot0_
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		for(j=0;j<copies_per_block;j++)
 		{
@@ -2596,7 +2596,7 @@ __s32 burn_uboot_in_one_blk_lsb_mode(__u32 BOOT1_buf, __u32 length)
 		if( PHY_SimpleErase( &para ) <0 )
 		{
 		    debug("Fail in erasing block %d.\n", i );
-    		continue;
+    		//continue;
     	}
 		count = 0;
         /* ï¿½Ú¿ï¿½ï¿½ï¿½ï¿½ï¿½Ð´boot0ï¿½ï¿½ï¿½ï¿½, lsb modeï¿½Â£ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½Ð´Ç°4ï¿½ï¿½page */

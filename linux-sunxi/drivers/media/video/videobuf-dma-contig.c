@@ -298,6 +298,11 @@ static int __videobuf_mmap_mapper(struct videobuf_queue *q,
 	mem->size = PAGE_ALIGN(buf->bsize);
 #ifdef USE_DMA_CONTIG
 	mem->vaddr = sunxi_buf_alloc(mem->size, (u32 *)&mem->dma_handle);
+	if(mem->vaddr)
+	{
+		memset(mem->vaddr, 0, mem->size);
+		flush_dcache_all();
+	}
 #endif
 
 #ifdef USE_SUNXI_MEM_ALLOCATOR
@@ -306,7 +311,7 @@ static int __videobuf_mmap_mapper(struct videobuf_queue *q,
 	{
 		mem->vaddr = (void *)(mem->dma_handle + 0x80000000);	// not used
 		//mem->vaddr =  (void*)ioremap((unsigned long)mem->dma_handle, mem->size);//ioremap_nocache
-		//mem->vaddr =  sunxi_map_kernel((unsigned long)mem->dma_handle, mem->size);
+		mem->vaddr =  sunxi_map_kernel((unsigned long)mem->dma_handle, mem->size);
 	}
 	else
 	{

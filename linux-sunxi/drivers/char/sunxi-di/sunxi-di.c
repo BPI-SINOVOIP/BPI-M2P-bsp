@@ -58,9 +58,11 @@ static void di_timer_handle(unsigned long arg)
 {
 	u32 flag_size = 0;
 
-	di_complete_check_set(DI_TIMEOUT);
+	di_complete_check_set(DI_MODULE_TIMEOUT);
 	wake_up_interruptible(&di_data.wait);
 	flag_size = (FLAG_WIDTH*FLAG_HIGH)/4;
+	di_irq_enable(0);
+	di_irq_clear();
 	di_reset();
 	memset(di_data.in_flag, 0, flag_size);
 	memset(di_data.out_flag, 0, flag_size);
@@ -86,6 +88,7 @@ static irqreturn_t di_irq_service(int irqno, void *dev_id)
 		queue_work(di_wq, &di_work);
 	} else {
 		di_complete_check_set(-ret);
+		wake_up_interruptible(&di_data.wait);
 	}
 	di_irq_clear();
 	di_reset();
@@ -134,7 +137,6 @@ static void di_clk_uncfg(void)
 		printk(KERN_ERR "di_clk handle is invalid, just return!\n");
 		return;
 	} else {
-		clk_disable_unprepare(di_clk);
 		clk_put(di_clk);
 		di_clk = NULL;
 	}
@@ -199,36 +201,72 @@ clk_cfg_fail:
 
 static void sunxi_di_params_exit(void)
 {
-	di_clk_uncfg();
-	free_irq(SW_INT_IRQNO_DI, di_device);
-	return ;
+  di_clk_uncfg();
+  free_irq(SW_INT_IRQNO_DI, di_device);
 }
 
+static void sunxi_di_disabledrv(void)
+{
+  di_irq_enable(0);
+  di_reset();
+  di_internal_clk_disable();
+  di_clk_disable();
+  if (NULL != di_data.in_flag)
+    sunxi_buf_free(di_data.in_flag, di_data.in_flag_phy, di_data.flag_size);
+  if (NULL != di_data.out_flag)
+    sunxi_buf_free(di_data.out_flag, di_data.out_flag_phy, di_data.flag_size);
+}
+
+static int sunxi_di_enabledrv(void)
+{
+  int ret;
+  
+  di_data.flag_size = (FLAG_WIDTH*FLAG_HIGH)/4;
+
+  di_data.in_flag = sunxi_buf_alloc(di_data.flag_size, &(di_data.in_flag_phy));
+  if (!di_data.in_flag) {
+    printk(KERN_ERR "%s: request in_flag mem failed\n", __func__);
+    return -1;
+  }
+
+  di_data.out_flag = sunxi_buf_alloc(di_data.flag_size, &(di_data.out_flag_phy));
+  if (!di_data.out_flag) {
+    printk(KERN_ERR "%s: request out_flag mem failed\n", __func__);
+    sunxi_buf_free(di_data.in_flag, di_data.in_flag_phy, di_data.flag_size);
+    return -1;
+  }
+
+  ret = di_clk_enable();
+  if (ret) {
+    printk(KERN_ERR "%s: enable clk failed.\n", __func__);
+    return ret;
+  }
+  
+  di_internal_clk_enable();
+  di_set_init(di_data.mode);
+  
+  return 0;
+}
 
 #ifdef CONFIG_PM
 static int sunxi_di_suspend(struct device *dev)
 {
-	dprintk(DEBUG_SUSPEND, "enter: sunxi_di_suspend. \n");
+  dprintk(DEBUG_SUSPEND, "enter: sunxi_di_suspend. \n");
 
-	if (atomic_read(&di_data.enable)) {
-		di_irq_enable(0);
-		di_reset();
-		di_internal_clk_disable();
-		di_clk_disable();
-		if (NULL != di_data.in_flag)
-		sunxi_buf_free(di_data.in_flag, di_data.in_flag_phy, di_data.flag_size);
-		if (NULL != di_data.out_flag)
-		sunxi_buf_free(di_data.out_flag, di_data.out_flag_phy, di_data.flag_size);
-	}
+  if (atomic_read(&di_data.enable))
+    sunxi_di_disabledrv();
 
-	return 0;
+  return 0;
 }
 
 static int sunxi_di_resume(struct device *dev)
 {
-	dprintk(DEBUG_SUSPEND, "enter: sunxi_di_resume. \n");
+  dprintk(DEBUG_SUSPEND, "enter: sunxi_di_resume. \n");
+  
+  if (atomic_read(&di_data.enable))
+    return sunxi_di_enabledrv();
 
-	return 0;
+  return 0;
 }
 #endif
 
@@ -312,54 +350,27 @@ static long sunxi_di_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 
 static int sunxi_di_open(struct inode *inode, struct file *file)
 {
-	int ret = 0;
+  int ret;
+  dprintk(DEBUG_DATA_INFO, "%s: enter!!\n", __func__);
 
-	dprintk(DEBUG_DATA_INFO, "%s: enter!!\n", __func__);
+  //FIXME: This variable should be counter!
+  atomic_set(&di_data.enable, 1);
 
-	atomic_set(&di_data.enable, 1);
-
-	di_data.flag_size = (FLAG_WIDTH*FLAG_HIGH)/4;
-
-	di_data.in_flag = sunxi_buf_alloc(di_data.flag_size, &(di_data.in_flag_phy));
-	if (!(di_data.in_flag)) {
-		printk(KERN_ERR "%s: request in_flag mem failed\n", __func__);
-		return -1;
-	}
-
-	di_data.out_flag = sunxi_buf_alloc(di_data.flag_size, &(di_data.out_flag_phy));
-	if (!(di_data.out_flag)) {
-		printk(KERN_ERR "%s: request out_flag mem failed\n", __func__);
-		sunxi_buf_free(di_data.in_flag, di_data.in_flag_phy, di_data.flag_size);
-		return -1;
-	}
-
-	ret = di_clk_enable();
-	if (ret) {
-		printk(KERN_ERR "%s: enable clk failed.\n", __func__);
-		return ret;
-	}
-	di_internal_clk_enable();
-	di_set_init(di_data.mode);
-
-	return 0;
+  ret = sunxi_di_enabledrv();
+  if(ret)
+    return ret;
+  
+  return 0;
 }
 
 static int sunxi_di_release(struct inode *inode, struct file *file)
 {
-	dprintk(DEBUG_DATA_INFO, "%s: enter!!\n", __func__);
+  dprintk(DEBUG_DATA_INFO, "%s: enter!!\n", __func__);
 
-	atomic_set(&di_data.enable, 0);
+  atomic_set(&di_data.enable, 0);
+  sunxi_di_disabledrv();
 
-	di_irq_enable(0);
-	di_reset();
-	di_internal_clk_disable();
-	di_clk_disable();
-	if (NULL != di_data.in_flag)
-		sunxi_buf_free(di_data.in_flag, di_data.in_flag_phy, di_data.flag_size);
-	if (NULL != di_data.out_flag)
-		sunxi_buf_free(di_data.out_flag, di_data.out_flag_phy, di_data.flag_size);
-
-	return 0;
+  return 0;
 }
 
 static const struct file_operations sunxi_di_fops = {

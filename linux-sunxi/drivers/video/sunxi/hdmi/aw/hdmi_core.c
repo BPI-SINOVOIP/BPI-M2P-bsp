@@ -46,6 +46,7 @@ disp_video_timing video_timing[] =
 
 __s32 hdmi_core_initial(void)
 {
+	int i;
 	if(0 != sw_init_flag)
 	{
 		hdmi_state = HDMI_State_Playback;
@@ -64,11 +65,18 @@ __s32 hdmi_core_initial(void)
 	{
 		ParseEDID();
 		Hdmi_hpd_event();
+		if(-1 != (i = get_video_info(video_mode)))
+		{
+			u32 pClk = (u32)video_timing[i].pixel_clk;
+			__inf("###hdmi_phy_config: mode=%d, pclk=%d###\n", video_mode, pClk);
+			sunxi_hdmi_phy_config(pClk);
+		}
 	}
 	else
 	{
 		video_enter_lp();
 	}
+
 	audio_info.data_raw = 1; /* default pcm */
 
 	return 0;
@@ -126,6 +134,17 @@ __s32 hdmi_main_task_loop(void)
 	{
 		if(hdcp_enable)
 			sunxi_hdcp_hdl();
+
+		if(hdmi_state >= HDMI_State_Playback)
+		{
+			//__inf("sunxi_hdmi_guardian\n");
+			if(sunxi_hdmi_guardian() !=0)
+			{
+				__inf("sunxi_hdmi_guardian err\n");
+				hdmi_state = HDMI_State_Wait_Hpd;
+			}
+		}
+
 	}
 
 	switch(hdmi_state) {

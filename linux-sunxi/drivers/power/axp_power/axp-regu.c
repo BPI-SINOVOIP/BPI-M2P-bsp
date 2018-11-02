@@ -18,6 +18,9 @@
 #include <linux/arisc/arisc.h>
 #include "axp-regu.h"
 
+/* pmu regulater tree type*/
+char pmu_type[20] = "pmu1_regu";
+
 static inline struct device *to_axp_dev(struct regulator_dev *rdev)
 {
 	return rdev_get_dev(rdev)->parent->parent;

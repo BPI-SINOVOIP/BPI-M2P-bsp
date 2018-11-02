@@ -214,7 +214,7 @@ static int wdt_restart(void)
 	}
 #endif
 
-	pr_info("%s, write reg 0x%08x\n", __func__, (u32)&wdt_reg->ctrl);
+	pr_debug("%s, write reg 0x%08x\n", __func__, (u32)&wdt_reg->ctrl);
 	writel((0xA57 << 1) | (1 << 0), &wdt_reg->ctrl);
 	return 0;
 }
@@ -417,7 +417,7 @@ static long sunxi_wdt_ioctl(struct file *file, unsigned int cmd,
 		if(get_user(new_timeout, argp))
 			return -EFAULT;
 		if(!new_timeout || new_timeout > MAX_TIMEOUT) {
-			pr_err("%s err, line %d\n", __func__, __LINE__);
+			// pr_err("%s err, line %d\n", __func__, __LINE__);
 			return -EINVAL;
 		}
 		watchdog_set_timeout(new_timeout);

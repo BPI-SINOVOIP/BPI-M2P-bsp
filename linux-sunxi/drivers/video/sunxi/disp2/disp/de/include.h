@@ -393,6 +393,12 @@ typedef enum
 
 typedef enum
 {
+	LCD_CPU_AUTO_MODE	= 0,
+	LCD_CPU_TRIGGER_MODE= 1,
+}disp_lcd_cpu_mode;
+
+typedef enum
+{
 	LCD_TE_DISABLE	= 0,
 	LCD_TE_RISING		= 1,
 	LCD_TE_FALLING  = 2,
@@ -496,7 +502,7 @@ typedef struct
 
 	disp_lcd_cpu_if          lcd_cpu_if;
 	disp_lcd_te              lcd_cpu_te;
-
+	disp_lcd_cpu_mode        lcd_cpu_mode;
 	disp_lcd_dsi_if          lcd_dsi_if;
 	disp_lcd_dsi_lane        lcd_dsi_lane;
 	disp_lcd_dsi_format      lcd_dsi_format;
@@ -534,6 +540,7 @@ typedef struct
 	unsigned int            lcd_vspw;
 	unsigned int            lcd_hspw;
 
+	unsigned int 		    lcd_interlace;
 	unsigned int            lcd_hv_clk_phase;
 	unsigned int            lcd_hv_sync_polarity;
 

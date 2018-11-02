@@ -61,6 +61,8 @@ extern int sunxi_get_pmu_chipid(u8 *chipid);
 extern int sunxi_get_serial(u8 *serial);
 extern unsigned int sunxi_get_soc_bin(void);
 extern int sunxi_soc_is_secure(void);
+extern int sunxi_boot_is_secure(void);
+extern unsigned int  sunxi_get_board_vendor_id(void);
 
 /* sunxi platform init functions */
 void __init sunxi_soc_ver_init(void);

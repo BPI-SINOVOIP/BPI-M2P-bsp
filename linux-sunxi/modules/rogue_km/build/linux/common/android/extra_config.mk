@@ -40,19 +40,13 @@
 
 $(eval $(call UserConfigMake,libpthread_ldflags,))
 $(eval $(call UserConfigMake,librt_ldflags,))
-$(eval $(call UserConfigMake,LINKER_RPATH,/system/lib))
-$(eval $(call UserConfigMake,ANDROID_MOVED_INCLUDES,$(ANDROID_MOVED_INCLUDES)))
 $(eval $(call UserConfigMake,TARGET_ROOT,$(TARGET_ROOT)))
+$(eval $(call UserConfigMake,TARGET_DEVICE,$(TARGET_DEVICE)))
 
 $(eval $(call BothConfigMake,SUPPORT_ANDROID_PLATFORM,1))
-$(eval $(call BothConfigMake,SUPPORT_ION,1))
-$(call NonTunableOption,SUPPORT_ION)
 
 $(eval $(call BothConfigC,ANDROID,))
-$(eval $(call BothConfigC,SUPPORT_ION,))
 
-$(eval $(call UserConfigC,OGLES1_BASEPATH,\"$(EGL_DESTDIR)/\"))
-$(eval $(call UserConfigC,OGLES3_BASEPATH,\"$(EGL_DESTDIR)/\"))
 $(eval $(call UserConfigC,SUPPORT_ANDROID_PLATFORM,1))
 
 # These are set automatically according to the platform version.
@@ -73,22 +67,3 @@ $(eval $(call TunableBothConfigMake,PVR_ANDROID_NATIVE_WINDOW_HAS_SYNC,))
 
 # These are user-tunable.
 
-# Support kernels built out-of-tree with O=/other/path
-# In those cases, KERNELDIR will be O, not the source tree.
-ifneq ($(wildcard $(KERNELDIR)/source),)
-KSRCDIR := $(KERNELDIR)/source
-else
-KSRCDIR := $(KERNELDIR)
-endif
-
-ifneq ($(wildcard $(KSRCDIR)/drivers/staging/android/ion/ion.h),)
-# The kernel has a more recent version of ion, located in drivers/staging.
-# Change the default header paths and the behaviour wrt sg_dma_len.
-PVR_ANDROID_ION_HEADER := \"../drivers/staging/android/ion/ion.h\"
-PVR_ANDROID_ION_PRIV_HEADER := \"../drivers/staging/android/ion/ion_priv.h\"
-PVR_ANDROID_ION_USE_SG_LENGTH := 1
-endif
-
-$(eval $(call TunableKernelConfigC,PVR_ANDROID_ION_HEADER,\"linux/ion.h\"))
-$(eval $(call TunableKernelConfigC,PVR_ANDROID_ION_PRIV_HEADER,\"../drivers/gpu/ion/ion_priv.h\"))
-$(eval $(call TunableKernelConfigC,PVR_ANDROID_ION_USE_SG_LENGTH,))

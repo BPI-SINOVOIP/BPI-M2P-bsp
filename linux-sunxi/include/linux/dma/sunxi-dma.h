@@ -107,7 +107,7 @@
 
 #elif defined(CONFIG_ARCH_SUN8IW6) \
 	|| defined(CONFIG_ARCH_SUN8IW7)
-
+#define DRQSRC_DAUDIO_2_RX	27
 #define DRQDST_TDMRX		28
 #endif
 

@@ -776,6 +776,7 @@ static int aw_early_suspend(void)
 #ifdef CONFIG_SUNXI_TRUSTZONE
         /* note: switch to secureos and save monitor vector to mem_para_info. */
 	mem_para_info.monitor_vector= call_firmware_op(suspend_prepare);
+	call_firmware_op(get_cp15_status, virt_to_phys((void *)&(mem_para_info.saved_secure_mmu_state)));
 #endif
 	printk("hsr: monitor_vector %x\n", mem_para_info.monitor_vector);
 	memcpy((void *)phys_to_virt(DRAM_MEM_PARA_INFO_PA), (void *)&mem_para_info, sizeof(mem_para_info));
@@ -1309,7 +1310,7 @@ static int aw_pm_enter(suspend_state_t state)
 
 #ifdef CONFIG_SUNXI_ARISC
 	arisc_cpux_ready_notify();
-	arisc_query_wakeup_source((unsigned long *)(&(mem_para_info.axp_event)));
+	arisc_query_wakeup_source((unsigned int *)(&(mem_para_info.axp_event)));
 #endif
 	if (mem_para_info.axp_event & (CPUS_WAKEUP_LONG_KEY)) {
 #ifdef	CONFIG_AW_AXP

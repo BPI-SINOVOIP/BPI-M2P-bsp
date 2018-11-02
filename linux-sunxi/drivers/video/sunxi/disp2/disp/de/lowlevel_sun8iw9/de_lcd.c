@@ -517,6 +517,12 @@ s32 tcon0_tri_busy(u32 sel)
 	return lcd_dev[sel]->tcon0_cpu_ctl.bits.trigger_start;
 }
 
+s32 tcon0_cpu_set_auto_mode(u32 sel)
+{
+	lcd_dev[sel]->tcon0_cpu_ctl.bits.auto_ = 1;  //trig mode 0
+	lcd_dev[sel]->tcon0_cpu_ctl.bits.flush = 0;  //trig mode 1
+	return 0;
+}
 
 s32 tcon0_tri_start(u32 sel)
 {
@@ -772,11 +778,11 @@ s32 tcon1_hdmi_color_remap(u32 sel)
 	lcd_dev[sel]->tcon_ceu_coef_bb.bits.value = 0x100;
 	lcd_dev[sel]->tcon_ceu_coef_bc.bits.value = 0;
 
-	lcd_dev[sel]->tcon_ceu_coef_rv.bits.max = 235;
+	lcd_dev[sel]->tcon_ceu_coef_rv.bits.max = 240;//Pr
 	lcd_dev[sel]->tcon_ceu_coef_rv.bits.min = 16;
-	lcd_dev[sel]->tcon_ceu_coef_gv.bits.max = 235;
+	lcd_dev[sel]->tcon_ceu_coef_gv.bits.max = 235;//Y
 	lcd_dev[sel]->tcon_ceu_coef_gv.bits.min = 16;
-	lcd_dev[sel]->tcon_ceu_coef_bv.bits.max = 235;
+	lcd_dev[sel]->tcon_ceu_coef_bv.bits.max = 240;//Pb
 	lcd_dev[sel]->tcon_ceu_coef_bv.bits.min = 16;
 
 	lcd_dev[sel]->tcon_ceu_ctl.bits.ceu_en = 1;

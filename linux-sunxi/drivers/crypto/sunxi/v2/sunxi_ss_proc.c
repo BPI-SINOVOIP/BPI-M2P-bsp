@@ -280,7 +280,7 @@ int ss_aes_key_valid(struct crypto_ablkcipher *tfm, int len)
 	return 0;
 }
 
-static int ss_rng_start(ss_aes_ctx_t *ctx, u8 *rdata, unsigned int dlen)
+static int ss_rng_start(ss_aes_ctx_t *ctx, u8 *rdata, u32 dlen, u32 trng)
 {
 	int ret = 0;
 	int flow = ctx->comm.flow;
@@ -295,23 +295,21 @@ static int ss_rng_start(ss_aes_ctx_t *ctx, u8 *rdata, unsigned int dlen)
 	ss_irq_enable(flow);
 	ss_flow_enable(flow);
 
-#ifdef SS_TRNG_ENABLE
-	if (ctx->comm.flags & SS_FLAG_TRNG) {
+	if (trng) {
 		ss_method_set(SS_DIR_ENCRYPT, SS_METHOD_TRNG);
 		ss_trng_osc_enable();
 	}
 	else
-#endif
 		ss_method_set(SS_DIR_ENCRYPT, SS_METHOD_PRNG);
 
 	ss_rng_mode_set(SS_RNG_MODE_CONTINUE);
 
 	ss_data_dst_set(ss_dev->flows[flow].buf_dst_dma);
-#ifdef SS_TRNG_ENABLE
-	ss_data_len_set(DIV_ROUND_UP(len, 32)*(32>>2)); /* align with 32 Bytes */
-#else
-	ss_data_len_set(DIV_ROUND_UP(len, 20)*(20>>2)); /* align with 20 Bytes */
-#endif
+	if (trng)
+		ss_data_len_set(DIV_ROUND_UP(len, 32)*(32>>2)); /* align with 32 Bytes */
+	else
+		ss_data_len_set(DIV_ROUND_UP(len, 20)*(20>>2)); /* align with 20 Bytes */
+
 	SS_DBG("Flow: %d, Request: %d, Aligned: %d \n", flow, len, DIV_ROUND_UP(len, 20)*5);
 	dma_map_single(&ss_dev->pdev->dev, ss_dev->flows[flow].buf_dst, SS_DMA_BUF_SIZE, DMA_DEV_TO_MEM);
 
@@ -323,41 +321,41 @@ static int ss_rng_start(ss_aes_ctx_t *ctx, u8 *rdata, unsigned int dlen)
 		return -ETIMEDOUT;
 	}
 
-	memcpy(rdata, ss_dev->flows[flow].buf_dst, len);
 	dma_unmap_single(&ss_dev->pdev->dev, ss_dev->flows[flow].buf_dst_dma, SS_DMA_BUF_SIZE, DMA_DEV_TO_MEM);
-	ss_irq_disable(flow);
-	ret = len;
+	memcpy(rdata, ss_dev->flows[flow].buf_dst, len);
 
-#ifdef SS_TRNG_ENABLE
-	if (ctx->comm.flags & SS_FLAG_TRNG)
+	if (trng)
 		ss_trng_osc_disable();
-#endif
 
+	ss_irq_disable(flow);
 	ss_ctrl_stop();
+	ret = len;
 	return ret;
 }
 
-int ss_rng_get_random(struct crypto_rng *tfm, u8 *rdata, unsigned int dlen)
+int ss_rng_get_random(struct crypto_rng *tfm, u8 *rdata, u32 dlen, u32 trng)
 {
 	int ret = 0;
 	u8 *data = rdata;
 	u32 len = dlen;
 	ss_aes_ctx_t *ctx = crypto_rng_ctx(tfm);
 
-	SS_DBG("flow = %d, data = %p, len = %d \n", ctx->comm.flow, data, len);
+	SS_DBG("flow = %d, data = %p, len = %d, trng = %d \n", ctx->comm.flow, data, len, trng);
 	if (ss_dev->suspend) {
 		SS_ERR("SS has already suspend. \n");
 		return -EAGAIN;
 	}
 
 #ifdef SS_TRNG_POSTPROCESS_ENABLE
-	len = DIV_ROUND_UP(dlen, SHA256_DIGEST_SIZE) * SHA256_BLOCK_SIZE;
-	data = kzalloc(len, GFP_KERNEL);
-	if (data == NULL) {
-		SS_ERR("Failed to malloc(%d)\n", len);
-		return -ENOMEM;
+	if (trng) {
+		len = DIV_ROUND_UP(dlen, SHA256_DIGEST_SIZE) * SHA256_BLOCK_SIZE;
+		data = kzalloc(len, GFP_KERNEL);
+		if (data == NULL) {
+			SS_ERR("Failed to malloc(%d)\n", len);
+			return -ENOMEM;
+		}
+		SS_DBG("In fact, flow = %d, data = %p, len = %d \n", ctx->comm.flow, data, len);
 	}
-	SS_DBG("In fact, flow = %d, data = %p, len = %d \n", ctx->comm.flow, data, len);
 #endif
 
 	ss_dev_lock();
@@ -366,7 +364,7 @@ int ss_rng_get_random(struct crypto_rng *tfm, u8 *rdata, unsigned int dlen)
 	ss_key_set(ctx->key, ctx->key_size);
 	dma_map_single(&ss_dev->pdev->dev, ctx->key, ctx->key_size, DMA_MEM_TO_DEV);
 
-	ret = ss_rng_start(ctx, data, len);
+	ret = ss_rng_start(ctx, data, len, trng);
 	ss_dev_unlock();
 
 	SS_DBG("Get %d byte random. \n", ret);
@@ -374,9 +372,11 @@ int ss_rng_get_random(struct crypto_rng *tfm, u8 *rdata, unsigned int dlen)
 	dma_unmap_single(&ss_dev->pdev->dev, virt_to_phys(ctx->key), ctx->key_size, DMA_MEM_TO_DEV);
 
 #ifdef SS_TRNG_POSTPROCESS_ENABLE
-	ss_trng_postprocess(rdata, dlen, data, len);
-	ret = dlen;
-	kfree(data);
+	if (trng) {
+		ss_trng_postprocess(rdata, dlen, data, len);
+		ret = dlen;
+		kfree(data);
+	}
 #endif
 
 	return ret;
@@ -547,9 +547,6 @@ int ss_aes_one_req(sunxi_ss_t *sss, struct ablkcipher_request *req)
 #endif
 
 	ctx->cnt += req->nbytes;
-	if (req->base.complete)
-		req->base.complete(&req->base, ret);
-	
 	return ret;
 }
 

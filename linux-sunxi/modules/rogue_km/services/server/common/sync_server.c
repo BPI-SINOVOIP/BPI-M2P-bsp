@@ -87,6 +87,7 @@ struct _SERVER_SYNC_PRIMITIVE_
 	IMG_UINT32				ui32LastHWUpdate;
 	IMG_BOOL				bPDumped;
 	POS_LOCK				hLock;
+	IMG_CHAR				szClassName[SYNC_MAX_CLASS_NAME_LEN];
 };
 
 struct _SERVER_SYNC_EXPORT_
@@ -133,6 +134,29 @@ struct _SYNC_CONNECTION_DATA_
 	POS_LOCK	hLock;
 };
 
+#if defined(PVRSRV_ENABLE_FULL_SYNC_TRACKING)
+enum SYNC_RECORD_TYPE
+{
+	SYNC_RECORD_TYPE_UNKNOWN = 0,
+	SYNC_RECORD_TYPE_CLIENT,
+	SYNC_RECORD_TYPE_SERVER,
+};
+
+struct SYNC_RECORD
+{
+	SYNC_PRIMITIVE_BLOCK	*psServerSyncPrimBlock;	/*!< handle to _SYNC_PRIMITIVE_BLOCK_ */
+	IMG_UINT32				ui32SyncOffset; 		/*!< offset to sync in block */
+	IMG_UINT32				ui32FwBlockAddr;
+	enum SYNC_RECORD_TYPE			eRecordType;
+	DLLIST_NODE				sNode;
+	IMG_CHAR				szClassName[SYNC_MAX_CLASS_NAME_LEN];
+};
+
+static POS_LOCK g_hSyncRecordListLock;
+static DLLIST_NODE g_sSyncRecordList;
+static IMG_HANDLE g_hSyncRecordNotify;
+#endif /* #if defined(PVRSRV_ENABLE_FULL_SYNC_TRACKING) */
+
 static IMG_UINT32 g_ServerSyncUID = 0;
 
 POS_LOCK g_hListLock;
@@ -154,11 +178,117 @@ static IMG_UINT32 g_ui32NextSyncRequestorID = 1;
 #define SYNC_UPDATES_PRINT(fmt, ...)
 #endif
 
+#if defined(PVRSRV_ENABLE_FULL_SYNC_TRACKING)
+PVRSRV_ERROR
+PVRSRVSyncRecordAddKM(
+			SYNC_RECORD_HANDLE * phRecord,
+			SYNC_PRIMITIVE_BLOCK * hServerSyncPrimBlock,
+			IMG_UINT32 ui32FwBlockAddr,
+			IMG_UINT32 ui32SyncOffset,
+			IMG_BOOL bServerSync,
+			IMG_UINT32 ui32ClassNameSize,
+			const IMG_CHAR *pszClassName)
+{
+	struct SYNC_RECORD * psSyncRec;
+	PVRSRV_ERROR eError = PVRSRV_OK;
+
+	if (!phRecord)
+	{
+		return PVRSRV_ERROR_INVALID_PARAMS;
+	}
+	*phRecord = IMG_NULL;
+
+	psSyncRec = OSAllocMem(sizeof(*psSyncRec));
+	if (!psSyncRec)
+	{
+		eError = PVRSRV_ERROR_OUT_OF_MEMORY;
+		goto fail_alloc;
+	}
+
+	psSyncRec->psServerSyncPrimBlock = hServerSyncPrimBlock;
+	psSyncRec->ui32SyncOffset = ui32SyncOffset;
+	psSyncRec->ui32FwBlockAddr = ui32FwBlockAddr;
+	psSyncRec->eRecordType = bServerSync? SYNC_RECORD_TYPE_SERVER: SYNC_RECORD_TYPE_CLIENT;
+
+	if(pszClassName)
+	{
+		if (ui32ClassNameSize >= SYNC_MAX_CLASS_NAME_LEN)
+			ui32ClassNameSize = SYNC_MAX_CLASS_NAME_LEN - 1;
+		/* Copy over the class name annotation */
+		OSStringNCopy(psSyncRec->szClassName, pszClassName, ui32ClassNameSize);
+		psSyncRec->szClassName[ui32ClassNameSize] = 0;
+	}
+	else
+	{
+		/* No class name annotation */
+		psSyncRec->szClassName[0] = 0;
+	}
+
+	OSLockAcquire(g_hSyncRecordListLock);
+	dllist_add_to_head(&g_sSyncRecordList, &psSyncRec->sNode);
+	OSLockRelease(g_hSyncRecordListLock);
+
+	*phRecord = (SYNC_RECORD_HANDLE)psSyncRec;
+
+fail_alloc:
+	return eError;
+}
+
+PVRSRV_ERROR
+PVRSRVSyncRecordRemoveByHandleKM(
+			SYNC_RECORD_HANDLE hRecord)
+{
+	struct SYNC_RECORD *pSync = (struct SYNC_RECORD*)hRecord;
+
+	if ( !hRecord )
+	{
+		return PVRSRV_ERROR_INVALID_PARAMS;
+	}
+
+	OSLockAcquire(g_hSyncRecordListLock);
+	dllist_remove_node(&pSync->sNode);
+	OSLockRelease(g_hSyncRecordListLock);
+
+	OSFreeMem(pSync);
+
+	return PVRSRV_OK;
+}
+#else
+PVRSRV_ERROR
+PVRSRVSyncRecordAddKM(
+			SYNC_RECORD_HANDLE * phRecord,
+			SYNC_PRIMITIVE_BLOCK * hServerSyncPrimBlock,
+			IMG_UINT32 ui32FwBlockAddr,
+			IMG_UINT32 ui32SyncOffset,
+			IMG_BOOL bServerSync,
+			IMG_UINT32 ui32ClassNameSize,
+			const IMG_CHAR *pszClassName)
+{
+	PVR_UNREFERENCED_PARAMETER(phRecord);
+	PVR_UNREFERENCED_PARAMETER(hServerSyncPrimBlock);
+	PVR_UNREFERENCED_PARAMETER(ui32FwBlockAddr);
+	PVR_UNREFERENCED_PARAMETER(ui32SyncOffset);
+	PVR_UNREFERENCED_PARAMETER(bServerSync);
+	PVR_UNREFERENCED_PARAMETER(ui32ClassNameSize);
+	PVR_UNREFERENCED_PARAMETER(pszClassName);
+	return PVRSRV_OK;
+}
+PVRSRV_ERROR
+PVRSRVSyncRecordRemoveByHandleKM(
+			SYNC_RECORD_HANDLE hRecord)
+{
+	PVR_UNREFERENCED_PARAMETER(hRecord);
+	return PVRSRV_OK;
+}
+#endif /* #if defined(PVRSRV_ENABLE_FULL_SYNC_TRACKING) */
+
 static
 IMG_VOID _SyncConnectionRef(SYNC_CONNECTION_DATA *psSyncConnectionData)
 {
+	IMG_UINT32 ui32RefCount;
+
 	OSLockAcquire(psSyncConnectionData->hLock);
-	psSyncConnectionData->ui32RefCount++;
+	ui32RefCount = ++psSyncConnectionData->ui32RefCount;
 	OSLockRelease(psSyncConnectionData->hLock);	
 
 	SYNC_REFCOUNT_PRINT("%s: Sync connection %p, refcount = %d",
@@ -342,9 +472,9 @@ e4:
 	DevmemUnexport(psNewSyncBlk->psMemDesc, &psNewSyncBlk->sExportCookie);
 
 e3:
-	psDevNode->pfnFreeUFOBlock(psDevNode, psNewSyncBlk->psMemDesc);
-e2:
 	DevmemReleaseCpuVirtAddr(psNewSyncBlk->psMemDesc);
+e2:
+	psDevNode->pfnFreeUFOBlock(psDevNode, psNewSyncBlk->psMemDesc);
 e1:
 	OSFreeMem(psNewSyncBlk);
 e0:
@@ -422,7 +552,9 @@ ServerSyncUnref(SERVER_SYNC_PRIMITIVE *psSync)
 PVRSRV_ERROR
 PVRSRVServerSyncAllocKM(PVRSRV_DEVICE_NODE *psDevNode,
 						SERVER_SYNC_PRIMITIVE **ppsSync,
-						IMG_UINT32 *pui32SyncPrimVAddr)
+						IMG_UINT32 *pui32SyncPrimVAddr,
+						IMG_UINT32 ui32ClassNameSize,
+						const IMG_CHAR *pszClassName)
 {
 	SERVER_SYNC_PRIMITIVE *psNewSync;
 	PVRSRV_ERROR eError;
@@ -433,8 +565,26 @@ PVRSRVServerSyncAllocKM(PVRSRV_DEVICE_NODE *psDevNode,
 			return PVRSRV_ERROR_OUT_OF_MEMORY;
 	}
 
+	/* szClassName must be setup now and used for the SyncPrimAlloc call because
+	 * pszClassName is allocated in the bridge code is not NULL terminated 
+	 */
+	if(pszClassName)
+	{
+		if (ui32ClassNameSize >= SYNC_MAX_CLASS_NAME_LEN)
+			ui32ClassNameSize = SYNC_MAX_CLASS_NAME_LEN - 1;
+		/* Copy over the class name annotation */
+		OSStringNCopy(psNewSync->szClassName, pszClassName, ui32ClassNameSize);
+		psNewSync->szClassName[ui32ClassNameSize] = 0;
+	}
+	else
+	{
+		/* No class name annotation */
+		psNewSync->szClassName[0] = 0;
+	}
+
 	eError = SyncPrimAlloc(psDevNode->hSyncPrimContext,
-						   &psNewSync->psSync);
+						   &psNewSync->psSync,
+						   psNewSync->szClassName);
 	if (eError != PVRSRV_OK)
 	{
 		goto fail_sync_alloc;
@@ -615,7 +765,7 @@ e0:
 	return eError;
 }
 
-/* FIXME: This is the same as the non-secure version. */
+
 PVRSRV_ERROR
 PVRSRVSyncPrimServerSecureUnexportKM(SERVER_SYNC_EXPORT *psExport)
 {
@@ -691,7 +841,7 @@ _ServerSyncTakeOperation(SERVER_SYNC_PRIMITIVE *psSync,
 		IMG_CHAR azTmp[100];
 		OSSNPrintf(azTmp,
 				   sizeof(azTmp),
-				   "Dump initial sync state (%p, FW VAddr = 0x%08x) = 0x%08x\n",
+				   "Dump initial sync state (0x%p, FW VAddr = 0x%08x) = 0x%08x\n",
 				   psSync,
 				   SyncPrimGetFirmwareAddr(psSync->psSync),
 				   *psSync->psSync->pui32LinAddr);
@@ -816,7 +966,7 @@ PVRSRVServerSyncQueueHWOpKM(SERVER_SYNC_PRIMITIVE *psSync,
 		IMG_CHAR azTmp[256];
 		OSSNPrintf(azTmp,
 				   sizeof(azTmp),
-				   "Wait for HW ops and dummy update for SW ops (%p, FW VAddr = 0x%08x, value = 0x%08x)\n",
+				   "Wait for HW ops and dummy update for SW ops (0x%p, FW VAddr = 0x%08x, value = 0x%08x)\n",
 				   psSync,
 				   SyncPrimGetFirmwareAddr(psSync->psSync),
 				   *pui32FenceValue);
@@ -845,7 +995,7 @@ PVRSRVServerSyncQueueHWOpKM(SERVER_SYNC_PRIMITIVE *psSync,
 	return PVRSRV_OK;
 }
 
-IMG_BOOL ServerSyncFenceIsMeet(SERVER_SYNC_PRIMITIVE *psSync,
+IMG_BOOL ServerSyncFenceIsMet(SERVER_SYNC_PRIMITIVE *psSync,
 							   IMG_UINT32 ui32FenceValue)
 {
 	SYNC_UPDATES_PRINT("%s: sync: %p, value(%d) == fence(%d)?", __FUNCTION__, psSync, *psSync->psSync->pui32LinAddr, ui32FenceValue);
@@ -867,6 +1017,11 @@ ServerSyncCompleteOp(SERVER_SYNC_PRIMITIVE *psSync,
 	ServerSyncUnref(psSync);
 }
 
+IMG_UINT32 ServerSyncGetId(SERVER_SYNC_PRIMITIVE *psSync)
+{
+	return psSync->ui32UID;
+}
+
 IMG_UINT32 ServerSyncGetFWAddr(SERVER_SYNC_PRIMITIVE *psSync)
 {
 	return SyncPrimGetFirmwareAddr(psSync->psSync);
@@ -877,28 +1032,41 @@ IMG_UINT32 ServerSyncGetValue(SERVER_SYNC_PRIMITIVE *psSync)
 	return *psSync->psSync->pui32LinAddr;
 }
 
+IMG_UINT32 ServerSyncGetNextValue(SERVER_SYNC_PRIMITIVE *psSync)
+{
+	return psSync->ui32NextOp;
+}
+
 static IMG_BOOL _ServerSyncState(PDLLIST_NODE psNode, IMG_PVOID pvCallbackData)
 {
 	SERVER_SYNC_PRIMITIVE *psSync = IMG_CONTAINER_OF(psNode, SERVER_SYNC_PRIMITIVE, sNode);
+	DUMPDEBUG_PRINTF_FUNC *pfnDumpDebugPrintf = IMG_NULL;
+
+	pfnDumpDebugPrintf = g_pfnDumpDebugPrintf;
 
 	if (*psSync->psSync->pui32LinAddr != psSync->ui32NextOp)
 	{
-		PVR_LOG(("\tPending server sync (ID = %d, FWAddr = 0x%08x): Current = 0x%08x, NextOp = 0x%08x",
+		PVR_DUMPDEBUG_LOG(("\tPending server sync (ID = %d, FWAddr = 0x%08x): Current = 0x%08x, NextOp = 0x%08x (%s)",
 								psSync->ui32UID,
 								ServerSyncGetFWAddr(psSync),
 								ServerSyncGetValue(psSync),
-								psSync->ui32NextOp));
+								psSync->ui32NextOp,
+								psSync->szClassName));
 	}
 	return IMG_TRUE;
 }
 
 static IMG_VOID _ServerSyncDebugRequest(PVRSRV_DBGREQ_HANDLE hDebugRequestHandle, IMG_UINT32 ui32VerbLevel)
 {
-	PVR_UNREFERENCED_PARAMETER(hDebugRequestHandle);
 
+	DUMPDEBUG_PRINTF_FUNC *pfnDumpDebugPrintf = IMG_NULL;
+
+	PVR_UNREFERENCED_PARAMETER(hDebugRequestHandle);
+	
+	pfnDumpDebugPrintf = g_pfnDumpDebugPrintf;
 	if (ui32VerbLevel == DEBUG_REQUEST_VERBOSITY_HIGH)
 	{
-		PVR_LOG(("Dumping all pending server syncs"));
+		PVR_DUMPDEBUG_LOG(("Dumping all pending server syncs"));
 		OSLockAcquire(g_hListLock);
 		dllist_foreach_node(&g_sAllServerSyncs, _ServerSyncState, IMG_NULL);
 		OSLockRelease(g_hListLock);
@@ -1124,8 +1292,8 @@ PVRSRVSyncPrimOpReadyKM(SERVER_OP_COOKIE *psServerCookie,
 
 	for (i=0;i<psServerCookie->ui32ServerSyncCount;i++)
 	{
-		bReady = ServerSyncFenceIsMeet(psServerCookie->papsServerSync[i],
-									   psServerCookie->paui32ServerFenceValue[i]);
+		bReady = ServerSyncFenceIsMet(psServerCookie->papsServerSync[i],
+									  psServerCookie->paui32ServerFenceValue[i]);
 		if (!bReady)
 		{
 			break;
@@ -1387,6 +1555,104 @@ IMG_VOID SyncConnectionPDumpSyncBlocks(SYNC_CONNECTION_DATA *psSyncConnectionDat
 	OSLockRelease(psSyncConnectionData->hLock);
 }
 
+#if defined(PVRSRV_ENABLE_FULL_SYNC_TRACKING)
+static IMG_BOOL _SyncRecordPrint(PDLLIST_NODE psNode, IMG_PVOID pvCallbackData)
+{
+	struct SYNC_RECORD *psSyncRec;
+	SYNC_PRIMITIVE_BLOCK *psSyncBlock;
+	DUMPDEBUG_PRINTF_FUNC *pfnDumpDebugPrintf = IMG_NULL;
+
+	pfnDumpDebugPrintf = g_pfnDumpDebugPrintf;
+
+	psSyncRec = IMG_CONTAINER_OF(psNode, struct SYNC_RECORD, sNode);
+	psSyncBlock = psSyncRec->psServerSyncPrimBlock;
+
+	if (SYNC_RECORD_TYPE_UNKNOWN != psSyncRec->eRecordType)
+	{
+		if (psSyncBlock->pui32LinAddr)
+		{
+			IMG_VOID *pSyncAddr;
+
+			pSyncAddr = psSyncBlock->pui32LinAddr + psSyncRec->ui32SyncOffset;
+			PVR_DUMPDEBUG_LOG(("\t%s sync FWAddr=0x%08x Val=0x%08x (%s)",
+				((SYNC_RECORD_TYPE_SERVER==psSyncRec->eRecordType)?"Server":"Client"),
+				(psSyncRec->ui32FwBlockAddr+psSyncRec->ui32SyncOffset),
+				*(IMG_UINT32*)pSyncAddr,
+				psSyncRec->szClassName));
+		}
+		else
+		{
+			PVR_DUMPDEBUG_LOG(("\t%s sync FWAddr=0x%08x Val=<null ptr> (%s)",
+				((SYNC_RECORD_TYPE_SERVER==psSyncRec->eRecordType)?"Server":"Client"),
+				(psSyncRec->ui32FwBlockAddr+psSyncRec->ui32SyncOffset),
+				psSyncRec->szClassName));
+		}
+	}
+
+	return IMG_TRUE;
+}
+
+static IMG_VOID _SyncRecordRequest(PVRSRV_DBGREQ_HANDLE hDebugRequestHandle, IMG_UINT32 ui32VerbLevel)
+{
+	DUMPDEBUG_PRINTF_FUNC *pfnDumpDebugPrintf = IMG_NULL;
+
+	PVR_UNREFERENCED_PARAMETER(hDebugRequestHandle);
+
+	pfnDumpDebugPrintf = g_pfnDumpDebugPrintf;
+
+	if (ui32VerbLevel == DEBUG_REQUEST_VERBOSITY_HIGH)
+	{
+		PVR_DUMPDEBUG_LOG(("Dumping all sync records"));
+		OSLockAcquire(g_hSyncRecordListLock);
+		dllist_foreach_node(&g_sSyncRecordList, _SyncRecordPrint, IMG_NULL);
+		OSLockRelease(g_hSyncRecordListLock);
+	}
+}
+
+static PVRSRV_ERROR SyncRecordListInit(IMG_VOID)
+{
+	PVRSRV_ERROR eError;
+
+	eError = OSLockCreate(&g_hSyncRecordListLock, LOCK_TYPE_NONE);
+	if (eError != PVRSRV_OK)
+	{
+		goto fail_lock_create;
+	}
+	dllist_init(&g_sSyncRecordList);
+
+	eError = PVRSRVRegisterDbgRequestNotify(&g_hSyncRecordNotify,
+											_SyncRecordRequest,
+											DEBUG_REQUEST_SERVERSYNC,
+											IMG_NULL);
+
+	if (eError != PVRSRV_OK)
+	{
+		goto fail_dbg_register;
+	}
+
+	return PVRSRV_OK;
+
+fail_dbg_register:
+	OSLockDestroy(g_hSyncRecordListLock);;
+fail_lock_create:
+	return eError;
+}
+
+static IMG_BOOL _SyncRecordListDestroy(PDLLIST_NODE psNode, IMG_PVOID pvCallbackData)
+{
+	struct SYNC_RECORD *pSyncRec;
+
+	PVR_UNREFERENCED_PARAMETER(pvCallbackData);
+
+	pSyncRec = IMG_CONTAINER_OF(psNode, struct SYNC_RECORD, sNode);
+
+	dllist_remove_node(psNode);
+	OSFreeMem(pSyncRec);
+
+	return IMG_TRUE;
+}
+#endif /* #if defined(PVRSRV_ENABLE_FULL_SYNC_TRACKING) */
+
 PVRSRV_ERROR ServerSyncInit(IMG_VOID)
 {
 	PVRSRV_ERROR eError;
@@ -1407,8 +1673,20 @@ PVRSRV_ERROR ServerSyncInit(IMG_VOID)
 		goto fail_dbg_register;
 	}
 
+#if defined(PVRSRV_ENABLE_FULL_SYNC_TRACKING)
+	eError = SyncRecordListInit();
+	if (eError != PVRSRV_OK)
+	{
+		goto fail_record_list;
+	}
+#endif
+
 	return PVRSRV_OK;
 
+#if defined(PVRSRV_ENABLE_FULL_SYNC_TRACKING)
+fail_record_list:
+	PVRSRVUnregisterDbgRequestNotify(g_hNotify);
+#endif
 fail_dbg_register:
 	OSLockDestroy(g_hListLock);;
 fail_lock_create:
@@ -1419,4 +1697,11 @@ IMG_VOID ServerSyncDeinit(IMG_VOID)
 {
 	PVRSRVUnregisterDbgRequestNotify(g_hNotify);
 	OSLockDestroy(g_hListLock);
+#if defined(PVRSRV_ENABLE_FULL_SYNC_TRACKING)
+	OSLockAcquire(g_hSyncRecordListLock);
+	dllist_foreach_node(&g_sSyncRecordList, _SyncRecordListDestroy, IMG_NULL);
+	OSLockRelease(g_hSyncRecordListLock);
+	PVRSRVUnregisterDbgRequestNotify(g_hSyncRecordNotify);
+	OSLockDestroy(g_hSyncRecordListLock);
+#endif
 }

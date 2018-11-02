@@ -70,6 +70,7 @@ mali-y += \
 
 # Source files which always are included in a build
 mali-y += \
+    	linux/mali_platform.o\
 	common/mali_kernel_core.o \
 	linux/mali_kernel_linux.o \
 	common/mali_kernel_descriptor_mapping.o \

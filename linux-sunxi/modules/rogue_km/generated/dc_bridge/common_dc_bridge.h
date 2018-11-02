@@ -50,7 +50,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "dc_common.h"
 
 
-#include "pvr_bridge.h"
+#include "pvr_bridge_io.h"
 
 #define PVRSRV_BRIDGE_DC_CMD_FIRST			(PVRSRV_BRIDGE_DC_START)
 #define PVRSRV_BRIDGE_DC_DCDEVICESQUERYCOUNT			PVRSRV_IOWR(PVRSRV_BRIDGE_DC_CMD_FIRST+0)
@@ -90,7 +90,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 typedef struct PVRSRV_BRIDGE_IN_DCDEVICESQUERYCOUNT_TAG
 {
 	 IMG_UINT32 ui32EmptyStructPlaceholder;
-} PVRSRV_BRIDGE_IN_DCDEVICESQUERYCOUNT;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCDEVICESQUERYCOUNT;
 
 
 /* Bridge out structure for DCDevicesQueryCount */
@@ -98,7 +98,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCDEVICESQUERYCOUNT_TAG
 {
 	IMG_UINT32 ui32DeviceCount;
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCDEVICESQUERYCOUNT;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCDEVICESQUERYCOUNT;
 
 /*******************************************
             DCDevicesEnumerate          
@@ -110,7 +110,7 @@ typedef struct PVRSRV_BRIDGE_IN_DCDEVICESENUMERATE_TAG
 	IMG_UINT32 ui32DeviceArraySize;
 	/* Output pointer pui32DeviceIndex is also an implied input */
 	IMG_UINT32 * pui32DeviceIndex;
-} PVRSRV_BRIDGE_IN_DCDEVICESENUMERATE;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCDEVICESENUMERATE;
 
 
 /* Bridge out structure for DCDevicesEnumerate */
@@ -119,7 +119,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCDEVICESENUMERATE_TAG
 	IMG_UINT32 ui32DeviceCount;
 	IMG_UINT32 * pui32DeviceIndex;
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCDEVICESENUMERATE;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCDEVICESENUMERATE;
 
 /*******************************************
             DCDeviceAcquire          
@@ -129,7 +129,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCDEVICESENUMERATE_TAG
 typedef struct PVRSRV_BRIDGE_IN_DCDEVICEACQUIRE_TAG
 {
 	IMG_UINT32 ui32DeviceIndex;
-} PVRSRV_BRIDGE_IN_DCDEVICEACQUIRE;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCDEVICEACQUIRE;
 
 
 /* Bridge out structure for DCDeviceAcquire */
@@ -137,7 +137,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCDEVICEACQUIRE_TAG
 {
 	IMG_HANDLE hDevice;
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCDEVICEACQUIRE;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCDEVICEACQUIRE;
 
 /*******************************************
             DCDeviceRelease          
@@ -147,14 +147,14 @@ typedef struct PVRSRV_BRIDGE_OUT_DCDEVICEACQUIRE_TAG
 typedef struct PVRSRV_BRIDGE_IN_DCDEVICERELEASE_TAG
 {
 	IMG_HANDLE hDevice;
-} PVRSRV_BRIDGE_IN_DCDEVICERELEASE;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCDEVICERELEASE;
 
 
 /* Bridge out structure for DCDeviceRelease */
 typedef struct PVRSRV_BRIDGE_OUT_DCDEVICERELEASE_TAG
 {
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCDEVICERELEASE;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCDEVICERELEASE;
 
 /*******************************************
             DCGetInfo          
@@ -164,7 +164,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCDEVICERELEASE_TAG
 typedef struct PVRSRV_BRIDGE_IN_DCGETINFO_TAG
 {
 	IMG_HANDLE hDevice;
-} PVRSRV_BRIDGE_IN_DCGETINFO;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCGETINFO;
 
 
 /* Bridge out structure for DCGetInfo */
@@ -172,7 +172,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCGETINFO_TAG
 {
 	DC_DISPLAY_INFO sDisplayInfo;
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCGETINFO;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCGETINFO;
 
 /*******************************************
             DCPanelQueryCount          
@@ -182,7 +182,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCGETINFO_TAG
 typedef struct PVRSRV_BRIDGE_IN_DCPANELQUERYCOUNT_TAG
 {
 	IMG_HANDLE hDevice;
-} PVRSRV_BRIDGE_IN_DCPANELQUERYCOUNT;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCPANELQUERYCOUNT;
 
 
 /* Bridge out structure for DCPanelQueryCount */
@@ -190,7 +190,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCPANELQUERYCOUNT_TAG
 {
 	IMG_UINT32 ui32NumPanels;
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCPANELQUERYCOUNT;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCPANELQUERYCOUNT;
 
 /*******************************************
             DCPanelQuery          
@@ -203,7 +203,7 @@ typedef struct PVRSRV_BRIDGE_IN_DCPANELQUERY_TAG
 	IMG_UINT32 ui32PanelsArraySize;
 	/* Output pointer psPanelInfo is also an implied input */
 	PVRSRV_PANEL_INFO * psPanelInfo;
-} PVRSRV_BRIDGE_IN_DCPANELQUERY;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCPANELQUERY;
 
 
 /* Bridge out structure for DCPanelQuery */
@@ -212,7 +212,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCPANELQUERY_TAG
 	IMG_UINT32 ui32NumPanels;
 	PVRSRV_PANEL_INFO * psPanelInfo;
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCPANELQUERY;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCPANELQUERY;
 
 /*******************************************
             DCFormatQuery          
@@ -226,7 +226,7 @@ typedef struct PVRSRV_BRIDGE_IN_DCFORMATQUERY_TAG
 	PVRSRV_SURFACE_FORMAT * psFormat;
 	/* Output pointer pui32Supported is also an implied input */
 	IMG_UINT32 * pui32Supported;
-} PVRSRV_BRIDGE_IN_DCFORMATQUERY;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCFORMATQUERY;
 
 
 /* Bridge out structure for DCFormatQuery */
@@ -234,7 +234,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCFORMATQUERY_TAG
 {
 	IMG_UINT32 * pui32Supported;
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCFORMATQUERY;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCFORMATQUERY;
 
 /*******************************************
             DCDimQuery          
@@ -248,7 +248,7 @@ typedef struct PVRSRV_BRIDGE_IN_DCDIMQUERY_TAG
 	PVRSRV_SURFACE_DIMS * psDim;
 	/* Output pointer pui32Supported is also an implied input */
 	IMG_UINT32 * pui32Supported;
-} PVRSRV_BRIDGE_IN_DCDIMQUERY;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCDIMQUERY;
 
 
 /* Bridge out structure for DCDimQuery */
@@ -256,7 +256,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCDIMQUERY_TAG
 {
 	IMG_UINT32 * pui32Supported;
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCDIMQUERY;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCDIMQUERY;
 
 /*******************************************
             DCSetBlank          
@@ -267,14 +267,14 @@ typedef struct PVRSRV_BRIDGE_IN_DCSETBLANK_TAG
 {
 	IMG_HANDLE hDevice;
 	IMG_BOOL bEnabled;
-} PVRSRV_BRIDGE_IN_DCSETBLANK;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCSETBLANK;
 
 
 /* Bridge out structure for DCSetBlank */
 typedef struct PVRSRV_BRIDGE_OUT_DCSETBLANK_TAG
 {
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCSETBLANK;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCSETBLANK;
 
 /*******************************************
             DCSetVSyncReporting          
@@ -285,14 +285,14 @@ typedef struct PVRSRV_BRIDGE_IN_DCSETVSYNCREPORTING_TAG
 {
 	IMG_HANDLE hDevice;
 	IMG_BOOL bEnabled;
-} PVRSRV_BRIDGE_IN_DCSETVSYNCREPORTING;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCSETVSYNCREPORTING;
 
 
 /* Bridge out structure for DCSetVSyncReporting */
 typedef struct PVRSRV_BRIDGE_OUT_DCSETVSYNCREPORTING_TAG
 {
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCSETVSYNCREPORTING;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCSETVSYNCREPORTING;
 
 /*******************************************
             DCLastVSyncQuery          
@@ -302,7 +302,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCSETVSYNCREPORTING_TAG
 typedef struct PVRSRV_BRIDGE_IN_DCLASTVSYNCQUERY_TAG
 {
 	IMG_HANDLE hDevice;
-} PVRSRV_BRIDGE_IN_DCLASTVSYNCQUERY;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCLASTVSYNCQUERY;
 
 
 /* Bridge out structure for DCLastVSyncQuery */
@@ -310,7 +310,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCLASTVSYNCQUERY_TAG
 {
 	IMG_INT64 i64Timestamp;
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCLASTVSYNCQUERY;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCLASTVSYNCQUERY;
 
 /*******************************************
             DCSystemBufferAcquire          
@@ -320,7 +320,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCLASTVSYNCQUERY_TAG
 typedef struct PVRSRV_BRIDGE_IN_DCSYSTEMBUFFERACQUIRE_TAG
 {
 	IMG_HANDLE hDevice;
-} PVRSRV_BRIDGE_IN_DCSYSTEMBUFFERACQUIRE;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCSYSTEMBUFFERACQUIRE;
 
 
 /* Bridge out structure for DCSystemBufferAcquire */
@@ -329,7 +329,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCSYSTEMBUFFERACQUIRE_TAG
 	IMG_UINT32 ui32Stride;
 	IMG_HANDLE hBuffer;
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCSYSTEMBUFFERACQUIRE;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCSYSTEMBUFFERACQUIRE;
 
 /*******************************************
             DCSystemBufferRelease          
@@ -339,14 +339,14 @@ typedef struct PVRSRV_BRIDGE_OUT_DCSYSTEMBUFFERACQUIRE_TAG
 typedef struct PVRSRV_BRIDGE_IN_DCSYSTEMBUFFERRELEASE_TAG
 {
 	IMG_HANDLE hBuffer;
-} PVRSRV_BRIDGE_IN_DCSYSTEMBUFFERRELEASE;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCSYSTEMBUFFERRELEASE;
 
 
 /* Bridge out structure for DCSystemBufferRelease */
 typedef struct PVRSRV_BRIDGE_OUT_DCSYSTEMBUFFERRELEASE_TAG
 {
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCSYSTEMBUFFERRELEASE;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCSYSTEMBUFFERRELEASE;
 
 /*******************************************
             DCDisplayContextCreate          
@@ -356,7 +356,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCSYSTEMBUFFERRELEASE_TAG
 typedef struct PVRSRV_BRIDGE_IN_DCDISPLAYCONTEXTCREATE_TAG
 {
 	IMG_HANDLE hDevice;
-} PVRSRV_BRIDGE_IN_DCDISPLAYCONTEXTCREATE;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCDISPLAYCONTEXTCREATE;
 
 
 /* Bridge out structure for DCDisplayContextCreate */
@@ -364,7 +364,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCDISPLAYCONTEXTCREATE_TAG
 {
 	IMG_HANDLE hDisplayContext;
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCDISPLAYCONTEXTCREATE;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCDISPLAYCONTEXTCREATE;
 
 /*******************************************
             DCDisplayContextConfigureCheck          
@@ -377,14 +377,14 @@ typedef struct PVRSRV_BRIDGE_IN_DCDISPLAYCONTEXTCONFIGURECHECK_TAG
 	IMG_UINT32 ui32PipeCount;
 	PVRSRV_SURFACE_CONFIG_INFO * psSurfInfo;
 	IMG_HANDLE * phBuffers;
-} PVRSRV_BRIDGE_IN_DCDISPLAYCONTEXTCONFIGURECHECK;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCDISPLAYCONTEXTCONFIGURECHECK;
 
 
 /* Bridge out structure for DCDisplayContextConfigureCheck */
 typedef struct PVRSRV_BRIDGE_OUT_DCDISPLAYCONTEXTCONFIGURECHECK_TAG
 {
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCDISPLAYCONTEXTCONFIGURECHECK;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCDISPLAYCONTEXTCONFIGURECHECK;
 
 /*******************************************
             DCDisplayContextConfigure          
@@ -403,7 +403,7 @@ typedef struct PVRSRV_BRIDGE_IN_DCDISPLAYCONTEXTCONFIGURE_TAG
 	IMG_UINT32 ui32DisplayPeriod;
 	IMG_UINT32 ui32MaxDepth;
 	IMG_INT32 i32AcquireFd;
-} PVRSRV_BRIDGE_IN_DCDISPLAYCONTEXTCONFIGURE;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCDISPLAYCONTEXTCONFIGURE;
 
 
 /* Bridge out structure for DCDisplayContextConfigure */
@@ -411,7 +411,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCDISPLAYCONTEXTCONFIGURE_TAG
 {
 	IMG_INT32 i32ReleaseFd;
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCDISPLAYCONTEXTCONFIGURE;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCDISPLAYCONTEXTCONFIGURE;
 
 /*******************************************
             DCDisplayContextDestroy          
@@ -421,14 +421,14 @@ typedef struct PVRSRV_BRIDGE_OUT_DCDISPLAYCONTEXTCONFIGURE_TAG
 typedef struct PVRSRV_BRIDGE_IN_DCDISPLAYCONTEXTDESTROY_TAG
 {
 	IMG_HANDLE hDisplayContext;
-} PVRSRV_BRIDGE_IN_DCDISPLAYCONTEXTDESTROY;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCDISPLAYCONTEXTDESTROY;
 
 
 /* Bridge out structure for DCDisplayContextDestroy */
 typedef struct PVRSRV_BRIDGE_OUT_DCDISPLAYCONTEXTDESTROY_TAG
 {
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCDISPLAYCONTEXTDESTROY;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCDISPLAYCONTEXTDESTROY;
 
 /*******************************************
             DCBufferAlloc          
@@ -439,7 +439,7 @@ typedef struct PVRSRV_BRIDGE_IN_DCBUFFERALLOC_TAG
 {
 	IMG_HANDLE hDisplayContext;
 	DC_BUFFER_CREATE_INFO sSurfInfo;
-} PVRSRV_BRIDGE_IN_DCBUFFERALLOC;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCBUFFERALLOC;
 
 
 /* Bridge out structure for DCBufferAlloc */
@@ -448,7 +448,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCBUFFERALLOC_TAG
 	IMG_UINT32 ui32Stride;
 	IMG_HANDLE hBuffer;
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCBUFFERALLOC;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCBUFFERALLOC;
 
 /*******************************************
             DCBufferImport          
@@ -461,7 +461,7 @@ typedef struct PVRSRV_BRIDGE_IN_DCBUFFERIMPORT_TAG
 	IMG_UINT32 ui32NumPlanes;
 	IMG_HANDLE * phImport;
 	DC_BUFFER_IMPORT_INFO sSurfAttrib;
-} PVRSRV_BRIDGE_IN_DCBUFFERIMPORT;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCBUFFERIMPORT;
 
 
 /* Bridge out structure for DCBufferImport */
@@ -469,7 +469,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCBUFFERIMPORT_TAG
 {
 	IMG_HANDLE hBuffer;
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCBUFFERIMPORT;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCBUFFERIMPORT;
 
 /*******************************************
             DCBufferFree          
@@ -479,14 +479,14 @@ typedef struct PVRSRV_BRIDGE_OUT_DCBUFFERIMPORT_TAG
 typedef struct PVRSRV_BRIDGE_IN_DCBUFFERFREE_TAG
 {
 	IMG_HANDLE hBuffer;
-} PVRSRV_BRIDGE_IN_DCBUFFERFREE;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCBUFFERFREE;
 
 
 /* Bridge out structure for DCBufferFree */
 typedef struct PVRSRV_BRIDGE_OUT_DCBUFFERFREE_TAG
 {
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCBUFFERFREE;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCBUFFERFREE;
 
 /*******************************************
             DCBufferUnimport          
@@ -496,14 +496,14 @@ typedef struct PVRSRV_BRIDGE_OUT_DCBUFFERFREE_TAG
 typedef struct PVRSRV_BRIDGE_IN_DCBUFFERUNIMPORT_TAG
 {
 	IMG_HANDLE hBuffer;
-} PVRSRV_BRIDGE_IN_DCBUFFERUNIMPORT;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCBUFFERUNIMPORT;
 
 
 /* Bridge out structure for DCBufferUnimport */
 typedef struct PVRSRV_BRIDGE_OUT_DCBUFFERUNIMPORT_TAG
 {
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCBUFFERUNIMPORT;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCBUFFERUNIMPORT;
 
 /*******************************************
             DCBufferPin          
@@ -513,7 +513,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCBUFFERUNIMPORT_TAG
 typedef struct PVRSRV_BRIDGE_IN_DCBUFFERPIN_TAG
 {
 	IMG_HANDLE hBuffer;
-} PVRSRV_BRIDGE_IN_DCBUFFERPIN;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCBUFFERPIN;
 
 
 /* Bridge out structure for DCBufferPin */
@@ -521,7 +521,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCBUFFERPIN_TAG
 {
 	IMG_HANDLE hPinHandle;
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCBUFFERPIN;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCBUFFERPIN;
 
 /*******************************************
             DCBufferUnpin          
@@ -531,14 +531,14 @@ typedef struct PVRSRV_BRIDGE_OUT_DCBUFFERPIN_TAG
 typedef struct PVRSRV_BRIDGE_IN_DCBUFFERUNPIN_TAG
 {
 	IMG_HANDLE hPinHandle;
-} PVRSRV_BRIDGE_IN_DCBUFFERUNPIN;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCBUFFERUNPIN;
 
 
 /* Bridge out structure for DCBufferUnpin */
 typedef struct PVRSRV_BRIDGE_OUT_DCBUFFERUNPIN_TAG
 {
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCBUFFERUNPIN;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCBUFFERUNPIN;
 
 /*******************************************
             DCBufferAcquire          
@@ -548,7 +548,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCBUFFERUNPIN_TAG
 typedef struct PVRSRV_BRIDGE_IN_DCBUFFERACQUIRE_TAG
 {
 	IMG_HANDLE hBuffer;
-} PVRSRV_BRIDGE_IN_DCBUFFERACQUIRE;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCBUFFERACQUIRE;
 
 
 /* Bridge out structure for DCBufferAcquire */
@@ -556,7 +556,7 @@ typedef struct PVRSRV_BRIDGE_OUT_DCBUFFERACQUIRE_TAG
 {
 	IMG_HANDLE hExtMem;
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCBUFFERACQUIRE;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCBUFFERACQUIRE;
 
 /*******************************************
             DCBufferRelease          
@@ -566,13 +566,13 @@ typedef struct PVRSRV_BRIDGE_OUT_DCBUFFERACQUIRE_TAG
 typedef struct PVRSRV_BRIDGE_IN_DCBUFFERRELEASE_TAG
 {
 	IMG_HANDLE hExtMem;
-} PVRSRV_BRIDGE_IN_DCBUFFERRELEASE;
+} __attribute__((packed)) PVRSRV_BRIDGE_IN_DCBUFFERRELEASE;
 
 
 /* Bridge out structure for DCBufferRelease */
 typedef struct PVRSRV_BRIDGE_OUT_DCBUFFERRELEASE_TAG
 {
 	PVRSRV_ERROR eError;
-} PVRSRV_BRIDGE_OUT_DCBUFFERRELEASE;
+} __attribute__((packed)) PVRSRV_BRIDGE_OUT_DCBUFFERRELEASE;
 
 #endif /* COMMON_DC_BRIDGE_H */

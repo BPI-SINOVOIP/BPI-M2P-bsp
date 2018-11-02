@@ -1124,7 +1124,7 @@ static int __ddrfreq_set(unsigned int jump, struct devfreq *df,
 	if (mdfs_in_cfs == 1) {
 #ifdef CONFIG_DEVFREQ_DRAM_FREQ_CFS_SW
 		if (!ddrfreq_odt_disable) {
-			if (dram_para.dram_clk > 500) {
+			if (dram_para.dram_clk > 200) {
 				mdfs_main(jump, &dram_para, 0, 0);
 			}
 		}
@@ -1134,7 +1134,7 @@ static int __ddrfreq_set(unsigned int jump, struct devfreq *df,
 
 #ifdef CONFIG_DEVFREQ_DRAM_FREQ_CFS_SW
 		if (!ddrfreq_odt_disable) {
-			if (dram_para.dram_clk < 500) {
+			if (dram_para.dram_clk < 200) {
 				mdfs_main(jump, &dram_para, 0, 0);
 			}
 		}
@@ -1451,11 +1451,11 @@ static int ddrfreq_budget_cooling_notifier_call(struct notifier_block *nfb, unsi
 
 	temperature = ths_read_data(4);
 	if (temperature >= 100) {
-		DDRFREQ_DBG(DEBUG_FREQ, "temperature=%d C, ddr freq down\n", temperature);
+		//DDRFREQ_DBG(DEBUG_FREQ, "temperature=%d C, ddr freq down\n", temperature);
 		ddrfreq_target(&sunxi_ddrfreq_device.dev, &this_df->min_freq, 0);
 		goto out;
 	} else if (temperature < 90) {
-		DDRFREQ_DBG(DEBUG_FREQ, "temperature=%d C, ddr freq up\n", temperature);
+		//DDRFREQ_DBG(DEBUG_FREQ, "temperature=%d C, ddr freq up\n", temperature);
 		ddrfreq_target(&sunxi_ddrfreq_device.dev, &this_df->max_freq, 0);
 		goto out;
 	} else {
@@ -1666,7 +1666,7 @@ static __devinit int sunxi_ddrfreq_probe(struct platform_device *pdev)
 	if (sunxi_ddrfreq_min < SUNXI_DDRFREQ_MINFREQ_MIN)
 		sunxi_ddrfreq_min = sunxi_ddrfreq_max / 3;
 #elif defined(CONFIG_ARCH_SUN8IW7P1)
-	sunxi_ddrfreq_min = 408000;
+	sunxi_ddrfreq_min = 132000;
 #else
 	type = script_get_item("dram_para", "dram_tpr12", &val);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {

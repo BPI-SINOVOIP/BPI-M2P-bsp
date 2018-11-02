@@ -4,6 +4,7 @@
 struct disp_device_private_data {
 	u32 enabled;
 	bool hpd;
+	bool suspended;
 
 	disp_tv_mode mode;
 
@@ -487,9 +488,14 @@ static s32 disp_hdmi_suspend(struct disp_device* hdmi)
 		return DIS_FAIL;
 	}
 
-	if(hdmip->hdmi_func.hdmi_suspend != NULL) {
-		hdmip->hdmi_func.hdmi_suspend();
+	disp_sys_lock((void*)&hdmi_mlock);
+	if(false == hdmip->suspended) {
+		if(hdmip->hdmi_func.hdmi_suspend != NULL) {
+			hdmip->hdmi_func.hdmi_suspend();
+		}
+		hdmip->suspended = true;
 	}
+	disp_sys_unlock((void*)&hdmi_mlock);
 
 	return 0;
 }
@@ -503,9 +509,14 @@ static s32 disp_hdmi_resume(struct disp_device* hdmi)
 		return DIS_FAIL;
 	}
 
-	if(hdmip->hdmi_func.hdmi_resume != NULL) {
-		hdmip->hdmi_func.hdmi_resume();
+	disp_sys_lock((void*)&hdmi_mlock);
+	if(true == hdmip->suspended) {
+		if(hdmip->hdmi_func.hdmi_resume != NULL) {
+			hdmip->hdmi_func.hdmi_resume();
+		}
+		hdmip->suspended = false;
 	}
+	disp_sys_unlock((void*)&hdmi_mlock);
 
 	return 0;
 }

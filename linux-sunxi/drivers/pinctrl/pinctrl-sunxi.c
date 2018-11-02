@@ -606,8 +606,11 @@ static void sunxi_pmx_set(struct pinctrl_dev *pctldev,unsigned pin,
 	shift  = sunxi_mux_offset(pin_bias);
 	value  = pinctrl_readl_reg(bank->membase + offset);
 	value &= ~(MUX_PINS_MASK << shift);
-	if(enable)
+	if(enable){
 		value |= (config << shift);
+	}else{
+		value |= (MUX_PINS_MASK << shift);
+	}
 	reg=bank->membase + offset;
 	pinctrl_write_reg(value,reg);
 	pr_debug("sunxi pmx set pin [%s] to %d\n", 
@@ -1518,6 +1521,16 @@ static int sunxi_eint_gpio_init(struct platform_device *pdev)
 					IRQF_SHARED, bank->name, bank);
 
 		}
+#elif defined(CONFIG_ARCH_SUN8IW8P1)
+				if(bank->pin_base == SUNXI_PB_BASE || bank->pin_base == SUNXI_PG_BASE) {
+					err = devm_request_irq(dev, bank->irq, sunxi_gpio_irq_handler,
+						       IRQF_SHARED | IRQF_NO_SUSPEND, bank->name, bank);
+				} else {
+
+					err = devm_request_irq(dev, bank->irq, sunxi_gpio_irq_handler,
+							IRQF_SHARED, bank->name, bank);
+
+				}
 
 #else
 		err = devm_request_irq(dev, bank->irq, sunxi_gpio_irq_handler, 

@@ -169,6 +169,7 @@ static int mali_ioctl_mem_alloc(struct drm_device *dev, void *data,
 	return mali_drm_alloc(dev, file_priv, data, MEM_TYPE);
 }
 
+#if 0
 static drm_local_map_t *mem_reg_init(struct drm_device *dev)
 {
 	struct drm_map_list *entry;
@@ -191,13 +192,14 @@ static drm_local_map_t *mem_reg_init(struct drm_device *dev)
 	}
 	return NULL;
 }
+#endif
 
 int mali_idle(struct drm_device *dev)
 {
 	drm_mali_private_t *dev_priv = dev->dev_private;
-	uint32_t idle_reg;
-	unsigned long end;
-	int i;
+//	uint32_t idle_reg;
+//	unsigned long end;
+//	int i;
 	printk(KERN_ERR "DRM: %s\n", __func__);
 
 	if (dev_priv->idle_fault)

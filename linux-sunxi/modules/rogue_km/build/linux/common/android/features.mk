@@ -38,8 +38,6 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ### ###########################################################################
 
-include ../common/android/platform_version.mk
-
 # Basic support option tuning for Android
 #
 SUPPORT_ANDROID_PLATFORM := 1
@@ -60,23 +58,26 @@ KERNEL_COMPONENTS := srvkm
 
 # Kernel modules are always installed here under Android
 #
-PVRSRV_MODULE_BASEDIR := /system/modules/
+PVRSRV_MODULE_BASEDIR := /system/vendor/modules/
 
 # Enable secure FD export in Services
 #
 SUPPORT_SECURE_EXPORT := 1
+
+# It is no longer supported disable this for Android, but we can still
+# do so for the Linux DDK, so don't use NonTunableOption.
+#
+override SUPPORT_ION := 1
 
 # Show GPU activity in systrace
 #
 SUPPORT_GPUTRACE_EVENTS ?= 1
 
 ##############################################################################
-# ICS and earlier should rate-limit composition by waiting for 3D renders
-# to complete in the compositor's eglSwapBuffers().
+# Unless overridden by the user, assume the RenderScript Compute API level
+# matches that of the SDK API_LEVEL.
 #
-ifeq ($(is_at_least_jellybean),0)
-PVR_ANDROID_COMPOSITOR_WAIT_FOR_RENDER := 1
-endif
+RSC_API_LEVEL ?= $(API_LEVEL)
 
 ##############################################################################
 # JB MR1 makes the framebuffer HAL obsolete.
@@ -84,52 +85,36 @@ endif
 # We also need to support IMPLEMENTATION_DEFINED so gralloc allocates
 # framebuffers and GPU buffers in a 'preferred' format.
 #
-ifeq ($(is_at_least_jellybean_mr1),0)
-SUPPORT_ANDROID_FRAMEBUFFER_HAL ?= 1
-else
 PVR_ANDROID_HAS_HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED := 1
-endif
 
 ##############################################################################
 # JB MR1 introduces cross-process syncs associated with a fd.
 # This requires a new enough kernel version to have the base/sync driver.
 #
-ifeq ($(is_at_least_jellybean_mr1),1)
 EGL_EXTENSION_ANDROID_NATIVE_FENCE_SYNC ?= 1
 PVR_ANDROID_NATIVE_WINDOW_HAS_SYNC ?= 1
-endif
 
 ##############################################################################
 # JB MR1 introduces new usage bits for the camera HAL and some new formats.
 #
-ifeq ($(is_at_least_jellybean_mr1),1)
 PVR_ANDROID_HAS_GRALLOC_USAGE_HW_CAMERA := 1
 PVR_ANDROID_HAS_HAL_PIXEL_FORMAT_RAW_SENSOR := 1
 PVR_ANDROID_HAS_HAL_PIXEL_FORMAT_BLOB := 1
-endif
 
 ##############################################################################
 # Handle various platform includes for unittests
 #
-ifeq ($(is_at_least_jellybean),1)
-SYS_INCLUDES += -I$(ANDROID_ROOT)/frameworks/native/opengl/include
-ANDROID_MOVED_INCLUDES := \
- $(ANDROID_ROOT)/libnativehelper/include/nativehelper
-else
-SYS_INCLUDES += -I$(ANDROID_ROOT)/frameworks/base/opengl/include
-ANDROID_MOVED_INCLUDES := \
- $(ANDROID_ROOT)/dalvik/libnativehelper/include/nativehelper
-endif
+SYS_INCLUDES += \
+ -isystem $(ANDROID_ROOT)/libnativehelper/include/nativehelper
+SYS_KHRONOS_INCLUDES += \
+ -I$(ANDROID_ROOT)/frameworks/native/opengl/include
 
 ##############################################################################
-# Proprietary libraries go to a vendor directory
+# Android doesn't use these install script variables. They're still in place
+# because the Linux install scripts use them.
 #
-SHLIB_DESTDIR := /system/vendor/lib
-DEMO_DESTDIR := /system/vendor/bin
-
-# EGL libraries go in a special place
-#
-EGL_DESTDIR := $(SHLIB_DESTDIR)/egl
+SHLIB_DESTDIR := not-used
+EGL_DESTDIR := not-used
 
 # Must give our EGL/GLES libraries a globally unique name
 #
@@ -162,11 +147,18 @@ EGL_EXTENSION_ANDROID_BLOB_CACHE ?= 1
 EGL_EXTENSION_ANDROID_FRAMEBUFFER_TARGET := 1
 
 ##############################################################################
+# Disable the MEMINFO wrapper pvCpuVirtAddr feature. All Android DDK
+# components no longer require it. This enables lazy CPU mappings, which
+# improves allocation performance.
+#
+ifneq ($(PDUMP),1)
+PVRSRV_NO_MEMINFO_CPU_VIRT_ADDR ?= 1
+endif
+
+##############################################################################
 # JB added a new corkscrew API for userland backtracing.
 #
-ifeq ($(is_at_least_jellybean),1)
 PVR_ANDROID_HAS_CORKSCREW_API := 1
-endif
 
 ##############################################################################
 # JB MR2 added a capabilities parameter to fs_config.
@@ -232,6 +224,52 @@ endif
 #
 ifeq ($(is_at_least_kitkat),1)
 SUPPORT_ANDROID_APPHINTS := 0
+endif
+
+##############################################################################
+# KitKat added a new memory tracking HAL. This enables gralloc support for
+# the GRAPHICS/GL memtrack types.
+#
+ifeq ($(is_at_least_kitkat),1)
+SUPPORT_ANDROID_MEMTRACK_HAL := 1
+endif
+
+##############################################################################
+# KitKat added very provisional/early support for sRGB render targets
+#
+ifeq ($(is_at_least_kitkat),1)
+PVR_ANDROID_HAS_HAL_PIXEL_FORMAT_sRGB := 1
+endif
+
+##############################################################################
+# Switch on ADF support for KitKat MR1 or newer.
+#
+# Customers using AOSP KitKat MR1 sources need to copy and build the libadf
+# and libadfhwc libraries from AOSP master system/core into their device/
+# directories and build the components as dynamic libraries. Examples of how
+# to do this are shown in the bundled 'pc_android' and 'generic_arm_android'
+# directories in the device package.
+#
+# Customers using AOSP master do not need to make any changes.
+# ADF requires kernel/common derivative kernels >= 3.10.
+#
+ifeq ($(is_at_least_kitkat_mr1),1)
+SUPPORT_ADF ?= 1
+endif
+
+##############################################################################
+# Versions of Android between Cupcake and KitKat MR1 required Java 6.
+#
+ifneq ($(is_future_version),1)
+LEGACY_USE_JAVA6 ?= 1
+endif
+
+##############################################################################
+# Versions of Android between ICS and KitKat MR1 used ion .heap_mask instead
+# of .heap_id_mask.
+#
+ifneq ($(is_future_version),1)
+PVR_ANDROID_HAS_ION_FIELD_HEAP_MASK := 1
 endif
 
 # Placeholder for future version handling

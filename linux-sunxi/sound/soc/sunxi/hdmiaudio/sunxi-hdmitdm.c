@@ -33,7 +33,7 @@ static int frame_width 			= 0;
 static int tx_data_mode 		= 0;
 static int rx_data_mode 		= 0;
 static int slot_width_select 	= 16;
-
+static bool  daudio2_loop_en 	= false;
 #ifdef CONFIG_ARCH_SUN8IW7
 static struct clk *daudio_pll			= NULL;
 #endif
@@ -96,11 +96,23 @@ static void tdm2_rx_enable(int rx_en)
 		reg_val = readl(sunxi_daudio2.regs + SUNXI_DAUDIOINT);
 		reg_val |= SUNXI_DAUDIOINT_RXDRQEN;
 		writel(reg_val, sunxi_daudio2.regs + SUNXI_DAUDIOINT);
+		/*open loopback for record*/
+		reg_val = readl(sunxi_daudio2.regs + SUNXI_DAUDIOCTL);
+		if (daudio2_loop_en) {
+			reg_val |= SUNXI_DAUDIOCTL_LOOP; /*for loopback record*/
+		}
+		writel(reg_val, sunxi_daudio2.regs + SUNXI_DAUDIOCTL);
 	} else {
 		/* DISBALE dma DRQ mode */
 		reg_val = readl(sunxi_daudio2.regs + SUNXI_DAUDIOINT);
 		reg_val &= ~SUNXI_DAUDIOINT_RXDRQEN;
 		writel(reg_val, sunxi_daudio2.regs + SUNXI_DAUDIOINT);
+		/*close loopback for record*/
+		reg_val = readl(sunxi_daudio2.regs + SUNXI_DAUDIOCTL);
+		if (daudio2_loop_en) {
+			reg_val &= ~SUNXI_DAUDIOCTL_LOOP; /*for loopback record*/
+		}
+		writel(reg_val, sunxi_daudio2.regs + SUNXI_DAUDIOCTL);
 	}
 }
 
@@ -813,6 +825,7 @@ static int __init sunxi_daudio_init(void)
 	return 0;
 }
 module_init(sunxi_daudio_init);
+module_param_named(daudio2_loop_en, daudio2_loop_en, bool, S_IRUGO | S_IWUSR);
 
 static void __exit sunxi_daudio_exit(void)
 {

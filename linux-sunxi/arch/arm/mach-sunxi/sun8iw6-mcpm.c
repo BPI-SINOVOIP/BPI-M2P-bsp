@@ -40,6 +40,7 @@
 #include <mach/sunxi-chip.h>
 #include <mach/sunxi-smc.h>
 #include <asm/firmware.h>
+#include <mach/cpuidle-sunxi.h>
 
 #ifdef CONFIG_EVB_PLATFORM
 #define MCPM_WITH_ARISC_DVFS_SUPPORT	1
@@ -67,8 +68,7 @@ static unsigned int soc_version;
 
 #define CLUSTER_0	    0
 #define CLUSTER_1	    1
-#define MAX_CLUSTERS	2
-
+//#define MAX_CLUSTERS	2
 
 #define SUN8I_CPU_IS_WFI_MODE(cluster, cpu) (cpu_cfg_readl(sun8i_cpuxcfg_base + SUNXI_CLUSTER_CPU_STATUS(cluster)) & (1 << (16 + cpu)))
 #define SUN8I_L2CACHE_IS_WFI_MODE(cluster)  (cpu_cfg_readl(sun8i_cpuxcfg_base + SUNXI_CLUSTER_CPU_STATUS(cluster)) & (1 << 0))
@@ -781,6 +781,23 @@ int sun8i_mcpm_cpu_disable(unsigned int cpu)
 	return cpu == 0 ? -EPERM : 0;
 }
 
+#if (defined CONFIG_ARCH_SUN8IW6)
+void sun8i_mcpm_cpu_suspend(u64 expected_residency)
+{
+	struct sunxi_cpuidle_para sunxi_idle_para;
+
+	/* call cpus to power off */
+	sunxi_idle_para.flags = 0;
+	sunxi_idle_para.mpidr = (unsigned long)expected_residency;
+	arisc_enter_cpuidle(NULL, NULL, &sunxi_idle_para);
+	isb();
+	dsb();
+
+	/* set this cpu die */
+	sunxi_idle_cpu_die();
+}
+#endif
+
 static const struct mcpm_platform_ops sun8i_mcpm_power_ops = {
 	.power_up	= sun8i_mcpm_power_up,
 	.power_down	= sun8i_mcpm_power_down,
@@ -788,6 +805,9 @@ static const struct mcpm_platform_ops sun8i_mcpm_power_ops = {
 	.smp_init_cpus  = sun8i_smp_init_cpus,
 	.cpu_kill       = sun8i_mcpm_cpu_kill,
 	.cpu_disable    = sun8i_mcpm_cpu_disable,
+#if (defined CONFIG_ARCH_SUN8IW6)
+	.suspend        = sun8i_mcpm_cpu_suspend,
+#endif
 };
 #ifdef MCPM_WITH_ARISC_DVFS_SUPPORT
 /* sun8i_arisc_notify_call - callback that gets triggered when arisc ready. */

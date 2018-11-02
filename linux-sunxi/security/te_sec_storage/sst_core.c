@@ -540,7 +540,6 @@ static int __init aw_sst_init(void)
 
 	sst->tsk= kthread_create(sst_daemon_kthread, sst, "sst_daemon"); 
 	if(!IS_ERR(sst->tsk)){
-		kthread_bind(sst->tsk, 0);
 		wake_up_process(sst->tsk);
 	}else{
 		derr("Tsk request fail!\n");

@@ -18,9 +18,6 @@
 #include <linux/pfn.h>
 #include <linux/bit_spinlock.h>
 #include <linux/shrinker.h>
-#include <linux/dcache.h>
-#include <linux/file.h>
-#include <linux/fs.h>
 
 struct mempolicy;
 struct anon_vma;
@@ -856,6 +853,7 @@ static inline int page_mapped(struct page *page)
 #define VM_FAULT_WRITE	0x0008	/* Special case for get_user_pages */
 #define VM_FAULT_HWPOISON 0x0010	/* Hit poisoned small page */
 #define VM_FAULT_HWPOISON_LARGE 0x0020  /* Hit poisoned large page. Index encoded in upper bits */
+#define VM_FAULT_SIGSEGV 0x0040
 
 #define VM_FAULT_NOPAGE	0x0100	/* ->fault installed the pte, not return page */
 #define VM_FAULT_LOCKED	0x0200	/* ->fault locked the returned page */
@@ -863,8 +861,8 @@ static inline int page_mapped(struct page *page)
 
 #define VM_FAULT_HWPOISON_LARGE_MASK 0xf000 /* encodes hpage index for large hwpoison */
 
-#define VM_FAULT_ERROR	(VM_FAULT_OOM | VM_FAULT_SIGBUS | VM_FAULT_HWPOISON | \
-			 VM_FAULT_HWPOISON_LARGE)
+#define VM_FAULT_ERROR	(VM_FAULT_OOM | VM_FAULT_SIGBUS | VM_FAULT_SIGSEGV | \
+			 VM_FAULT_HWPOISON | VM_FAULT_HWPOISON_LARGE)
 
 /* Encode hstate index for a hwpoisoned large page */
 #define VM_FAULT_SET_HINDEX(x) ((x) << 12)
@@ -881,7 +879,8 @@ extern void pagefault_out_of_memory(void);
  * Flags passed to show_mem() and show_free_areas() to suppress output in
  * various contexts.
  */
-#define SHOW_MEM_FILTER_NODES	(0x0001u)	/* filter disallowed nodes */
+#define SHOW_MEM_FILTER_NODES		(0x0001u)	/* disallowed nodes */
+#define SHOW_MEM_FILTER_PAGE_COUNT	(0x0002u)	/* page type count */
 
 extern void show_free_areas(unsigned int flags);
 extern bool skip_free_areas_node(unsigned int flags, int nid);
@@ -968,6 +967,7 @@ static inline void unmap_shared_mapping_range(struct address_space *mapping,
 
 extern void truncate_pagecache(struct inode *inode, loff_t old, loff_t new);
 extern void truncate_setsize(struct inode *inode, loff_t newsize);
+void pagecache_isize_extended(struct inode *inode, loff_t from, loff_t to);
 extern int vmtruncate(struct inode *inode, loff_t offset);
 extern int vmtruncate_range(struct inode *inode, loff_t offset, loff_t end);
 void truncate_pagecache_range(struct inode *inode, loff_t offset, loff_t end);
@@ -999,87 +999,6 @@ static inline int fixup_user_fault(struct task_struct *tsk,
 	return -EFAULT;
 }
 #endif
-
-/*
- * Mainly for aufs which mmap(2) diffrent file and wants to print different path
- * in /proc/PID/maps.
- */
-/* #define AUFS_DEBUG_MMAP */
-static inline void aufs_trace(struct file *f, struct file *pr,
-			      const char func[], int line, const char func2[])
-{
-#ifdef AUFS_DEBUG_MMAP
-	if (pr)
-		pr_info("%s:%d: %s, %p\n", func, line, func2,
-			f ? (char *)f->f_dentry->d_name.name : "(null)");
-#endif
-}
-
-static inline struct file *vmr_do_pr_or_file(struct vm_region *region,
-					     const char func[], int line)
-{
-	struct file *f = region->vm_file, *pr = region->vm_prfile;
-	aufs_trace(f, pr, func, line, __func__);
-	return (f && pr) ? pr : f;
-}
-
-static inline void vmr_do_fput(struct vm_region *region,
-			       const char func[], int line)
-{
-	struct file *f = region->vm_file, *pr = region->vm_prfile;
-	aufs_trace(f, pr, func, line, __func__);
-	fput(f);
-	if (f && pr)
-		fput(pr);
-}
-
-static inline void vma_do_file_update_time(struct vm_area_struct *vma,
-					   const char func[], int line)
-{
-	struct file *f = vma->vm_file, *pr = vma->vm_prfile;
-	aufs_trace(f, pr, func, line, __func__);
-	file_update_time(f);
-	if (f && pr)
-		file_update_time(pr);
-}
-
-static inline struct file *vma_do_pr_or_file(struct vm_area_struct *vma,
-					     const char func[], int line)
-{
-	struct file *f = vma->vm_file, *pr = vma->vm_prfile;
-	aufs_trace(f, pr, func, line, __func__);
-	return (f && pr) ? pr : f;
-}
-
-static inline void vma_do_get_file(struct vm_area_struct *vma,
-				   const char func[], int line)
-{
-	struct file *f = vma->vm_file, *pr = vma->vm_prfile;
-	aufs_trace(f, pr, func, line, __func__);
-	get_file(f);
-	if (f && pr)
-		get_file(pr);
-}
-
-static inline void vma_do_fput(struct vm_area_struct *vma,
-			       const char func[], int line)
-{
-	struct file *f = vma->vm_file, *pr = vma->vm_prfile;
-	aufs_trace(f, pr, func, line, __func__);
-	fput(f);
-	if (f && pr)
-		fput(pr);
-}
-
-#define vmr_pr_or_file(region)		vmr_do_pr_or_file(region, __func__, \
-							  __LINE__)
-#define vmr_fput(region)		vmr_do_fput(region, __func__, __LINE__)
-#define vma_file_update_time(vma)	vma_do_file_update_time(vma, __func__, \
-								__LINE__)
-#define vma_pr_or_file(vma)		vma_do_pr_or_file(vma, __func__, \
-							  __LINE__)
-#define vma_get_file(vma)		vma_do_get_file(vma, __func__, __LINE__)
-#define vma_fput(vma)			vma_do_fput(vma, __func__, __LINE__)
 
 extern int make_pages_present(unsigned long addr, unsigned long end);
 extern int access_process_vm(struct task_struct *tsk, unsigned long addr, void *buf, int len, int write);
@@ -1551,7 +1470,7 @@ extern int expand_downwards(struct vm_area_struct *vma,
 #if VM_GROWSUP
 extern int expand_upwards(struct vm_area_struct *vma, unsigned long address);
 #else
-  #define expand_upwards(vma, address) do { } while (0)
+  #define expand_upwards(vma, address) (0)
 #endif
 
 /* Look up the first VMA which satisfies  addr < vm_end,  NULL if none. */
@@ -1604,6 +1523,8 @@ int vm_insert_pfn(struct vm_area_struct *vma, unsigned long addr,
 			unsigned long pfn);
 int vm_insert_mixed(struct vm_area_struct *vma, unsigned long addr,
 			unsigned long pfn);
+int vm_iomap_memory(struct vm_area_struct *vma, phys_addr_t start, unsigned long len);
+
 
 struct page *follow_page(struct vm_area_struct *, unsigned long address,
 			unsigned int foll_flags);
@@ -1617,6 +1538,7 @@ struct page *follow_page(struct vm_area_struct *, unsigned long address,
 #define FOLL_MLOCK	0x40	/* mark page as mlocked */
 #define FOLL_SPLIT	0x80	/* don't return transhuge pages, split them */
 #define FOLL_HWPOISON	0x100	/* check page is hwpoisoned */
+#define FOLL_COW	0x4000	/* internal GUP flag */
 
 typedef int (*pte_fn_t)(pte_t *pte, pgtable_t token, unsigned long addr,
 			void *data);
@@ -1704,7 +1626,7 @@ extern atomic_long_t mce_bad_pages;
 extern int soft_offline_page(struct page *page, int flags);
 
 extern void dump_page(struct page *page);
-
+extern void dump_user_task(void);
 #if defined(CONFIG_TRANSPARENT_HUGEPAGE) || defined(CONFIG_HUGETLBFS)
 extern void clear_huge_page(struct page *page,
 			    unsigned long addr,
