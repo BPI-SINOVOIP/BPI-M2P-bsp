@@ -3448,13 +3448,18 @@ void shutdown_mmc(struct platform_device * pdev)
 		goto out;
 	}
 
-    SMC_MSG(smc_host,"try to disable cache\n");
-    err = mmc_cache_ctrl(mmc, 0);
-    if (err){
-        SMC_ERR(host_sunxi,"disable cache failed\n");
+	if (!smc_host->power_on){
+		SMC_ERR(smc_host,"%s: sdc2 not power on\n", __FUNCTION__);
+		goto out;
+	}
+
+	SMC_MSG(smc_host, "try to disable cache\n");
+	err = mmc_cache_ctrl(mmc, 0);
+	if (err){
+		SMC_ERR(smc_host, "disable cache failed\n");
 		mmc_claim_host(mmc);//not release host to not allow android to read/write after shutdown
-         goto out;
-    }
+		goto out;
+	}
 
 	//claim host to not allow androd read/write during shutdown
 	SMC_DBG(smc_host, "%s: claim host\n", __FUNCTION__);
