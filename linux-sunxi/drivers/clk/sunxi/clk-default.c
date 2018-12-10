@@ -20,6 +20,25 @@
 #include "clk-periph.h"
 #include "clk-sun8iw1.h"
 
+#define VIDEOMODE_CMDLINE      1
+
+#ifdef VIDEOMODE_CMDLINE
+static int pll_video = -1;
+
+static int __init sunxi_pll_video(char *str)
+{
+	int new_value;
+
+	if (get_option(&str, &new_value)) {
+		pll_video = new_value;
+		return 0;
+	}
+
+	return -EINVAL;
+}
+early_param("pll_video", sunxi_pll_video);
+#endif
+
 #ifdef CONFIG_ARCH_SUN8IW3
 #define SYS_CONFIG_PAT_EN       1
 static struct sunxi_clk_pat_item clkpat_table[]=
@@ -204,9 +223,14 @@ static int __init sunxi_clk_default_plls(void)
                         printk("Error not get clk %s\n",init_clks[i]);
                         continue;
                     }
+#ifdef VIDEOMODE_CMDLINE
+		    if((strcmp(init_clks[i], "pll_video") == 0) && (pll_video > 0)) {
+			script_item.val = pll_video;
+		    }
+#endif
                     printk(KERN_INFO "script config %s to %d Mhz\n", init_clks[i],script_item.val);
                     clk_set_rate(clk, script_item.val*1000000);
-                    clk_put(clk);
+					clk_put(clk);
                     clk=NULL;
             }
         }
