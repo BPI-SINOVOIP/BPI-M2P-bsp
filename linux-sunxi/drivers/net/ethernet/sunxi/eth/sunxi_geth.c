@@ -986,6 +986,8 @@ static int geth_open(struct net_device *ndev)
 	struct geth_priv *priv = netdev_priv(ndev);
 	int ret = 0;
 
+	pr_info("%s\n", __func__);
+
 	ret = geth_power_on(priv);
 	if (ret) {
 		netdev_err(ndev, "Power on is failed\n");
@@ -993,7 +995,7 @@ static int geth_open(struct net_device *ndev)
 	}
 
 	/* bpi */
-	msleep(500);
+	//msleep(500);
 
 	geth_clk_enable(priv);
 
@@ -1061,6 +1063,8 @@ err:
 static int geth_stop(struct net_device *ndev)
 {
 	struct geth_priv *priv = netdev_priv(ndev);
+
+	pr_info("%s\n", __func__);
 
 	netif_stop_queue(ndev);
 	napi_disable(&priv->napi);
@@ -1537,8 +1541,14 @@ static const struct net_device_ops geth_netdev_ops = {
  ****************************************************************************/
 static int geth_check_if_running(struct net_device *ndev)
 {
-	if (!netif_running(ndev))
-		return -EBUSY;
+	if (!netif_running(ndev)){
+		pr_info("%s bad\n", __func__);
+		//return -EBUSY;
+		return 0;
+	}
+
+	pr_info("%s work\n", __func__);
+	
 	return 0;
 }
 
