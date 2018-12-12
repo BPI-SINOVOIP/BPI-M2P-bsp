@@ -772,6 +772,10 @@ s32 bsp_disp_get_screen_width_from_output_type(u32 screen_id, u32 output_type, u
 			width = 1024;
 			height = 600;
 			break;
+		case DISP_TV_MOD_1280_800P:
+                        width = 1280;
+                        height = 800;
+                        break;
 		default:
 			printk("err:function:%s, line:%d,output_mode=%d\n", __func__, __LINE__, output_mode);
 		}
@@ -857,6 +861,10 @@ s32 bsp_disp_get_screen_height_from_output_type(u32 screen_id, u32 output_type, 
 		case DISP_TV_MOD_1024_600P:
 			width = 1024;
 			height = 600;
+			break;
+		case DISP_TV_MOD_1280_800P:
+			width = 1280;
+			height = 800;
 			break;
 		default:
 			printk("err:function:%s, line:%d,output_mode=%d\n", __func__, __LINE__, output_mode);

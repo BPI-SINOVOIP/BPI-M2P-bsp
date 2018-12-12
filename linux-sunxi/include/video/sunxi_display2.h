@@ -138,7 +138,8 @@ typedef enum
 	DISP_TV_MOD_1680_1050P          = 0x24,
 	DISP_TV_MOD_2048_1536P          = 0x25,
 	DISP_TV_MOD_1024_600P           = 0x26,
-	DISP_TV_MODE_NUM                = 0x27,
+	DISP_TV_MOD_1280_800P           = 0x27,
+	DISP_TV_MODE_NUM                = 0x28,
 }disp_tv_mode;
 
 

@@ -79,6 +79,7 @@ static struct para_tab ptbl[] =
 	//{YYY, 4, 0, 0, 4, 6, 2, 0, 3, 0, 0, 0, 176, 48, 32, 88, 25, 1, 1}
 	// vic       dclk    		int     mx   vst    my     mhbw    vfp    mhfp     mhst +x      hbw     hfp     hst     +y      vbw   h polarity  v polarity
 	{{42	    , 4     , 0,     0,     4,    6,     2,     0,      3,      0,      0,   0,    	176,    48,     32,     88,     25,     1,          1	}},  //1024x600
+	{{43        , 4     , 0    , 0,     5,    3,     3,     0,      1,      0,      0,   0,          73,    16,     48,     32,     54,     1,          1   }},  //1280x800
 };
 
 static unsigned char ca_table[64]=

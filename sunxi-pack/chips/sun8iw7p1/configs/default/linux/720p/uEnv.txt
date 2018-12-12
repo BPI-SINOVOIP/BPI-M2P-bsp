@@ -39,7 +39,8 @@ bootopts=enforcing=1 initcall_debug=0 loglevel=8 init=/init vmalloc=384M panic=1
 # output HDMI 480P (type:3 mode:2 pllvide:108)
 # output HDMI 720P (type:3 mode:5 pllvide:297)
 # output HDMI 1080P (type:3 mode:10 pllvide:297)
-# output HDMI 1024x600(type:3 mode:38 pllvideo:180)
+# output HDMI 1024x600 (type:3 mode:38 pllvideo:180)
+# output HDMI 1280x800 (type:3 mode:39 pllvideo:277)
 otype=3
 omode=5
 pllvideo=297

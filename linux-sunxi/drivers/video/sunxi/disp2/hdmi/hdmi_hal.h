@@ -24,6 +24,7 @@
 #define HDMI1680_1050P          40
 #define HDMI2048_1536P          41
 #define HDMI1024_600P           42
+#define HDMI1280_800P		43
 #define HDMI1080P_24_3D_FP  (HDMI1080P_24 +0x80)
 #define HDMI720P_50_3D_FP   (HDMI720P_50  +0x80)
 #define HDMI720P_60_3D_FP   (HDMI720P_60  +0x80)
