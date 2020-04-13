@@ -1,5 +1,4 @@
-;H3 dolphin-p1 board application
-;H3 dolphin-p1 board application
+;Bananapi M2 Plus board application
 ;---------------------------------------------------------------------------------------------------------
 ; 说明： 脚本中的字符串区分大小写，用户可以修改"="后面的数值，但是不要修改前面的字符串
 ; 描述gpio的形式：Port:端口+组内序号<功能分配><内部电阻状态><驱动能力><输出电平状态>
@@ -14,9 +13,9 @@ machine = "bpi-m2p"
 ; next_work - action after burn, 0x0 by config, 0x1, normal, 0x2 reboot 0x3 ,shutdown,0x4 reupdate ,0x5 boot
 ;---------------------------------------------------------------------------------------------------------
 [platform]
-debug_mode = 1
+debug_mode  = 1
 eraseflag   = 1
-next_work = 2
+next_work   = 2
 
 ;----------------------------------------------------------------------------------
 ;[target]  system bootup configuration
@@ -41,8 +40,8 @@ keyen_flag = 0
 ; fel_key_min用于配置按键的最小键值
 ;---------------------------------------------------------------------------------
 [fel_key]
-fel_key_max            =07
-fel_key_min            =02
+fel_key_max = 7
+fel_key_min = 2
 
 ;----------------------------------------------------------------------------------
 ;card boot
@@ -56,11 +55,11 @@ fel_key_min            =02
 ;			next_work	： 卡量产完成，工作状态(默认关机)
 ;-------------------------------------------------------------------------------
 [card_boot]
-logical_start   = 40960
+logical_start   	= 40960
 sprite_work_delay	= 500
 sprite_err_delay	= 200
-sprite_gpio0    = port:PA15<1><default><default><default>
-next_work       = 3
+sprite_gpio0    	= port:PA15<1><default><default><default>
+next_work       	= 3
 
 ;---------------------------------------------------------------------------------
 ; used       : 1: used this config, 0: not
@@ -180,7 +179,7 @@ pll_de           = 864
 ; dram_tpr7[9:0] to set ddr3 or ddr3l clk.
 ;*****************************************************************************
 [dram_para]
-dram_clk        = 672
+dram_clk        = 576
 dram_type       = 3
 dram_zq         = 0x3b3bfb
 dram_odt_en     = 0x1
@@ -195,15 +194,15 @@ dram_tpr1       = 0x01C2418D
 dram_tpr2       = 0x00076051
 dram_tpr3       = 0
 dram_tpr4       = 0
-dram_tpr5       = 0
+dram_tpr5       = 0x2108A000
 dram_tpr6       = 100
-dram_tpr7       = 0
+dram_tpr7       = 0x13890240
 dram_tpr8       = 0
 dram_tpr9       = 0
 dram_tpr10      = 0
 dram_tpr11      = 0x6aaa0000
 dram_tpr12      = 0x7979
-dram_tpr13      = 0x800800
+dram_tpr13      = 0x1802800
 ;----------------------------------------------------------------------------------
 ;os life cycle para configuration
 ;----------------------------------------------------------------------------------
